@@ -76,6 +76,7 @@ const I={
   Mail:ic('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
   Lock:ic('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
   Bld:ic('<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M8 10h.01M16 10h.01M12 14h.01M8 14h.01M16 14h.01"/>'),
+  Cal:ic('<rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
   Vol:ic('<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>'),
   Mute:ic('<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>'),
 };
@@ -257,6 +258,46 @@ function App(){
   return <Dashboard user={user} cdata={cdata}/>;
 }
 
+/* ── AGENDA HELPERS ── */
+const DAY_NAMES=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const DAY_FULL=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+
+function parseTimeM(str){const p=str.split(":");return parseInt(p[0])*60+parseInt(p[1]);}
+function formatTimeM(mins){const h=Math.floor(mins/60);const m=mins%60;return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");}
+
+function getWeekDays(base){
+  const d=new Date(base+"T12:00:00");
+  const dow=d.getDay();
+  const mon=new Date(d);
+  mon.setDate(d.getDate()-(dow===0?6:dow-1));
+  return Array.from({length:6},(_,i)=>{const nd=new Date(mon);nd.setDate(mon.getDate()+i);return nd.toISOString().slice(0,10);});
+}
+
+function generateSlots(doc,date,booked){
+  if(!doc||!doc.schedStart||!doc.schedEnd||!doc.schedDays||!doc.schedDays.length)return[];
+  const dow=new Date(date+"T12:00:00").getDay();
+  if(!doc.schedDays.includes(dow))return[];
+  const dur=doc.schedDuration||30;
+  const end=parseTimeM(doc.schedEnd);
+  const ls=doc.schedLunchStart?parseTimeM(doc.schedLunchStart):null;
+  const le=doc.schedLunchEnd?parseTimeM(doc.schedLunchEnd):null;
+  let cur=parseTimeM(doc.schedStart);
+  const slots=[];
+  while(cur+dur<=end){
+    if(ls&&le&&cur>=ls&&cur<le){cur=le;continue;}
+    const t=formatTimeM(cur);
+    const apt=booked.find(b=>b.time===t&&b.docId===doc.id&&b.date===date);
+    slots.push({time:t,status:apt?"booked":"free",apt:apt||null});
+    cur+=dur;
+  }
+  return slots;
+}
+
+function formatDateBR(str){
+  const p=str.split("-");
+  return p[2]+"/"+p[1]+"/"+p[0];
+}
+
 /* ── MOCK AI ── */
 function mockAI(txt,doc){
   const m=txt.toLowerCase();
@@ -286,7 +327,7 @@ function Dashboard({user,cdata}){
   const [humanIn,setHumanIn]=useState("");
   const [showAdd,setShowAdd]=useState(false);
   const [editDoc,setEditDoc]=useState(null);
-  const [nd,setNd]=useState({name:"",spec:"",crm:"",days:"",times:"",bot:"",tone:"cordial",preco:""});
+  const [nd,setNd]=useState({name:"",spec:"",crm:"",days:"",times:"",bot:"",tone:"cordial",preco:"",schedDays:[1,2,3,4,5],schedStart:"08:00",schedEnd:"17:00",schedDuration:30,schedLunchStart:"12:00",schedLunchEnd:"13:00"});
   const [simDoc,setSimDoc]=useState(null);
   const [simMsgs,setSimMsgs]=useState([]);
   const [simIn,setSimIn]=useState("");
@@ -296,6 +337,13 @@ function Dashboard({user,cdata}){
   const [nSvc,setNSvc]=useState("");
   const [cfg,setCfg]=useState({name:cdata&&cdata.clinicName?cdata.clinicName:"",phone:cdata&&cdata.phone?cdata.phone:"",hours:cdata&&cdata.hours?cdata.hours:"",botName:cdata&&cdata.botName?cdata.botName:"Sofia",svcs:cdata&&cdata.services?cdata.services:[]});
   const [lem,setLem]=useState({on:true,h24:true,h2:true,msg:"Olá {nome}! 😊 Lembrete da consulta com {medico} amanhã. Confirme com SIM."});
+  const [agendaDoc,setAgendaDoc]=useState(null);
+  const [agendaWeekBase,setAgendaWeekBase]=useState(new Date().toISOString().slice(0,10));
+  const [selDate,setSelDate]=useState(new Date().toISOString().slice(0,10));
+  const [selSlot,setSelSlot]=useState(null);
+  const [agendamentos,setAgendamentos]=useState([]);
+  const [newApt,setNewApt]=useState({patientName:"",patientPhone:"",notes:""});
+  const [aptSaved,setAptSaved]=useState(false);
   const endRef=useRef(null);
 
   const hCount=convs.filter(c=>c.status==="human").length;
@@ -308,11 +356,15 @@ function Dashboard({user,cdata}){
       const data=snap.docs.map(d=>({id:d.id,...d.data()}));
       setDocs(data);
       if(data.length>0&&!simDoc)setSimDoc(data[0]);
+      if(data.length>0&&!agendaDoc)setAgendaDoc(data[0]);
     });
     const u2=fb.onSnapshot(fb.collection(fb.db,"clinicas",user.uid,"conversas"),snap=>{
       setConvs(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
-    return()=>{u1();u2();};
+    const u3=fb.onSnapshot(fb.collection(fb.db,"clinicas",user.uid,"agendamentos"),snap=>{
+      setAgendamentos(snap.docs.map(d=>({id:d.id,...d.data()})));
+    });
+    return()=>{u1();u2();u3();};
   },[user]);
 
   useEffect(()=>{endRef.current&&endRef.current.scrollIntoView({behavior:"smooth"});},[simMsgs]);
@@ -349,7 +401,7 @@ function Dashboard({user,cdata}){
     const cols=["#1A6FA8","#0D9B6E","#7C3AED","#D97706","#BE185D"];
     const fb=window.__fb;
     await fb.addDoc(fb.collection(fb.db,"clinicas",user.uid,"medicos"),{...nd,active:true,color:cols[docs.length%5],createdAt:new Date().toISOString()});
-    setNd({name:"",spec:"",crm:"",days:"",times:"",bot:"",tone:"cordial",preco:""});
+    setNd({name:"",spec:"",crm:"",days:"",times:"",bot:"",tone:"cordial",preco:"",schedDays:[1,2,3,4,5],schedStart:"08:00",schedEnd:"17:00",schedDuration:30,schedLunchStart:"12:00",schedLunchEnd:"13:00"});
     setShowAdd(false);
   };
 
@@ -396,6 +448,32 @@ function Dashboard({user,cdata}){
     try{await fetch("/api/whatsapp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({number:selConv.id,text:txt})});}catch(e){}
   };
 
+  const bookAppointment=async()=>{
+    if(!newApt.patientName.trim()||!selSlot||!agendaDoc||!window.__fb)return;
+    const fb=window.__fb;
+    const aptId=selDate+"_"+agendaDoc.id+"_"+selSlot.time.replace(":","");
+    await fb.setDoc(fb.doc(fb.db,"clinicas",user.uid,"agendamentos",aptId),{
+      docId:agendaDoc.id,docName:agendaDoc.name,
+      patientName:newApt.patientName,patientPhone:newApt.patientPhone||"",
+      notes:newApt.notes||"",date:selDate,time:selSlot.time,
+      status:"confirmed",createdAt:new Date().toISOString()
+    });
+    setSelSlot(null);setNewApt({patientName:"",patientPhone:"",notes:""});
+    setAptSaved(true);setTimeout(()=>setAptSaved(false),2000);
+  };
+
+  const cancelAppointment=async aptId=>{
+    if(!window.__fb)return;
+    const fb=window.__fb;
+    await fb.deleteDoc(fb.doc(fb.db,"clinicas",user.uid,"agendamentos",aptId));
+  };
+
+  const saveSchedule=async(docId,sched)=>{
+    if(!window.__fb)return;
+    const fb=window.__fb;
+    await fb.updateDoc(fb.doc(fb.db,"clinicas",user.uid,"medicos",docId),sched);
+  };
+
   const changeDoc=doc=>{
     setSimDoc(doc);
     setSimMsgs([{f:"b",t:"Olá! 😊 Sou "+(doc.bot||"Sofia")+", assistente d"+(doc.name.startsWith("Dra")?"a":"o")+" "+doc.name+". Como posso ajudar?"}]);
@@ -423,7 +501,7 @@ function Dashboard({user,cdata}){
 
   const filteredConvs=convs.filter(c=>filter==="Todas"||(filter==="Humano"?c.status==="human":filter==="Bot"?c.status==="bot":c.status==="resolved"));
   const fld={width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:8,padding:"9px 12px",color:T.txt,fontSize:13,outline:"none",boxSizing:"border-box"};
-  const nav=[{id:"dashboard",lb:"Visão Geral",Ic:I.Home},{id:"conversas",lb:"Conversas",Ic:I.Msg},{id:"medicos",lb:"Médicos",Ic:I.User},{id:"simulador",lb:"Testar Bot",Ic:I.Zap},{id:"configurar",lb:"Configurações",Ic:I.Gear},{id:"metricas",lb:"Relatórios",Ic:I.Bar}];
+  const nav=[{id:"dashboard",lb:"Visão Geral",Ic:I.Home},{id:"conversas",lb:"Conversas",Ic:I.Msg},{id:"medicos",lb:"Médicos",Ic:I.User},{id:"agenda",lb:"Agenda",Ic:I.Cal},{id:"simulador",lb:"Testar Bot",Ic:I.Zap},{id:"configurar",lb:"Configurações",Ic:I.Gear},{id:"metricas",lb:"Relatórios",Ic:I.Bar}];
 
   return <Ctx.Provider value={T}>
     <div style={{position:"fixed",top:16,right:16,zIndex:9999}}>
@@ -613,6 +691,26 @@ function Dashboard({user,cdata}){
                 {[["cordial","Cordial"],["formal","Formal"],["descontraido","Descontraído"]].map(([v,l])=><button key={v} onClick={()=>setNd(p=>({...p,tone:v}))} style={{padding:"5px 12px",borderRadius:8,cursor:"pointer",fontWeight:600,fontSize:12,border:"1.5px solid "+(nd.tone===v?T.acc:T.border),background:nd.tone===v?T.accL:"transparent",color:nd.tone===v?T.acc:T.mut}}>{l}</button>)}
               </div>
             </div>
+            <div style={{background:T.sub,borderRadius:10,padding:"13px",marginBottom:12,border:"1px solid "+T.border}}>
+              <div style={{fontWeight:600,fontSize:12,color:T.txt,marginBottom:10}}>📅 Agenda automática</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
+                <div><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4}}>Início</label><input type="time" value={nd.schedStart} onChange={e=>setNd(p=>({...p,schedStart:e.target.value}))} style={fld}/></div>
+                <div><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4}}>Fim</label><input type="time" value={nd.schedEnd} onChange={e=>setNd(p=>({...p,schedEnd:e.target.value}))} style={fld}/></div>
+                <div><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4}}>Duração (min)</label><select value={nd.schedDuration} onChange={e=>setNd(p=>({...p,schedDuration:parseInt(e.target.value)}))} style={fld}><option value={15}>15 min</option><option value={20}>20 min</option><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>1 hora</option></select></div>
+              </div>
+              <div style={{marginBottom:8}}><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:6}}>Dias de atendimento</label>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                  {[[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"],[6,"Sáb"]].map(([v,l])=>{
+                    const sel=(nd.schedDays||[]).includes(v);
+                    return <button key={v} onClick={()=>setNd(p=>({...p,schedDays:sel?p.schedDays.filter(d=>d!==v):[...(p.schedDays||[]),v]}))} style={{padding:"4px 10px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:11,border:"1.5px solid "+(sel?T.acc:T.border),background:sel?T.accL:"transparent",color:sel?T.acc:T.mut}}>{l}</button>;
+                  })}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4}}>Almoço - início</label><input type="time" value={nd.schedLunchStart||""} onChange={e=>setNd(p=>({...p,schedLunchStart:e.target.value}))} style={fld}/></div>
+                <div><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4}}>Almoço - fim</label><input type="time" value={nd.schedLunchEnd||""} onChange={e=>setNd(p=>({...p,schedLunchEnd:e.target.value}))} style={fld}/></div>
+              </div>
+            </div>
             <div style={{display:"flex",gap:7}}>
               <button onClick={saveDoc} style={{background:T.acc,border:"none",borderRadius:8,padding:"8px 16px",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5}}><I.Save s={12} c="#fff"/> Salvar</button>
               <button onClick={()=>setShowAdd(false)} style={{background:"none",border:"1px solid "+T.border,borderRadius:8,padding:"8px 16px",color:T.mut,cursor:"pointer",fontSize:13}}>Cancelar</button>
@@ -655,6 +753,116 @@ function Dashboard({user,cdata}){
                 </div>}
               </React.Fragment>)}
             </div>
+          }
+        </div>}
+
+        {/* AGENDA PAGE */}
+        {page==="agenda"&&<div style={{flex:1,overflowY:"auto",padding:"20px 22px"}}>
+          <div style={{marginBottom:18}}><h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Agenda</h1><p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>Agendamentos e disponibilidade</p></div>
+
+          {docs.length===0
+            ?<Card><Empty icon="📅" title="Nenhum médico cadastrado" sub="Cadastre médicos com agenda configurada para usar este recurso." action={()=>go("medicos")} actionLabel="Cadastrar médico"/></Card>
+            :<React.Fragment>
+              {/* Week nav */}
+              {(()=>{
+                const weekDays=getWeekDays(agendaWeekBase);
+                const today=new Date().toISOString().slice(0,10);
+                const prevWeek=()=>{const d=new Date(agendaWeekBase+"T12:00:00");d.setDate(d.getDate()-7);setAgendaWeekBase(d.toISOString().slice(0,10));};
+                const nextWeek=()=>{const d=new Date(agendaWeekBase+"T12:00:00");d.setDate(d.getDate()+7);setAgendaWeekBase(d.toISOString().slice(0,10));};
+                return <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                  <button onClick={prevWeek} style={{background:T.sub,border:"1px solid "+T.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:T.mut,fontWeight:700}}>←</button>
+                  <div style={{display:"flex",gap:6,flex:1,overflowX:"auto"}}>
+                    {weekDays.map(d=>{
+                      const dow=new Date(d+"T12:00:00").getDay();
+                      const isSel=d===selDate;
+                      const isToday=d===today;
+                      return <button key={d} onClick={()=>{setSelDate(d);setSelSlot(null);}} style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 14px",borderRadius:10,border:"1.5px solid "+(isSel?T.acc:T.border),background:isSel?T.acc:isToday?T.accL:"transparent",cursor:"pointer",minWidth:60}}>
+                        <span style={{fontSize:11,color:isSel?"#fff":T.mut,fontWeight:500}}>{DAY_NAMES[dow]}</span>
+                        <span style={{fontSize:16,fontWeight:700,color:isSel?"#fff":isToday?T.acc:T.txt}}>{d.slice(8)}</span>
+                      </button>;
+                    })}
+                  </div>
+                  <button onClick={nextWeek} style={{background:T.sub,border:"1px solid "+T.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:T.mut,fontWeight:700}}>→</button>
+                </div>;
+              })()}
+
+              {/* Doctor tabs */}
+              <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
+                {docs.map(d=><button key={d.id} onClick={()=>{setAgendaDoc(d);setSelSlot(null);}} style={{padding:"6px 14px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:12,border:"1.5px solid "+(agendaDoc&&agendaDoc.id===d.id?(d.color||T.acc):T.border),background:agendaDoc&&agendaDoc.id===d.id?(d.color||T.acc)+"18":"transparent",color:agendaDoc&&agendaDoc.id===d.id?(d.color||T.acc):T.mut}}>
+                  <Av ini={docIni(d)} c={d.color||T.acc} sz={18}/> {d.name.split(" ")[0]} {d.name.split(" ").slice(-1)[0]}
+                </button>)}
+              </div>
+
+              {(()=>{
+                const slots=agendaDoc?generateSlots(agendaDoc,selDate,agendamentos):[];
+                const dayAgenda=agendamentos.filter(a=>a.date===selDate).sort((a,b)=>a.time.localeCompare(b.time));
+                const hasSchedule=agendaDoc&&agendaDoc.schedDays&&agendaDoc.schedDays.length>0;
+                const dow=new Date(selDate+"T12:00:00").getDay();
+                const worksToday=hasSchedule&&agendaDoc.schedDays.includes(dow);
+
+                return <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14}}>
+                  <Card style={{padding:"17px"}}>
+                    <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:12}}>
+                      {DAY_FULL[dow]}, {formatDateBR(selDate)}
+                      {agendaDoc&&<span style={{color:T.mut,fontWeight:400,fontSize:12}}> · {agendaDoc.name}</span>}
+                    </div>
+                    {!hasSchedule
+                      ?<Empty icon="⚙️" title="Agenda não configurada" sub="Configure os horários deste médico na aba Médicos." action={()=>go("medicos")} actionLabel="Configurar agenda"/>
+                      :!worksToday
+                        ?<div style={{textAlign:"center",padding:"40px 20px",color:T.mut}}>
+                          <div style={{fontSize:36,marginBottom:10}}>🏖️</div>
+                          <div style={{fontWeight:600,color:T.txt,marginBottom:6}}>{agendaDoc.name.split(" ")[0]} não atende {DAY_FULL[dow].toLowerCase()}</div>
+                          <div style={{fontSize:13}}>Selecione outro dia</div>
+                        </div>
+                        :slots.length===0
+                          ?<Empty icon="📭" title="Nenhum slot gerado" sub="Verifique as configurações de horário do médico."/>
+                          :<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+                            {slots.map(slot=><button key={slot.time} onClick={()=>slot.status==="free"?setSelSlot(selSlot&&selSlot.time===slot.time?null:slot):null} style={{padding:"10px 6px",borderRadius:10,border:"1.5px solid "+(selSlot&&selSlot.time===slot.time?T.acc:slot.status==="booked"?T.red:T.grn),background:selSlot&&selSlot.time===slot.time?T.acc:slot.status==="booked"?T.redL:T.grnL,cursor:slot.status==="free"?"pointer":"default",textAlign:"center"}}>
+                              <div style={{fontWeight:700,fontSize:13,color:selSlot&&selSlot.time===slot.time?"#fff":slot.status==="booked"?T.red:T.grn}}>{slot.time}</div>
+                              {slot.status==="booked"&&slot.apt&&<div style={{fontSize:9,color:T.red,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{slot.apt.patientName}</div>}
+                              {slot.status==="free"&&<div style={{fontSize:10,color:T.grn,marginTop:2}}>livre</div>}
+                            </button>)}
+                          </div>
+                    }
+                  </Card>
+
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {/* Appointment form */}
+                    {selSlot&&<Card style={{padding:"16px",borderLeft:"4px solid "+T.acc,borderRadius:"0 14px 14px 0"}}>
+                      <div style={{fontWeight:700,fontSize:13,color:T.acc,marginBottom:12}}>📝 Novo agendamento</div>
+                      <div style={{background:T.accL,borderRadius:8,padding:"8px 11px",marginBottom:11,display:"flex",alignItems:"center",gap:8}}>
+                        <I.Cal s={14} c={T.acc}/>
+                        <span style={{color:T.acc,fontWeight:600,fontSize:13}}>{selSlot.time} · {formatDateBR(selDate)}</span>
+                      </div>
+                      <div style={{marginBottom:10}}><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4,fontWeight:500}}>Nome do paciente *</label><input value={newApt.patientName} onChange={e=>setNewApt(p=>({...p,patientName:e.target.value}))} placeholder="Ex: João Silva" style={fld}/></div>
+                      <div style={{marginBottom:10}}><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4,fontWeight:500}}>Telefone</label><input value={newApt.patientPhone} onChange={e=>setNewApt(p=>({...p,patientPhone:e.target.value}))} placeholder="(31) 99999-9999" style={fld}/></div>
+                      <div style={{marginBottom:12}}><label style={{color:T.mut,fontSize:11,display:"block",marginBottom:4,fontWeight:500}}>Observações</label><input value={newApt.notes} onChange={e=>setNewApt(p=>({...p,notes:e.target.value}))} placeholder="Ex: Retorno, plano XYZ" style={fld}/></div>
+                      <div style={{display:"flex",gap:7}}>
+                        <button onClick={bookAppointment} style={{flex:1,background:aptSaved?T.grn:T.acc,border:"none",borderRadius:8,padding:"9px",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13}}>{aptSaved?"✓ Agendado!":"Confirmar"}</button>
+                        <button onClick={()=>setSelSlot(null)} style={{background:"none",border:"1px solid "+T.border,borderRadius:8,padding:"9px 13px",color:T.mut,cursor:"pointer",fontSize:13}}>✕</button>
+                      </div>
+                    </Card>}
+
+                    {/* Today's appointments */}
+                    <Card style={{padding:"16px"}}>
+                      <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:10}}>📋 Agendamentos do dia</div>
+                      {dayAgenda.length===0
+                        ?<div style={{textAlign:"center",padding:"20px",color:T.mut,fontSize:13}}>Nenhum agendamento</div>
+                        :dayAgenda.map(a=><div key={a.id} style={{padding:"9px 11px",background:T.sub,borderRadius:9,marginBottom:7,border:"1px solid "+T.border}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                            <span style={{fontWeight:700,fontSize:13,color:T.acc}}>{a.time}</span>
+                            <button onClick={()=>cancelAppointment(a.id)} style={{background:T.redL,border:"none",borderRadius:6,padding:"2px 7px",color:T.red,cursor:"pointer",fontSize:10,fontWeight:600}}>Cancelar</button>
+                          </div>
+                          <div style={{fontWeight:600,fontSize:13,color:T.txt}}>{a.patientName}</div>
+                          <div style={{color:T.mut,fontSize:11}}>{a.docName}{a.notes?" · "+a.notes:""}</div>
+                          {a.patientPhone&&<div style={{color:T.mut,fontSize:11}}>{a.patientPhone}</div>}
+                        </div>)
+                      }
+                    </Card>
+                  </div>
+                </div>;
+              })()}
+            </React.Fragment>
           }
         </div>}
 
