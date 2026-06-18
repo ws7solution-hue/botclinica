@@ -344,6 +344,17 @@ function Dashboard({user,cdata}){
   const [agendamentos,setAgendamentos]=useState([]);
   const [newApt,setNewApt]=useState({patientName:"",patientPhone:"",notes:""});
   const [aptSaved,setAptSaved]=useState(false);
+  const [confirmDelete,setConfirmDelete]=useState(null);
+
+  const deleteDoc_=async docId=>{
+    if(!window.__fb)return;
+    const fb=window.__fb;
+    await fb.deleteDoc(fb.doc(fb.db,"clinicas",user.uid,"medicos",docId));
+    setConfirmDelete(null);
+    if(editDoc&&editDoc.id===docId)setEditDoc(null);
+    if(simDoc&&simDoc.id===docId)setSimDoc(null);
+    if(agendaDoc&&agendaDoc.id===docId)setAgendaDoc(null);
+  };
   const endRef=useRef(null);
 
   const hCount=convs.filter(c=>c.status==="human").length;
@@ -501,6 +512,7 @@ function Dashboard({user,cdata}){
     setSimLoad(false);setDots(".");
     if(isH)setTimeout(()=>triggerAlert("Paciente (demo)",simDoc.name),500);
   };
+
   const saveConfig=async()=>{
     if(!window.__fb)return;
     const fb=window.__fb;
@@ -1130,6 +1142,7 @@ function Dashboard({user,cdata}){
 
           return <div style={{flex:1,overflowY:"auto",padding:"20px 22px"}}>
             <div style={{marginBottom:18}}><h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Relatórios</h1><p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>Performance da clínica</p></div>
+
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:13,marginBottom:18}}>
               {[[String(total||301),"Total de mensagens",T.acc],[botPct+"%","Resolvidos pelo bot",T.grn],["2.4s","Tempo médio resposta",T.pur],[String(agendamentos.filter(a=>a.status!=="cancelled").length||94),"Lembretes enviados",T.warn]].map(([v,l,c])=>(
                 <Card key={l} style={{padding:"18px 17px"}}>
