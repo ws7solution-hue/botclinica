@@ -193,7 +193,7 @@ function LoginPage({onLogin}){
 
         {error&&<div style={{background:"#FEF0F0",border:"1px solid #E03E3E",borderRadius:8,padding:"10px 14px",marginBottom:16,color:"#E03E3E",fontSize:13}}>⚠️ {error}</div>}
 
-        <button onClick={handle} disabled={loading} style={{width:"100%",background:"linear-gradient(135deg,#1A6FA8,#2E86C8)",border:"none",borderRadius:10,padding:"13px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",opacity:loading?.7:1}}>
+        <button onClick={handle} disabled={loading} style={{width:"100%",background:"linear-gradient(135deg,#1A6FA8,#2E86C8)",border:"none",borderRadius:10,padding:"13px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",opacity:loading?0.7:1}}>
           {loading?"Aguarde...":(isLogin?"Entrar":"Criar conta")}
         </button>
 
@@ -252,7 +252,7 @@ function SetupPage({user,onDone}){
             </div>
           </div>
         </div>
-        <button onClick={save} disabled={loading||!cfg.clinicName.trim()} style={{width:"100%",background:"linear-gradient(135deg,#1A6FA8,#2E86C8)",border:"none",borderRadius:10,padding:"13px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",opacity:loading||!cfg.clinicName.trim()?.6:1}}>
+        <button onClick={save} disabled={loading||!cfg.clinicName.trim()} style={{width:"100%",background:"linear-gradient(135deg,#1A6FA8,#2E86C8)",border:"none",borderRadius:10,padding:"13px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",opacity:(loading||!cfg.clinicName.trim())?0.6:1}}>
           {loading?"Salvando...":"Entrar no painel →"}
         </button>
       </div>
@@ -629,7 +629,7 @@ function Dashboard({user,clinicData,onUpdateClinic}){
                   </div>)}
                 </div>
                 <div style={{padding:"10px 17px",borderTop:`1px solid ${T.border}`,background:T.card,display:"flex",gap:7}}>
-                  <input value={humanIn} onChange={e=>setHumanIn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendHumanReply()} placeholder={selConv.status==="human"?"Responder como atendente...":"Conversa encerrada pelo bot"} disabled={selConv.status!=="human"} style={{...fld,flex:1,opacity:selConv.status!=="human"?.6:1,cursor:selConv.status!=="human"?"not-allowed":"text"}}/>
+                  <input value={humanIn} onChange={e=>setHumanIn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendHumanReply()} placeholder={selConv.status==="human"?"Responder como atendente...":"Conversa encerrada pelo bot"} disabled={selConv.status!=="human"} style={{...fld,flex:1,opacity:selConv.status!=="human"?0.6:1,cursor:selConv.status!=="human"?"not-allowed":"text"}}/>
                   <button onClick={sendHumanReply} disabled={selConv.status!=="human"} style={{background:selConv.status==="human"?T.accent:"#888",border:"none",borderRadius:8,padding:"9px 15px",cursor:selConv.status==="human"?"pointer":"not-allowed",display:"flex",alignItems:"center",gap:5,color:"#fff",fontWeight:600,fontSize:13}}><I.Send s={12} c="#fff"/> Enviar</button>
                 </div>
               </Card>
@@ -734,7 +734,7 @@ function Dashboard({user,clinicData,onUpdateClinic}){
                     </div>
                     <div style={{background:"#F0F0F0",padding:"6px 8px",display:"flex",gap:6,alignItems:"center"}}>
                       <input value={simIn} onChange={e=>setSimIn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendSim()} placeholder="Mensagem" style={{flex:1,background:"#fff",border:"none",borderRadius:20,padding:"7px 12px",color:"#111",fontSize:12,outline:"none"}}/>
-                      <button onClick={sendSim} disabled={simLoad} style={{width:32,height:32,borderRadius:"50%",background:"#25D366",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:simLoad?.6:1}}><I.Send s={12} c="#fff"/></button>
+                      <button onClick={sendSim} disabled={simLoad} style={{width:32,height:32,borderRadius:"50%",background:"#25D366",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:simLoad?0.6:1}}><I.Send s={12} c="#fff"/></button>
                     </div>
                   </div>
                   <button onClick={()=>simDoc&&changeDoc(simDoc)} style={{width:"100%",marginTop:8,padding:8,background:"none",border:`1px solid ${T.border}`,borderRadius:10,color:T.muted,cursor:"pointer",fontSize:12}}>↺ Reiniciar</button>
