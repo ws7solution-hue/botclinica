@@ -310,6 +310,37 @@ function mockAI(txt,doc){
   return "Posso ajudar com agendamentos e informações sobre "+doc.spec+". O que você precisa? 😊";
 }
 
+/* ── CHART COMPONENTS ── */
+function BarCJS({labels,datasets,stacked,height}){
+  const T=useT();
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!window.Chart)return;
+    const ch=new window.Chart(ref.current,{
+      type:"bar",data:{labels,datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:!!stacked,position:"bottom",labels:{boxWidth:12,font:{size:11}}}},
+        scales:{x:{stacked:!!stacked,grid:{display:false},ticks:{font:{size:11}}},y:{stacked:!!stacked,beginAtZero:true,grid:{color:T.border},ticks:{font:{size:11}}}}}
+    });
+    return()=>ch.destroy();
+  },[JSON.stringify({labels,datasets})]);
+  return <div style={{position:"relative",height:height||220}}><canvas ref={ref}/></div>;
+}
+
+function DoughnutCJS({data,labels,colors2}){
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!window.Chart)return;
+    const ch=new window.Chart(ref.current,{
+      type:"doughnut",
+      data:{labels,datasets:[{data,backgroundColor:colors2||["#1A6FA8","#E4EAF0"],borderWidth:0,hoverOffset:4}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:"72%",plugins:{legend:{display:false}}}
+    });
+    return()=>ch.destroy();
+  },[JSON.stringify(data)]);
+  return <div style={{position:"relative",height:200}}><canvas ref={ref}/></div>;
+}
+
 /* ── DASHBOARD ── */
 function Dashboard({user,cdata}){
   const [dark,setDark]=useState(false);
@@ -813,6 +844,10 @@ function Dashboard({user,cdata}){
                       <button onClick={()=>{changeDoc(d);go("simulador");}} style={{background:T.accL,border:"1px solid "+T.border,borderRadius:8,padding:"5px 10px",color:T.acc,fontSize:11,cursor:"pointer",fontWeight:600}}><I.Zap s={11} c={T.acc}/> Testar</button>
                       <button onClick={()=>setEditDoc(editDoc&&editDoc.id===d.id?null:{...d})} style={{background:editDoc&&editDoc.id===d.id?T.warnL:"none",border:"1px solid "+(editDoc&&editDoc.id===d.id?T.warn:T.border),borderRadius:8,padding:"5px 10px",color:editDoc&&editDoc.id===d.id?T.warn:T.mut,fontSize:11,cursor:"pointer"}}>{editDoc&&editDoc.id===d.id?"Cancelar":"Editar"}</button>
                       <button onClick={()=>toggleDoc(d)} style={{background:"none",border:"1px solid "+T.border,borderRadius:8,padding:"5px 10px",color:T.mut,fontSize:11,cursor:"pointer"}}>{d.active?"Desativar":"Ativar"}</button>
+                          {confirmDelete===d.id
+                            ?<React.Fragment><span style={{fontSize:10,color:T.red,fontWeight:500}}>Confirmar?</span><button onClick={()=>deleteDoc_(d.id)} style={{background:T.red,border:"none",borderRadius:8,padding:"5px 10px",color:"#fff",fontSize:11,cursor:"pointer",fontWeight:700}}>🗑️ Sim</button><button onClick={()=>setConfirmDelete(null)} style={{background:"none",border:"1px solid "+T.border,borderRadius:8,padding:"5px 10px",color:T.mut,fontSize:11,cursor:"pointer"}}>Não</button></React.Fragment>
+                            :<button onClick={()=>setConfirmDelete(d.id)} style={{background:"none",border:"1px solid "+T.red,borderRadius:8,padding:"5px 10px",color:T.red,fontSize:11,cursor:"pointer"}}>🗑️ Excluir</button>
+                          }
                     </div>
                   </div>
                 </Card>
@@ -1085,43 +1120,6 @@ function Dashboard({user,cdata}){
           const transferred=convs.filter(c=>c.status==="human").length;
           const botPct=total>0?Math.round((resolved/total)*100):85;
           const colors=["#1A6FA8","#0D9B6E","#7C3AED","#D97706","#BE185D"];
-
-          // Chart.js bar chart component
-          const BarCJS=({labels,datasets,stacked,height})=>{
-            const ref=useRef(null);
-            useEffect(()=>{
-              if(!ref.current||!window.Chart)return;
-              const ch=new window.Chart(ref.current,{
-                type:"bar",
-                data:{labels,datasets},
-                options:{
-                  responsive:true,maintainAspectRatio:false,
-                  plugins:{legend:{display:!!stacked,position:"bottom",labels:{boxWidth:12,font:{size:11}}}},
-                  scales:{
-                    x:{stacked:!!stacked,grid:{display:false},ticks:{font:{size:11}}},
-                    y:{stacked:!!stacked,beginAtZero:true,grid:{color:T.border},ticks:{font:{size:11}}}
-                  }
-                }
-              });
-              return()=>ch.destroy();
-            },[JSON.stringify({labels,datasets})]);
-            return <div style={{position:"relative",height:height||220}}><canvas ref={ref}/></div>;
-          };
-
-          // Chart.js doughnut component
-          const DoughnutCJS=({data,labels,colors2})=>{
-            const ref=useRef(null);
-            useEffect(()=>{
-              if(!ref.current||!window.Chart)return;
-              const ch=new window.Chart(ref.current,{
-                type:"doughnut",
-                data:{labels,datasets:[{data,backgroundColor:colors2||["#1A6FA8","#E4EAF0"],borderWidth:0,hoverOffset:4}]},
-                options:{responsive:true,maintainAspectRatio:false,cutout:"72%",plugins:{legend:{display:false}}}
-              });
-              return()=>ch.destroy();
-            },[JSON.stringify(data)]);
-            return <div style={{position:"relative",height:200}}><canvas ref={ref}/></div>;
-          };
 
           // Last 7 days labels
           const dayLabels=["Seg","Ter","Qua","Qui","Sex","Sáb","Hoje"];
