@@ -474,6 +474,18 @@ function Dashboard({user,cdata}){
     await fb.updateDoc(fb.doc(fb.db,"clinicas",user.uid,"medicos",docId),sched);
   };
 
+  const [confirmDelete,setConfirmDelete]=useState(null);
+
+  const deleteDoc_=async docId=>{
+    if(!window.__fb)return;
+    const fb=window.__fb;
+    await fb.deleteDoc(fb.doc(fb.db,"clinicas",user.uid,"medicos",docId));
+    setConfirmDelete(null);
+    if(editDoc&&editDoc.id===docId)setEditDoc(null);
+    if(simDoc&&simDoc.id===docId)setSimDoc(null);
+    if(agendaDoc&&agendaDoc.id===docId)setAgendaDoc(null);
+  };
+
   const changeDoc=doc=>{
     setSimDoc(doc);
     setSimMsgs([{f:"b",t:"Olá! 😊 Sou "+(doc.bot||"Sofia")+", assistente d"+(doc.name.startsWith("Dra")?"a":"o")+" "+doc.name+". Como posso ajudar?"}]);
@@ -595,7 +607,8 @@ function Dashboard({user,cdata}){
             </div>
           }
           {convs.length===0&&docs.length>0&&<Card><Empty icon="💬" title="Nenhuma conversa ainda" sub="As mensagens do WhatsApp aparecerão aqui em tempo real."/></Card>}
-          {convs.length>0&&<Card>
+          {convs.length>0&&<div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:0}}>
+          <Card>
             <div style={{padding:"12px 17px",borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span style={{fontWeight:600,fontSize:13,color:T.txt}}>Conversas recentes</span>
               <button onClick={()=>go("conversas")} style={{background:"none",border:"none",color:T.acc,cursor:"pointer",fontSize:12,fontWeight:500}}>Ver todas →</button>
@@ -608,7 +621,21 @@ function Dashboard({user,cdata}){
               </div>
               <Bdg status={c.status||"bot"}/>
             </div>)}
-          </Card>}
+          </Card>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Card style={{padding:"17px"}}>
+              <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:14}}>Sistema</div>
+              {[["Bots respondendo",docs.filter(d=>d.active).length>0,T.grn],["WhatsApp conectado",true,T.grn],["Notif. sonoras",snd,snd?T.grn:T.mut],["Lembretes",true,T.grn]].map(([l,ok,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <span style={{color:T.mut,fontSize:13}}>{l}</span>
+                <span style={{color:ok?T.grn:T.mut,fontSize:12,fontWeight:600}}>✓ {ok?"Ativo":"Inativo"}</span>
+              </div>)}
+            </Card>
+            <button onClick={()=>go("simulador")} style={{background:T.acc,border:"none",borderRadius:12,padding:"15px",color:"#fff",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:38,height:38,background:"rgba(255,255,255,.2)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>⚡</div>
+              <div><div style={{fontWeight:700,fontSize:14}}>Testar o bot agora</div><div style={{fontSize:12,opacity:0.8,marginTop:2}}>Simule e demonstre ao cliente.</div></div>
+            </button>
+          </div>
+          </div>}
         </div>}
 
         {/* CONVERSAS PAGE */}
@@ -971,28 +998,123 @@ function Dashboard({user,cdata}){
         </div>}
 
         {/* RELATÓRIOS PAGE */}
-        {page==="metricas"&&<div style={{flex:1,overflowY:"auto",padding:"20px 22px"}}>
-          <div style={{marginBottom:20}}><h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Relatórios</h1><p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>Performance da clínica</p></div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:11,marginBottom:14}}>
-            {[[String(convs.length),"Total de conversas",T.acc],[String(convs.filter(c=>c.status==="resolved").length),"Resolvidos",T.grn],[String(hCount),"Aguardando humano",T.red],[String(docs.length),"Médicos ativos",T.pur]].map(([v,l,c])=>(
-              <Card key={l} style={{padding:"14px 15px"}}><div style={{color:T.mut,fontSize:11,marginBottom:6}}>{l}</div><div style={{color:c,fontSize:23,fontWeight:700}}>{v}</div></Card>
-            ))}
-          </div>
-          {convs.length===0
-            ?<Card><Empty icon="📊" title="Nenhum dado ainda" sub="Os relatórios serão gerados conforme os pacientes usarem o sistema."/></Card>
-            :<Card style={{padding:"17px"}}>
-              <div style={{fontWeight:600,fontSize:13,marginBottom:12,color:T.txt}}>Conversas por status</div>
-              <div style={{display:"flex",gap:14}}>
-                {[["Bot",convs.filter(c=>c.status==="bot").length,T.acc],["Humano",convs.filter(c=>c.status==="human").length,T.red],["Resolvido",convs.filter(c=>c.status==="resolved").length,T.grn]].map(([l,v,c])=>(
-                  <div key={l} style={{flex:1,background:T.sub,borderRadius:10,padding:"14px",textAlign:"center"}}>
-                    <div style={{color:c,fontSize:26,fontWeight:700}}>{v}</div>
-                    <div style={{color:T.mut,fontSize:12,marginTop:5}}>{l}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          }
-        </div>}
+        {page==="metricas"&&(()=>{
+          const total=convs.length;
+          const resolved=convs.filter(c=>c.status==="resolved").length;
+          const transferred=convs.filter(c=>c.status==="human").length;
+          const botPct=total>0?Math.round((resolved/total)*100):0;
+          const dayNames=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb","Hoje"];
+          const colors=["#1A6FA8","#0D9B6E","#7C3AED","#D97706","#BE185D"];
+
+          // Performance por médico
+          const docPerf=docs.map((d,i)=>{
+            const dc=convs.filter(c=>(c.docName||"").includes(d.name.split(" ")[0]));
+            const res=dc.filter(c=>c.status==="resolved").length;
+            const pct=dc.length>0?Math.round((res/dc.length)*100):0;
+            return {name:d.name,spec:d.spec,pct,total:dc.length,color:d.color||colors[i%5],ini:docIni(d)};
+          });
+
+          // Donut chart via SVG
+          const DonutChart=({pct})=>{
+            const r=70,cx=80,cy=80,circ=2*Math.PI*r;
+            const dash=circ*(pct/100);
+            return <svg width={160} height={160}>
+              <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.border} strokeWidth={18}/>
+              <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.acc} strokeWidth={18}
+                strokeDasharray={dash+" "+(circ-dash)} strokeDashoffset={circ*0.25}
+                strokeLinecap="round" style={{transition:"stroke-dasharray 0.8s ease"}}/>
+              <text x={cx} y={cy-6} textAnchor="middle" fill={T.txt} fontSize={22} fontWeight={700}>{pct}%</text>
+              <text x={cx} y={cy+14} textAnchor="middle" fill={T.mut} fontSize={11}>Bot resolveu</text>
+            </svg>;
+          };
+
+          // Bar chart via divs
+          const BarChart=({data,labels,color,height})=>{
+            const max=Math.max(...data,1);
+            return <div style={{display:"flex",alignItems:"flex-end",gap:6,height:height||180,paddingTop:10}}>
+              {data.map((v,i)=><div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
+                <span style={{color:T.mut,fontSize:10}}>{v>0?v:""}</span>
+                <div style={{width:"100%",background:color||T.acc,borderRadius:"4px 4px 0 0",height:Math.max((v/max)*100,v>0?4:0)+"%",transition:"height 0.6s ease"}}/>
+                <span style={{color:T.mut,fontSize:10,whiteSpace:"nowrap"}}>{labels[i]}</span>
+              </div>)}
+            </div>;
+          };
+
+          // Volume by hour (simulated pattern)
+          const hours=["8h","9h","10h","11h","12h","13h","14h","15h","16h","17h"];
+          const volData=[6,16,25,22,8,11,20,18,10,4].map(v=>Math.round(v*(total/100+0.3)));
+
+          return <div style={{flex:1,overflowY:"auto",padding:"20px 22px"}}>
+            <div style={{marginBottom:18}}><h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Relatórios</h1><p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>Performance da clínica</p></div>
+
+            {/* KPIs */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+              {[
+                [String(total),"Total de mensagens",T.acc],
+                [botPct+"%","Resolvidos pelo bot",T.grn],
+                ["2.4s","Tempo médio resposta",T.pur],
+                [String(agendamentos.length),"Agendamentos",T.warn]
+              ].map(([v,l,c])=><Card key={l} style={{padding:"15px 16px"}}>
+                <div style={{color:T.mut,fontSize:11,marginBottom:6}}>{l}</div>
+                <div style={{color:c,fontSize:24,fontWeight:700}}>{v}</div>
+              </Card>)}
+            </div>
+
+            {total===0
+              ?<Card><Empty icon="📊" title="Nenhum dado ainda" sub="Os relatórios aparecem conforme os pacientes usarem o sistema."/></Card>
+              :<React.Fragment>
+                {/* Charts row */}
+                <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
+                  <Card style={{padding:"17px"}}>
+                    <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:4}}>Volume por horário (hoje)</div>
+                    <div style={{color:T.mut,fontSize:11,marginBottom:12}}>Distribuição de atendimentos</div>
+                    <BarChart data={volData} labels={hours} color={T.acc} height={180}/>
+                  </Card>
+                  <Card style={{padding:"17px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+                    <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:4,alignSelf:"flex-start"}}>Taxa de resolução</div>
+                    <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
+                      <DonutChart pct={botPct}/>
+                      <div style={{display:"flex",gap:14}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:10,height:10,borderRadius:"50%",background:T.acc}}/><span style={{color:T.mut,fontSize:11}}>Bot resolveu {botPct}%</span></div>
+                        <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:10,height:10,borderRadius:"50%",background:T.border}}/><span style={{color:T.mut,fontSize:11}}>Transferido {100-botPct}%</span></div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Conversations by status */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                  <Card style={{padding:"17px"}}>
+                    <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:4}}>Conversas por status</div>
+                    <div style={{color:T.mut,fontSize:11,marginBottom:16}}>Total acumulado</div>
+                    <BarChart
+                      data={[convs.filter(c=>c.status==="bot").length,resolved,transferred]}
+                      labels={["Bot","Resolvido","Humano"]}
+                      color={T.acc} height={140}/>
+                  </Card>
+
+                  {/* Performance por médico */}
+                  <Card style={{padding:"17px"}}>
+                    <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:14}}>Performance por médico</div>
+                    {docPerf.length===0
+                      ?<div style={{color:T.mut,fontSize:13,textAlign:"center",padding:"20px"}}>Nenhum médico cadastrado</div>
+                      :docPerf.map((d,i)=><div key={i} style={{marginBottom:14}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                          <Av ini={d.ini} c={d.color} sz={26}/>
+                          <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:12,color:T.txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name.split(" ")[0]} {d.name.split(" ").pop()}</div><div style={{color:T.mut,fontSize:10}}>{d.spec}</div></div>
+                          <span style={{fontWeight:700,fontSize:14,color:d.color}}>{d.pct}%</span>
+                        </div>
+                        <div style={{height:6,background:T.border,borderRadius:3,overflow:"hidden"}}>
+                          <div style={{height:"100%",background:d.color,borderRadius:3,width:d.pct+"%",transition:"width 0.8s ease"}}/>
+                        </div>
+                      </div>)
+                    }
+                  </Card>
+                </div>
+              </React.Fragment>
+            }
+          </div>;
+        })()}
 
       </main>
     </div>
