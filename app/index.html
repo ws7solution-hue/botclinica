@@ -423,6 +423,20 @@ function Dashboard({user,clinicData,onUpdateClinic}){
     setSaved(true);setTimeout(()=>setSaved(false),2000);
   };
 
+  const assumeConv=async()=>{
+    if(!selConv)return;
+    setConvs(p=>p.map(c=>c.id===selConv.id?{...c,status:"human"}:c));
+    setSelConv(p=>({...p,status:"human"}));
+    if(window.__firebase){const {db,doc,updateDoc}=window.__firebase;try{await updateDoc(doc(db,"clinicas",user.uid,"conversas",selConv.id),{status:"human"});}catch(e){console.log(e);}}
+  };
+
+  const resolveConv=async()=>{
+    if(!selConv)return;
+    setConvs(p=>p.map(c=>c.id===selConv.id?{...c,status:"resolved"}:c));
+    setSelConv(p=>({...p,status:"resolved"}));
+    if(window.__firebase){const {db,doc,updateDoc}=window.__firebase;try{await updateDoc(doc(db,"clinicas",user.uid,"conversas",selConv.id),{status:"resolved"});}catch(e){console.log(e);}}
+  };
+
   const sendHumanReply=async()=>{
     if(!humanIn.trim()||!selConv||selConv.status!=="human")return;
     const txt=humanIn;setHumanIn("");
@@ -600,16 +614,8 @@ function Dashboard({user,clinicData,onUpdateClinic}){
                   <Av ini={(selConv.name||"?")[0]} c={T.accent}/><div><div style={{fontWeight:700,fontSize:13,color:T.text}}>{selConv.name||"Paciente"}</div></div>
                   <div style={{marginLeft:"auto",display:"flex",gap:7,alignItems:"center"}}>
                     <Bdg status={selConv.status||"bot"}/>
-                    {selConv.status==="human"&&<button onClick={async()=>{
-  setConvs(p=>p.map(c=>c.id===selConv.id?{...c,status:"human"}:c));
-  setSelConv(p=>({...p,status:"human"}));
-  if(window.__firebase){const {db,doc,updateDoc}=window.__firebase;try{await updateDoc(doc(db,"clinicas",user.uid,"conversas",selConv.id),{status:"human"});}catch(e){}}
-}} style={{background:T.warn,border:"none",borderRadius:8,padding:"6px 13px",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:700}}>👤 Assumir</button>
-<button onClick={async()=>{
-  setConvs(p=>p.map(c=>c.id===selConv.id?{...c,status:"resolved"}:c));
-  setSelConv(p=>({...p,status:"resolved"}));
-  if(window.__firebase){const {db,doc,updateDoc}=window.__firebase;try{await updateDoc(doc(db,"clinicas",user.uid,"conversas",selConv.id),{status:"resolved"});}catch(e){}}
-}} style={{background:T.green,border:"none",borderRadius:8,padding:"6px 13px",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:700}}>✓ Resolver</button>}
+                    {selConv.status==="human"&&<button onClick={assumeConv} style={{background:T.warn,border:"none",borderRadius:8,padding:"6px 13px",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:700}}>👤 Assumir</button>
+<button onClick={resolveConv} style={{background:T.green,border:"none",borderRadius:8,padding:"6px 13px",color:"#fff",fontSize:12,cursor:"pointer",fontWeight:700}}>✓ Resolver</button>}
                   </div>
                 </div>
                 {selConv.status==="human"&&<div style={{background:T.dangerL,padding:"8px 17px",display:"flex",alignItems:"center",gap:7,borderBottom:`1px solid ${T.border}`}}><span>⚡</span><span style={{color:T.danger,fontSize:12,fontWeight:600}}>Paciente solicitou atendimento humano.</span></div>}
