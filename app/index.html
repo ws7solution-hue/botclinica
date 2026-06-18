@@ -785,7 +785,13 @@ function Dashboard({user,cdata}){
 
         {/* AGENDA PAGE */}
         {page==="agenda"&&<div style={{flex:1,overflowY:"auto",padding:"20px 22px"}}>
-          <div style={{marginBottom:18}}><h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Agenda</h1><p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>Agendamentos e disponibilidade</p></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+            <div><h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Agenda</h1><p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>Agendamentos e disponibilidade</p></div>
+            <div style={{background:T.accL,border:"1px solid "+T.border,borderRadius:10,padding:"6px 14px",display:"flex",alignItems:"center",gap:6}}>
+              <I.Cal s={13} c={T.acc}/>
+              <span style={{color:T.acc,fontWeight:600,fontSize:12}}>{agendamentos.filter(a=>a.status!=="cancelled").length} agendamento{agendamentos.filter(a=>a.status!=="cancelled").length!==1?"s":""} total</span>
+            </div>
+          </div>
 
           {docs.length===0
             ?<Card><Empty icon="📅" title="Nenhum médico cadastrado" sub="Cadastre médicos com agenda configurada para usar este recurso." action={()=>go("medicos")} actionLabel="Cadastrar médico"/></Card>
@@ -872,20 +878,45 @@ function Dashboard({user,cdata}){
 
                     {/* Today's appointments */}
                     <Card style={{padding:"16px"}}>
-                      <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:10}}>📋 Agendamentos do dia</div>
+                      <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:10}}>📋 {DAY_NAMES[new Date(selDate+"T12:00:00").getDay()]} {selDate.slice(8)}/{selDate.slice(5,7)}</div>
                       {dayAgenda.length===0
-                        ?<div style={{textAlign:"center",padding:"20px",color:T.mut,fontSize:13}}>Nenhum agendamento</div>
-                        :dayAgenda.map(a=><div key={a.id} style={{padding:"9px 11px",background:T.sub,borderRadius:9,marginBottom:7,border:"1px solid "+T.border}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                            <span style={{fontWeight:700,fontSize:13,color:T.acc}}>{a.time}</span>
-                            <button onClick={()=>cancelAppointment(a.id)} style={{background:T.redL,border:"none",borderRadius:6,padding:"2px 7px",color:T.red,cursor:"pointer",fontSize:10,fontWeight:600}}>Cancelar</button>
+                        ?<div style={{textAlign:"center",padding:"20px",color:T.mut,fontSize:12}}>Sem agendamentos</div>
+                        :dayAgenda.map(a=><div key={a.id} style={{padding:"10px 12px",background:T.sub,borderRadius:10,marginBottom:8,border:"1px solid "+T.border}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                            <span style={{fontWeight:700,fontSize:14,color:T.acc}}>{a.time}</span>
+                            <button onClick={()=>cancelAppointment(a.id)} style={{background:T.redL,border:"none",borderRadius:6,padding:"2px 7px",color:T.red,cursor:"pointer",fontSize:10,fontWeight:600}}>✕ Cancelar</button>
                           </div>
-                          <div style={{fontWeight:600,fontSize:13,color:T.txt}}>{a.patientName}</div>
-                          <div style={{color:T.mut,fontSize:11}}>{a.docName}{a.notes?" · "+a.notes:""}</div>
-                          {a.patientPhone&&<div style={{color:T.mut,fontSize:11}}>{a.patientPhone}</div>}
+                          <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:2}}>{a.patientName}</div>
+                          <div style={{color:T.mut,fontSize:11,marginBottom:2}}>{a.docName}</div>
+                          {a.patientPhone&&<div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:10}}>📱</span><span style={{color:T.acc,fontSize:11,fontWeight:500}}>{a.patientPhone}</span></div>}
+                          {a.notes&&<div style={{color:T.mut,fontSize:11,marginTop:2}}>📝 {a.notes}</div>}
                         </div>)
                       }
                     </Card>
+
+                    {/* Upcoming appointments */}
+                    {(()=>{
+                      const today=new Date().toISOString().slice(0,10);
+                      const upcoming=agendamentos.filter(a=>a.date>=today&&a.status!=="cancelled").sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)).slice(0,5);
+                      if(upcoming.length===0)return null;
+                      return <Card style={{padding:"16px"}}>
+                        <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:10}}>🗓️ Próximos agendamentos</div>
+                        {upcoming.map(a=>{
+                          const[y,mo,d2]=a.date.split('-');
+                          return <div key={a.id} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid "+T.border}}>
+                            <div style={{background:T.accL,borderRadius:8,padding:"6px 10px",textAlign:"center",flexShrink:0}}>
+                              <div style={{color:T.acc,fontWeight:700,fontSize:14}}>{d2}</div>
+                              <div style={{color:T.acc,fontSize:10}}>{["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(mo)-1]}</div>
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontWeight:600,fontSize:12,color:T.txt}}>{a.patientName}</div>
+                              <div style={{color:T.mut,fontSize:11}}>{a.time} · {a.docName}</div>
+                              {a.patientPhone&&<div style={{color:T.acc,fontSize:11}}>{a.patientPhone}</div>}
+                            </div>
+                          </div>;
+                        })}
+                      </Card>;
+                    })()}
                   </div>
                 </div>;
               })()}
