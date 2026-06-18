@@ -504,10 +504,19 @@ function Dashboard({user,cdata}){
     setAptSaved(true);setTimeout(()=>setAptSaved(false),2000);
   };
 
-  const cancelAppointment=async aptId=>{
-    if(!window.__fb)return;
-    const fb=window.__fb;
-    await fb.deleteDoc(fb.doc(fb.db,"clinicas",user.uid,"agendamentos",aptId));
+  const [notifying,setNotifying]=useState(null);
+  const cancelAppointment=async(aptId,notify)=>{
+    if(notify){
+      setNotifying(aptId);
+      try{
+        await fetch("/api/cancel-notify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({aptId,clinicUid:user.uid})});
+      }catch(e){console.log("notify error:",e);}
+      setNotifying(null);
+    }else{
+      if(!window.__fb)return;
+      const fb=window.__fb;
+      await fb.updateDoc(fb.doc(fb.db,"clinicas",user.uid,"agendamentos",aptId),{status:"cancelled",cancelledAt:new Date().toISOString()});
+    }
   };
 
   const saveSchedule=async(docId,sched)=>{
@@ -958,7 +967,13 @@ function Dashboard({user,cdata}){
                         :dayAgenda.map(a=><div key={a.id} style={{padding:"10px 12px",background:T.sub,borderRadius:10,marginBottom:8,border:"1px solid "+T.border}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                             <span style={{fontWeight:700,fontSize:14,color:T.acc}}>{a.time}</span>
-                            <button onClick={()=>cancelAppointment(a.id)} style={{background:T.redL,border:"none",borderRadius:6,padding:"2px 7px",color:T.red,cursor:"pointer",fontSize:10,fontWeight:600}}>✕ Cancelar</button>
+                            {notifying===a.id
+  ?<span style={{color:T.mut,fontSize:10}}>Enviando...</span>
+  :<React.Fragment>
+    <button onClick={()=>cancelAppointment(a.id,true)} style={{background:T.redL,border:"none",borderRadius:6,padding:"2px 7px",color:T.red,cursor:"pointer",fontSize:10,fontWeight:600,marginRight:3}}>📲 Cancelar e Notificar</button>
+    <button onClick={()=>cancelAppointment(a.id,false)} style={{background:"none",border:"1px solid "+T.border,borderRadius:6,padding:"2px 7px",color:T.mut,cursor:"pointer",fontSize:10}}>Só cancelar</button>
+  </React.Fragment>
+}
                           </div>
                           <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:2}}>{a.patientName}</div>
                           <div style={{color:T.mut,fontSize:11,marginBottom:2}}>{a.docName}</div>
