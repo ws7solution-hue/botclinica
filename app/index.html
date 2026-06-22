@@ -136,6 +136,14 @@ function LoginPage(){
     try{
       if(isLogin){
         await fb.signInWithEmailAndPassword(fb.auth,email,pass);
+        // Verify access authorization
+        const emailKey=email.toLowerCase().replace(/[^a-z0-9]/g,"_");
+        const authDoc=await fb.getDoc(fb.doc(fb.db,"acessos_autorizados",emailKey));
+        if(!authDoc.exists()){
+          await fb.signOut(fb.auth);
+          setLoading(false);
+          return setErr("Acesso não autorizado. Adquira um plano em botclinica.com.br ou contate +55 31 98215-8450");
+        }
       }else{
         const cred=await fb.createUserWithEmailAndPassword(fb.auth,email,pass);
         await fb.setDoc(fb.doc(fb.db,"clinicas",cred.user.uid),{clinicName:cname,email,phone:"",hours:"Seg-Sex: 8h-18h",botName:"Sofia",tone:"cordial",services:[],createdAt:new Date().toISOString()});
@@ -181,6 +189,16 @@ function LoginPage(){
       <button onClick={handle} disabled={loading} style={{width:"100%",background:"linear-gradient(135deg,#1A6FA8,#2E86C8)",border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",opacity:loading?0.7:1}}>
         {loading?"Aguarde...":(isLogin?"Entrar":"Criar conta")}
       </button>
+      {isLogin&&<div style={{textAlign:"center",marginTop:8}}>
+        <button onClick={async()=>{
+          if(!em){alert("Digite seu email primeiro.");return;}
+          try{
+            if(!window.__fb)return;
+            await window.__fb.sendPasswordResetEmail(window.__fb.auth,em);
+            alert("Email de redefinição enviado! Verifique sua caixa de entrada 📧");
+          }catch(e){alert("Erro: "+e.message);}
+        }} style={{background:"none",border:"none",color:"#1A6FA8",cursor:"pointer",fontSize:13,textDecoration:"underline"}}>Esqueci minha senha</button>
+      </div>}
       <div style={{textAlign:"center",marginTop:18}}>
         <span style={{color:"#6B80A0",fontSize:13}}>{isLogin?"Não tem conta? ":"Já tem conta? "}</span>
         <button onClick={()=>{setIsLogin(p=>!p);setErr("");}} style={{background:"none",border:"none",color:"#1A6FA8",fontWeight:600,fontSize:13,cursor:"pointer"}}>
