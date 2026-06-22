@@ -213,7 +213,6 @@ function LoginPage(){
 /* ── SETUP ── */
 function SetupPage({user,onDone}){
   const [cfg,setCfg]=useState({clinicName:"",botName:"Sofia",phone:"",hours:"Seg-Sex: 8h-18h"});
-  const [loading,setLoading]=useState(false);
 
   const save=async()=>{
     if(!cfg.clinicName.trim())return;
@@ -385,7 +384,6 @@ function Dashboard({user,cdata}){
   const [dots,setDots]=useState(".");
   const [saved,setSaved]=useState(false);
   const [nSvc,setNSvc]=useState("");
-  const [cfg,setCfg]=useState({name:cdata&&cdata.clinicName?cdata.clinicName:"",phone:cdata&&cdata.phone?cdata.phone:"",hours:cdata&&cdata.hours?cdata.hours:"",botName:cdata&&cdata.botName?cdata.botName:"Sofia",svcs:cdata&&cdata.services?cdata.services:[]});
   const [lem,setLem]=useState({on:true,h24:true,h2:true,msg:"Olá {nome}! 😊 Lembrete da consulta com {medico} amanhã. Confirme com SIM."});
   const [agendaDoc,setAgendaDoc]=useState(null);
   const [agendaWeekBase,setAgendaWeekBase]=useState(new Date().toISOString().slice(0,10));
