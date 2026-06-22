@@ -4911,7 +4911,15 @@ function Dashboard({
     })))))));
   })())));
 }
-ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+// Wait for Firebase (module script runs async/deferred)
+function startAtendIA() {
+  if (window.__fb) {
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));
+  } else {
+    setTimeout(startAtendIA, 50);
+  }
+}
+startAtendIA();
 </script>
 </body>
 </html>
