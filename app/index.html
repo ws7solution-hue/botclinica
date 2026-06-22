@@ -393,6 +393,8 @@ function Dashboard({user,cdata}){
   const [newApt,setNewApt]=useState({patientName:"",patientPhone:"",notes:""});
   const [aptSaved,setAptSaved]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
+  const [pacientes,setPacientes]=useState([]);
+  const [pacSearch,setPacSearch]=useState("");
   const [plano,setPlano]=useState('Starter');
   const PLANOS={
     Starter:{medicos:1,conversas:300,botPorMedico:false,lembretes:false,relatorios:false,dashboard:false},
@@ -554,7 +556,8 @@ function Dashboard({user,cdata}){
 
   const [showArchived,setShowArchived]=useState(false);
   const activeConvs=convs.filter(c=>!c.archived);
-  const archivedConvs=convs.filter(c=>!!c.archived);t [selPac,setSelPac]=useState(null);
+  const archivedConvs=convs.filter(c=>!!c.archived);
+  const [selPac,setSelPac]=useState(null);
 
   // Load pacientes
   useEffect(()=>{
