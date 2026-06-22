@@ -394,6 +394,14 @@ function Dashboard({user,cdata}){
   const [newApt,setNewApt]=useState({patientName:"",patientPhone:"",notes:""});
   const [aptSaved,setAptSaved]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
+  const [plano,setPlano]=useState('Starter');
+  const PLANOS={
+    Starter:{medicos:1,conversas:300,botPorMedico:false,lembretes:false,relatorios:false,dashboard:false},
+    Profissional:{medicos:4,conversas:999999,botPorMedico:true,lembretes:true,relatorios:true,dashboard:false},
+    Clinica:{medicos:999,conversas:999999,botPorMedico:true,lembretes:true,relatorios:true,dashboard:true},
+    Admin:{medicos:999,conversas:999999,botPorMedico:true,lembretes:true,relatorios:true,dashboard:true},
+  };
+  const plan=PLANOS[plano]||PLANOS.Starter;
 
   const deleteDoc_=async docId=>{
     if(!window.__fb)return;
@@ -458,6 +466,10 @@ function Dashboard({user,cdata}){
   /* Doctor actions */
   const saveDoc=async()=>{
     if(!nd.name.trim()||!window.__fb)return;
+    if(!editDoc&&docs.length>=plan.medicos){
+      alert(`Seu plano ${plano} permite até ${plan.medicos} médico${plan.medicos>1?"s":""}. Faça upgrade para adicionar mais! Entre em contato: wa.me/5531982158450`);
+      return;
+    }
     const cols=["#1A6FA8","#0D9B6E","#7C3AED","#D97706","#BE185D"];
     const fb=window.__fb;
     await fb.addDoc(fb.collection(fb.db,"clinicas",user.uid,"medicos"),{...nd,active:true,color:cols[docs.length%5],createdAt:new Date().toISOString()});
@@ -1137,6 +1149,13 @@ function Dashboard({user,cdata}){
 
         {/* RELATÓRIOS PAGE */}
         {page==="metricas"&&(()=>{
+          if(!plan.relatorios)return <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+            <div style={{fontSize:48}}>📊</div>
+            <div style={{color:T.txt,fontSize:20,fontWeight:700}}>Relatórios não incluídos</div>
+            <div style={{color:T.mut,fontSize:14,textAlign:"center",maxWidth:320}}>Seu plano {plano} não inclui relatórios e métricas. Faça upgrade para o plano Profissional ou Clínica.</div>
+            <a href="https://wa.me/5531982158450?text=Quero+fazer+upgrade+do+meu+plano" target="_blank" style={{background:T.acc,color:"#fff",padding:"12px 24px",borderRadius:10,textDecoration:"none",fontWeight:700}}>💬 Fazer upgrade</a>
+          </div>;
+          
           const total=convs.length;
           const resolved=convs.filter(c=>c.status==="resolved").length;
           const transferred=convs.filter(c=>c.status==="human").length;
