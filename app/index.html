@@ -535,6 +535,24 @@ function Dashboard({user,cdata}){
   };
 
   const [notifying,setNotifying]=useState(null);
+
+  const archiveConv=async(convId)=>{
+    if(!window.__fb)return;
+    const fb=window.__fb;
+    await fb.updateDoc(fb.doc(fb.db,"clinicas",user.uid,"conversas",convId),{archived:true,archivedAt:new Date().toISOString()});
+  };
+
+  const deleteConv=async(convId)=>{
+    if(!window.__fb)return;
+    if(!window.confirm("Excluir esta conversa permanentemente?"))return;
+    const fb=window.__fb;
+    await fb.deleteDoc(fb.doc(fb.db,"clinicas",user.uid,"conversas",convId));
+  };
+
+  const [showArchived,setShowArchived]=useState(false);
+  const activeConvs=convs.filter(c=>!c.archived);
+  const archivedConvs=convs.filter(c=>c.archived);
+
   const cancelAppointment=async(aptId,notify)=>{
     if(notify){
       setNotifying(aptId);
@@ -764,7 +782,11 @@ function Dashboard({user,cdata}){
                     <Av ini={(c.name||"?")[0]} c={T.acc} sz={34}/>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontWeight:600,fontSize:12,color:T.txt}}>{c.name||"Paciente"}</span><span style={{color:T.mut,fontSize:10}}>{c.time||""}</span></div>
-                      <div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{color:T.mut,fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{c.last||""}</span><Bdg status={c.status||"bot"}/></div>
+                      <div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{color:T.mut,fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{c.last||""}</span><div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <Bdg status={c.status||"bot"}/>
+                        <button onClick={e=>{e.stopPropagation();archiveConv(c.id);}} title={c.archived?"Desarquivar":"Arquivar"} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:"1px 3px",opacity:0.6,lineHeight:1}}>{c.archived?"📤":"📦"}</button>
+                        <button onClick={e=>{e.stopPropagation();deleteConv(c.id);}} title="Excluir" style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:"1px 3px",opacity:0.6,lineHeight:1}}>🗑️</button>
+                      </div></div>
                     </div>
                   </div>
                 </div>)
