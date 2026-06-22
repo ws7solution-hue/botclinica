@@ -36,11 +36,12 @@ nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop
 .btn-white{background:#fff;color:var(--blue)}
 .btn-white:hover{background:var(--blue-light)}
 
-.hero{background:linear-gradient(160deg,var(--blue) 0%,#0E5490 100%);padding:90px 5% 80px;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/svg%3E")}
+.hero{background:linear-gradient(160deg,var(--blue) 0%,#0E5490 100%);padding:90px 5% 80px;text-align:center;position:relative;overflow:hidden;isolation:isolate}
+.hero::before{content:'';position:absolute;inset:0;z-index:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/svg%3E")}
+.hero>*{position:relative;z-index:1}
 .hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:6px 16px;color:#fff;font-size:13px;font-weight:500;margin-bottom:24px}
 .hero-badge span{width:8px;height:8px;border-radius:50%;background:#4ADE80;display:inline-block;animation:pulse 2s infinite}
-.hero h1{font-size:clamp(32px,5vw,56px);font-weight:800;color:#fff;line-height:1.15;margin-bottom:20px;max-width:780px;margin-left:auto;margin-right:auto}
+.hero h1{font-size:clamp(32px,5vw,56px);font-weight:800;color:#ffffff !important;line-height:1.15;margin-bottom:20px;max-width:780px;margin-left:auto;margin-right:auto}
 .hero h1 em{font-style:normal;color:#7FD4F8}
 .hero p{font-size:18px;color:rgba(255,255,255,0.82);max-width:540px;margin:0 auto 36px;line-height:1.7}
 .hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
@@ -193,8 +194,8 @@ footer{background:#0D1828;padding:48px 5% 32px}
   <h1>Sua clínica atendendo<br/><em>24h pelo WhatsApp</em><br/>sem recepcionista</h1>
   <p>Agendamentos, confirmações e dúvidas respondidas automaticamente. Seus pacientes atendidos na hora, sua equipe focada no que importa.</p>
   <div class="hero-btns">
-    <a href="https://wa.me/5531982158450?text=Quero+testar+o+BotClínica+grátis" target="_blank" class="btn btn-white btn-lg">Testar grátis por 14 dias</a>
-    <a href="#como-funciona" class="btn btn-lg" style="color:#fff;border:1.5px solid rgba(255,255,255,0.4)">Ver como funciona</a>
+    <a href="https://wa.me/5531982158450?text=Quero+uma+demo+grátis+do+BotClínica" target="_blank" class="btn btn-white btn-lg">Demo grátis pelo WhatsApp</a>
+    <a href="#como-funciona" class="btn btn-lg" style="color:#fff;border:1.5px solid rgba(255,255,255,0.4)">Ver demo agora</a>
   </div>
   <div class="hero-numbers">
     <div class="hero-num"><strong>92%</strong><span>das perguntas<br/>respondidas pelo bot</span></div>
@@ -343,7 +344,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
         <a href="https://wa.me/5531982158450?text=Quero+saber+sobre+o+plano+Clínica" target="_blank" class="btn btn-outline" style="width:100%;justify-content:center">Falar com consultor</a>
       </div>
     </div>
-    <p style="color:var(--muted);font-size:13px;margin-top:24px">✓ 14 dias grátis em todos os planos &nbsp;·&nbsp; ✓ Cancele quando quiser &nbsp;·&nbsp; ✓ Sem taxa de instalação</p>
+    <p style="color:var(--muted);font-size:13px;margin-top:24px">✓ Demo grátis em todos os planos &nbsp;·&nbsp; ✓ Cancele quando quiser &nbsp;·&nbsp; ✓ Sem taxa de instalação</p>
   </div>
 </section>
 
@@ -400,7 +401,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Posso cancelar quando quiser?<span class="faq-icon">+</span></div>
-        <div class="faq-a">Sim, sem burocracia. Sem contrato mínimo, sem multa. Com 14 dias grátis pra testar, acreditamos que você vai querer ficar.</div>
+        <div class="faq-a">Sim, sem burocracia. Sem contrato mínimo, sem multa. Com Demo grátis pra testar, acreditamos que você vai querer ficar.</div>
       </div>
     </div>
   </div>
@@ -410,11 +411,11 @@ footer{background:#0D1828;padding:48px 5% 32px}
 <section class="cta-section">
   <div style="max-width:700px;margin:0 auto">
     <h2>Pronto pra automatizar o atendimento?</h2>
-    <p>Comece grátis por 14 dias. Sem cartão de crédito. Configuramos tudo pra você.</p>
-    <a href="https://wa.me/5531982158450?text=Quero+testar+o+BotClínica+grátis+por+14+dias" target="_blank" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15)">
-      💬 Quero testar grátis agora
+    <p>Veja o BotClínica funcionando agora mesmo. Demo grátis pelo WhatsApp em minutos.</p>
+    <a href="https://wa.me/5531982158450?text=Quero+uma+demo+grátis+do+BotClínica" target="_blank" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15)">
+      💬 Quero uma demo grátis agora
     </a>
-    <p class="cta-note">✓ 14 dias grátis &nbsp;·&nbsp; ✓ Sem cartão &nbsp;·&nbsp; ✓ Configuração feita por nós</p>
+    <p class="cta-note">✓ Demo grátis &nbsp;·&nbsp; ✓ Sem cartão &nbsp;·&nbsp; ✓ Configuração feita por nós</p>
   </div>
 </section>
 
