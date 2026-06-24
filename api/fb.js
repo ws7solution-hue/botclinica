@@ -1,20 +1,25 @@
 // Vercel serverless function — proxy Firebase REST
-// Browser chama /api/fb, servidor chama Firebase (sem CORS)
 
-const API_KEY = "AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew";
+const API_KEY    = "AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew";
 const PROJECT_ID = "botclinica-60b6f";
-const FS = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+const FS  = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+const AUTH_URL = "https://identitytoolkit.googleapis.com/v1/accounts";
 
 const ENDPOINTS = {
-  signIn:       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`,
-  signUp:       `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  lookup:       `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${API_KEY}`,
-  reset:        `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${API_KEY}`,
+  signIn:       `${AUTH_URL}:signInWithPassword?key=${API_KEY}`,
+  signUp:       `${AUTH_URL}:signUp?key=${API_KEY}`,
+  lookup:       `${AUTH_URL}:lookup?key=${API_KEY}`,
+  reset:        `${AUTH_URL}:sendOobCode?key=${API_KEY}`,
   refreshToken: `https://securetoken.googleapis.com/v1/token?key=${API_KEY}`,
 };
 
-function firestoreUrl(uid) {
-  return `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/clinicas/${uid}?key=${API_KEY}`;
+// Obtém token de serviço do admin (conta de email/senha embutida apenas para operações admin)
+// Alternativa sem service account: usa o próprio token do usuário ou API key
+async function fsReq(path, opts = {}, token = null) {
+  const url = `${FS}/${path}?key=${API_KEY}`;
+  const hdrs = { "Content-Type": "application/json" };
+  if (token) hdrs["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...opts, headers: { ...hdrs, ...(opts.headers || {}) } });
 }
 
 function toFsFields(obj) {
@@ -29,117 +34,128 @@ function toFsFields(obj) {
   return f;
 }
 
+function emailToKey(email) {
+  return email.toLowerCase().replace(/[@.]/g, "_");
+}
+
 module.exports = async (req, res) => {
-  // CORS — permite só nosso domínio
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")   return res.status(405).json({ error: "Method not allowed" });
 
   const { action, payload } = req.body || {};
 
   try {
-    // --- AUTH ACTIONS ---
-    if (["signIn", "signUp", "lookup", "reset"].includes(action)) {
+    // ── AUTH ──────────────────────────────────────────────
+    if (["signIn","signUp","lookup","reset"].includes(action)) {
       const r = await fetch(ENDPOINTS[action], {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(200).json(await r.json());
     }
 
-    // --- REFRESH TOKEN ---
     if (action === "refreshToken") {
       const r = await fetch(ENDPOINTS.refreshToken, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(payload.refresh_token)}`,
       });
-      const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(200).json(await r.json());
     }
 
-    // --- FIRESTORE SET CLINIC ---
+    // ── FIRESTORE: clínica ────────────────────────────────
     if (action === "setClinic") {
       const { uid, data: clinicData, token } = payload;
-      const hdrs = { "Content-Type": "application/json" };
-      if (token) hdrs["Authorization"] = `Bearer ${token}`;
-      const r = await fetch(firestoreUrl(uid), {
+      const r = await fsReq(`clinicas/${uid}`, {
         method: "PATCH",
-        headers: hdrs,
         body: JSON.stringify({ fields: toFsFields(clinicData) }),
-      });
-      const data = await r.json();
-      return res.status(200).json(data);
+      }, token);
+      return res.status(200).json(await r.json());
     }
 
-    // --- GET PLANO ---
+    // ── PLANO: ler ────────────────────────────────────────
     if (action === "getPlano") {
-      const { email } = payload;
+      const { email, token } = payload;
       if (!email) return res.status(200).json({ plano: "starter" });
-      const emailKey = email.replace(/[@.]/g, "_");
-      const r = await fetch(`${FS}/acessos_autorizados/${emailKey}?key=${API_KEY}`);
+      const key = emailToKey(email);
+      const r = await fsReq(`acessos_autorizados/${key}`, {}, token);
       const d = await r.json();
+      if (d.error) {
+        console.log("getPlano err:", d.error.code, d.error.message, "| key:", key);
+        // Se erro 404 = documento não existe → starter
+        if (d.error.code === 404 || d.error.status === "NOT_FOUND") {
+          return res.status(200).json({ plano: "starter" });
+        }
+        // Se erro de permissão, tenta sem token (regras podem permitir leitura pública)
+        const r2 = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`);
+        const d2 = await r2.json();
+        const plano2 = d2.fields?.plano?.stringValue || "starter";
+        return res.status(200).json({ plano: plano2 });
+      }
       const plano = d.fields?.plano?.stringValue || "starter";
       return res.status(200).json({ plano });
     }
 
-    // --- LIST CLIENTS ---
+    // ── ADMIN: listar clientes ────────────────────────────
     if (action === "listClients") {
-      const r = await fetch(`${FS}/acessos_autorizados?key=${API_KEY}`);
-      const d = await r.json();
+      // Tenta com e sem token
+      const { token } = payload || {};
+      let r = await fsReq(`acessos_autorizados`, {}, token);
+      let d = await r.json();
+      if (d.error) {
+        r = await fetch(`${FS}/acessos_autorizados?key=${API_KEY}`);
+        d = await r.json();
+      }
       const docs = d.documents || [];
-      const clients = docs.map(doc => {
-        const parts = doc.name.split("/");
-        const emailKey = parts[parts.length - 1];
-        const email = emailKey.replace(/_/g, ".").replace(/\.(\w+)$/, (m, tld) => "@" + tld.replace(/\./g, "."));
-        // Reconstruct email properly
-        const emailClean = emailKey.replace(/_at_/gi, "@").replace(/(.*?)_([^_]+)$/, "$1@$2").replace(/_/g, ".");
-        return {
-          email: doc.fields?.email?.stringValue || emailKey.replace(/_/g, "."),
-          plano: doc.fields?.plano?.stringValue || "starter",
-          createdAt: doc.fields?.createdAt?.stringValue || ""
-        };
-      });
+      const clients = docs.map(doc => ({
+        email: doc.fields?.email?.stringValue || doc.name.split("/").pop().replace(/_/g, "."),
+        plano: doc.fields?.plano?.stringValue || "starter",
+        createdAt: doc.fields?.createdAt?.stringValue || "",
+      }));
       return res.status(200).json({ clients });
     }
 
-    // --- SET ACCESS ---
+    // ── ADMIN: liberar/atualizar acesso ──────────────────
     if (action === "setAccess") {
       const { email, plano } = payload;
-      if (!email) return res.status(400).json({ error: "Email required" });
-      const emailKey = email.replace(/[@.]/g, "_");
-      const r = await fetch(`${FS}/acessos_autorizados/${emailKey}?key=${API_KEY}`, {
+      if (!email) return res.status(400).json({ error: "Email obrigatório" });
+      const key = emailToKey(email);
+      const body = JSON.stringify({
+        fields: {
+          email:     { stringValue: email.toLowerCase() },
+          plano:     { stringValue: plano || "starter" },
+          createdAt: { stringValue: new Date().toISOString() },
+        }
+      });
+      // Tenta PATCH (com e sem token)
+      let r = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fields: {
-            email: { stringValue: email },
-            plano: { stringValue: plano || "starter" },
-            createdAt: { stringValue: new Date().toISOString() }
-          }
-        })
+        body,
       });
-      const d = await r.json();
-      if (d.error) return res.status(200).json({ error: d.error.message });
-      return res.status(200).json({ ok: true });
+      let d = await r.json();
+      if (d.error) {
+        console.log("setAccess err:", d.error.message, "| key:", key, "| plano:", plano);
+        return res.status(200).json({ error: d.error.message });
+      }
+      return res.status(200).json({ ok: true, email, plano, key });
     }
 
-    // --- REMOVE ACCESS ---
+    // ── ADMIN: remover acesso ─────────────────────────────
     if (action === "removeAccess") {
       const { email } = payload;
-      if (!email) return res.status(400).json({ error: "Email required" });
-      const emailKey = email.replace(/[@.]/g, "_");
-      await fetch(`${FS}/acessos_autorizados/${emailKey}?key=${API_KEY}`, { method: "DELETE" });
+      if (!email) return res.status(400).json({ error: "Email obrigatório" });
+      const key = emailToKey(email);
+      await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`, { method: "DELETE" });
       return res.status(200).json({ ok: true });
     }
 
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
+    console.error("fb.js error:", err.message);
     return res.status(500).json({ error: err.message });
   }
 };

@@ -709,6 +709,7 @@ function App(_ref) {
     msg: "Olá {nome}! 😊 Lembrete da sua consulta com {medico} amanhã às {hora}. Confirme respondendo SIM."
   });
   const [simDoc, setSimDoc] = useState(DOCS0[0] || null);
+  useEffect(() => { if (!simDoc && docs.length > 0) setSimDoc(docs[0]); }, [docs]);
   const [simMsgs, setSimMsgs] = useState([{
     f: "b",
     t: "Olá! 😊 Bem-vinda à Clínica Saúde Total. Sou Sofia, assistente da Dra. Ana. Como posso ajudar?"
@@ -2463,7 +2464,7 @@ function App(_ref) {
       onClick: function(){ go("medicos"); },
       style: {background:T.accent,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",fontSize:14,fontWeight:700,cursor:"pointer"}
     }, "Ir para Médicos")
-  ), docs.length > 0 && /*#__PURE__*/React.createElement("div", {
+  ), docs.length > 0 && simDoc && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 18
     }
@@ -3584,13 +3585,18 @@ function AppWrapper({user}) {
       loadingPlano = _React$useState2[0],
       setLoadingPlano = _React$useState2[1];
   React.useEffect(function() {
+    var token = localStorage.getItem("_fbt") || "";
     fetch("/api/fb", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({action: "getPlano", payload: {email: user.email}})
+      body: JSON.stringify({action: "getPlano", payload: {email: user.email, token: token}})
     }).then(function(r){ return r.json(); })
-      .then(function(d){ if(d.plano){ var p=d.plano.toLowerCase(); setPlano(p); document.body.setAttribute('data-plano', p); } else { document.body.setAttribute('data-plano','starter'); } })
-      .catch(function(){})
+      .then(function(d){ 
+        var p = (d.plano || "starter").toLowerCase(); 
+        setPlano(p); 
+        document.body.setAttribute('data-plano', p);
+      })
+      .catch(function(e){ console.error("getPlano error:", e); document.body.setAttribute('data-plano','starter'); })
       .finally(function(){ setLoadingPlano(false); });
   }, [user.email]);
   if (loadingPlano) return null;
