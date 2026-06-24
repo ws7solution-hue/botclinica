@@ -62,14 +62,6 @@ nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop
 .btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue);width:100%;padding:13px;border-radius:10px;font-size:15px}
 .btn-outline:hover{background:var(--blue-light)}
 
-/* PAGAMENTO */
-.pay-section{max-width:700px;margin:0 auto;padding:0 20px 16px;display:none}
-.pay-box{background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow)}
-.pay-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:20px;text-align:center}
-.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.pay-card{background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:.2s;text-decoration:none;color:inherit;display:block}
-.pay-card:hover{border-color:var(--blue);background:var(--blue-light);transform:translateY(-2px)}
-.pay-card.pix:hover{border-color:var(--green);background:var(--green-light)}
 .pay-icon{font-size:32px;margin-bottom:10px}
 .pay-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
 .pay-sub{font-size:12px;color:var(--muted)}
@@ -160,7 +152,7 @@ footer a{color:var(--blue)}
         <li>Notificações em tempo real</li>
         <li>Suporte por e-mail</li>
       </ul>
-      <a href="https://mpago.la/2nie3Qn" target="_blank" class="btn btn-outline" id="btn1">Começar agora</a>
+      <a href="https://mpago.la/2nie3Qn" target="_blank" class="btn btn-outline">Começar agora</a>
     </div>
 
     <!-- PROFISSIONAL (destaque) -->
@@ -181,7 +173,7 @@ footer a{color:var(--blue)}
         <li>Relatórios e métricas</li>
         <li>Suporte prioritário</li>
       </ul>
-      <a href="https://mpago.la/2tFxdmw" target="_blank" class="btn btn-primary" id="btn2">Começar agora</a>
+      <a href="https://mpago.la/2tFxdmw" target="_blank" class="btn btn-primary">Começar agora</a>
     </div>
 
     <!-- CLÍNICA -->
@@ -201,24 +193,12 @@ footer a{color:var(--blue)}
         <li>Suporte WhatsApp</li>
         <li>Onboarding presencial</li>
       </ul>
-      <a href="https://mpago.la/1qHaMTD" target="_blank" class="btn btn-outline" id="btn3">Começar agora</a>
+      <a href="https://mpago.la/1qHaMTD" target="_blank" class="btn btn-outline">Começar agora</a>
     </div>
 
   </div>
 
   <!-- FORMAS DE PAGAMENTO -->
-  <div style="max-width:700px;margin:32px auto 0;padding:0 20px">
-    <div class="pay-box" id="pay-section" style="display:none">
-      <div class="pay-title" id="pay-title">Como deseja pagar?</div>
-      <div class="pay-methods" style="grid-template-columns:1fr">
-        <a href="#" class="pay-card" id="btn-mp" onclick="irMercadoPago();return false">
-          <div class="pay-icon">💳</div>
-          <div class="pay-name">Cartão / PIX</div>
-          <div class="pay-sub">Mercado Pago · PIX e parcelamento disponíveis</div>
-        </a>
-      </div>
-      </div>
-  </div>
 </section>
 
 <!-- GARANTIA -->
@@ -247,31 +227,7 @@ footer a{color:var(--blue)}
 </footer>
 
 <script>
-var planoSelecionado=null;
-var precos={'Starter':297,'Profissional':497,'Clínica':897};
-var linksMp={'Starter':'https://mpago.la/2nie3Qn','Profissional':'https://mpago.la/2tFxdmw','Clínica':'https://mpago.la/1qHaMTD'};
-
-
-// Botões dos planos abrem o seletor de forma de pagamento
-document.getElementById('btn1').addEventListener('click',function(e){e.preventDefault();abrirPagamento('Starter');});
-document.getElementById('btn2').addEventListener('click',function(e){e.preventDefault();abrirPagamento('Profissional');});
-document.getElementById('btn3').addEventListener('click',function(e){e.preventDefault();abrirPagamento('Clínica');});
-
-function abrirPagamento(plano){
-  planoSelecionado=plano;
-  var ps=document.getElementById('pay-section');
-  document.getElementById('pay-title').textContent='Plano '+plano+' — R$ '+precos[plano]+'/mês';
-  ps.style.display='block';
-  setTimeout(function(){ps.scrollIntoView({behavior:'smooth',block:'center'});},100);
-}
-function irMercadoPago(){
-  if(!planoSelecionado)return;
-  window.open(linksMp[planoSelecionado],'_blank');
-}
-
-// ?plano= na URL
-var p=new URLSearchParams(window.location.search).get('plano');
-if(p&&precos[p])setTimeout(function(){abrirPagamento(p);},400);
+// checkout limpo
 </script>
 </body>
 </html>
