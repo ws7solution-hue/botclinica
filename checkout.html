@@ -33,15 +33,6 @@ nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop
 .hero h1{font-size:clamp(26px,4vw,40px);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
 .hero p{font-size:16px;color:rgba(255,255,255,.82);max-width:480px;margin:0 auto}
 
-/* TOGGLE */
-.toggle-wrap{display:flex;align-items:center;justify-content:center;gap:12px;margin:36px 0 0;background:rgba(255,255,255,.1);border-radius:20px;padding:10px 20px;width:fit-content;margin-left:auto;margin-right:auto}
-.toggle-label{font-size:14px;color:rgba(255,255,255,.6);font-weight:500}
-.toggle-label.active{color:#fff;font-weight:700}
-.toggle{width:44px;height:24px;background:rgba(255,255,255,.3);border-radius:12px;position:relative;cursor:pointer;border:none;transition:.3s}
-.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s}
-.toggle.anual::after{left:23px}
-.toggle.anual{background:var(--green)}
-.badge-anual{background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px}
 
 /* PLANOS */
 .plans-section{padding:48px 5%;background:var(--bg)}
@@ -58,7 +49,6 @@ nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop
 .plan-price .currency{font-size:16px;font-weight:700;color:var(--text)}
 .plan-price .value{font-size:48px;font-weight:800;color:var(--text);line-height:1}
 .plan-price .period{font-size:14px;color:var(--muted);margin-left:2px}
-.plan-price-anual{font-size:12px;color:var(--green);font-weight:600;margin-bottom:18px;min-height:18px}
 .plan-desc{font-size:13px;color:var(--blue);font-weight:500;margin-bottom:22px;line-height:1.5}
 .plan-features{list-style:none;margin-bottom:28px}
 .plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:14px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border)}
@@ -143,12 +133,6 @@ footer a{color:var(--blue)}
   <div class="hero-badge">🔒 Pagamento 100% seguro · Cancele quando quiser</div>
   <h1>Escolha o plano ideal<br>para sua clínica</h1>
   <p>Sem taxa de instalação. Sem contrato mínimo. Ativo em até 24h.</p>
-  <div class="toggle-wrap">
-    <span class="toggle-label active" id="lbl-mensal">Mensal</span>
-    <button class="toggle" id="toggle-btn" onclick="togglePeriodo()"></button>
-    <span class="toggle-label" id="lbl-anual">Anual</span>
-    <span class="badge-anual">2 meses grátis</span>
-  </div>
 </section>
 
 <!-- PLANOS -->
@@ -167,7 +151,7 @@ footer a{color:var(--blue)}
         <span class="value" id="p1-val">297</span>
         <span class="period">/mês</span>
       </div>
-      <div class="plan-price-anual" id="p1-anual"></div>
+      
       <div class="plan-desc">Ideal pra clínicas pequenas que querem começar</div>
       <ul class="plan-features">
         <li>1 número de WhatsApp</li>
@@ -190,7 +174,7 @@ footer a{color:var(--blue)}
         <span class="value" id="p2-val">497</span>
         <span class="period">/mês</span>
       </div>
-      <div class="plan-price-anual" id="p2-anual"></div>
+      
       <div class="plan-desc">Para clínicas que querem automatizar de verdade</div>
       <ul class="plan-features">
         <li>1 número de WhatsApp</li>
@@ -211,7 +195,7 @@ footer a{color:var(--blue)}
         <span class="value" id="p3-val">897</span>
         <span class="period">/mês</span>
       </div>
-      <div class="plan-price-anual" id="p3-anual"></div>
+      
       <div class="plan-desc">Para clínicas com múltiplos médicos e alto volume</div>
       <ul class="plan-features">
         <li>Múltiplos médicos</li>
@@ -230,16 +214,11 @@ footer a{color:var(--blue)}
   <div style="max-width:700px;margin:32px auto 0;padding:0 20px">
     <div class="pay-box" id="pay-section" style="display:none">
       <div class="pay-title" id="pay-title">Como deseja pagar?</div>
-      <div class="pay-methods">
+      <div class="pay-methods" style="grid-template-columns:1fr">
         <a href="#" class="pay-card" id="btn-mp" onclick="irMercadoPago();return false">
           <div class="pay-icon">💳</div>
-          <div class="pay-name">Cartão / Boleto</div>
-          <div class="pay-sub">Parcelamento disponível</div>
-        </a>
-        <a href="#" class="pay-card pix" onclick="abrirPix();return false">
-          <div class="pay-icon">⚡</div>
-          <div class="pay-name">PIX</div>
-          <div class="pay-sub">Aprovação imediata · Sem taxa</div>
+          <div class="pay-name">Cartão / PIX</div>
+          <div class="pay-sub">Mercado Pago · PIX disponível · Parcelamento no cartão</div>
         </a>
       </div>
     </div>
@@ -266,11 +245,6 @@ footer a{color:var(--blue)}
   </div>
 </section>
 
-<!-- MODAL PIX -->
-<div class="modal-overlay" id="modal-pix">
-  <div class="modal">
-    <h3>⚡ Pagar via PIX</h3>
-    <div class="modal-sub" id="modal-plan-desc">Plano Profissional — R$ 497/mês</div>
     <div class="pix-key" id="pix-key">contato@botclinica.com.br</div>
     <button class="btn-copy" onclick="copiarPix()">📋 Copiar chave PIX</button>
     <div class="copied" id="copied-msg">✅ Copiado! Abra seu banco e pague.</div>
@@ -288,23 +262,9 @@ footer a{color:var(--blue)}
 </footer>
 
 <script>
-var anual=false;
 var planoSelecionado=null;
-var precos={'Starter':{m:297,a:247},'Profissional':{m:497,a:414},'Clínica':{m:897,a:747}};
+var precos={'Starter':297,'Profissional':497,'Clínica':897};
 var linksMp={'Starter':'https://mpago.la/2nie3Qn','Profissional':'https://mpago.la/2tFxdmw','Clínica':'https://mpago.la/1qHaMTD'};
-
-function togglePeriodo(){
-  anual=!anual;
-  document.getElementById('toggle-btn').classList.toggle('anual',anual);
-  document.getElementById('lbl-mensal').classList.toggle('active',!anual);
-  document.getElementById('lbl-anual').classList.toggle('active',anual);
-  document.getElementById('p1-val').textContent=anual?precos.Starter.a:precos.Starter.m;
-  document.getElementById('p2-val').textContent=anual?precos.Profissional.a:precos.Profissional.m;
-  document.getElementById('p3-val').textContent=anual?precos['Clínica'].a:precos['Clínica'].m;
-  document.getElementById('p1-anual').textContent=anual?'R$ '+(precos.Starter.a*12)+'/ano — economize R$ '+((precos.Starter.m-precos.Starter.a)*12):'';
-  document.getElementById('p2-anual').textContent=anual?'R$ '+(precos.Profissional.a*12)+'/ano — economize R$ '+((precos.Profissional.m-precos.Profissional.a)*12):'';
-  document.getElementById('p3-anual').textContent=anual?'R$ '+(precos['Clínica'].a*12)+'/ano — economize R$ '+((precos['Clínica'].m-precos['Clínica'].a)*12):'';
-}
 
 // Botões dos planos abrem o seletor de forma de pagamento
 document.getElementById('btn1').addEventListener('click',function(e){e.preventDefault();abrirPagamento('Starter');});
@@ -313,31 +273,23 @@ document.getElementById('btn3').addEventListener('click',function(e){e.preventDe
 
 function abrirPagamento(plano){
   planoSelecionado=plano;
-  var preco=anual?precos[plano].a:precos[plano].m;
-  document.getElementById('pay-title').textContent='Plano '+plano+' — R$ '+preco+'/mês · Como deseja pagar?';
+  var preco=precos[plano];
+  document.getElementById('pay-title').textContent='Plano '+plano+' — R$ '+preco+'/mês';
   var ps=document.getElementById('pay-section');
   ps.style.display='block';
   setTimeout(function(){ps.scrollIntoView({behavior:'smooth',block:'center'});},100);
+});},100);
 }
 function irMercadoPago(){
   if(!planoSelecionado)return;
   window.open(linksMp[planoSelecionado],'_blank');
 }
-function abrirPix(){
-  if(!planoSelecionado)return;
-  var preco=anual?precos[planoSelecionado].a:precos[planoSelecionado].m;
-  document.getElementById('modal-plan-desc').textContent='Plano '+planoSelecionado+' — R$ '+preco+'/mês';
-  document.getElementById('modal-pix').classList.add('open');
-}
-function fecharModal(){document.getElementById('modal-pix').classList.remove('open');}
-function copiarPix(){
-  navigator.clipboard.writeText('contato@botclinica.com.br').then(function(){
-    var el=document.getElementById('copied-msg');
-    el.style.display='block';
-    setTimeout(function(){el.style.display='none';},3000);
+
+
+,3000);
   });
 }
-document.getElementById('modal-pix').addEventListener('click',function(e){if(e.target===this)fecharModal();});
+
 
 // ?plano= na URL
 var p=new URLSearchParams(window.location.search).get('plano');
