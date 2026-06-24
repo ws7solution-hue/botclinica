@@ -819,7 +819,7 @@ function Toast({
 /* ══ APP ══ */
 function App() {
   useEffect(() => {
-    document.getElementById("load").style.display = "none";
+    var _l=document.getElementById("load");if(_l)_l.style.display="none";
   }, []);
   const [dark, setDark] = useState(false);
   const [sideOpen, setSideOpen] = useState(true);
