@@ -3,6 +3,7 @@
 
 const API_KEY = "AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew";
 const PROJECT_ID = "botclinica-60b6f";
+const FS = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 const ENDPOINTS = {
   signIn:       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`,
