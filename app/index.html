@@ -92,6 +92,31 @@ html,body{height:var(--vh)}
 })();
 </script>
 
+
+<style id="plan-css">
+/* Starter: bloqueia aba relatórios e lembretes */
+body[data-plano="starter"] .plan-lock-rel { pointer-events:none; opacity:.35; }
+body[data-plano="starter"] .plan-banner-rel { display:flex !important; }
+body[data-plano="starter"] .plan-banner-lem { display:flex !important; }
+body[data-plano="starter"] .plan-lock-lem { display:none !important; }
+body:not([data-plano="starter"]) .plan-banner-rel { display:none !important; }
+body:not([data-plano="starter"]) .plan-banner-lem { display:none !important; }
+/* Badge upgrade só para Starter */
+body:not([data-plano="starter"]) .plan-upgrade-link { display:none !important; }
+/* Banners de bloqueio */
+.plan-banner-rel, .plan-banner-lem {
+  display:none;
+  background:#FFFBEB;
+  border:1px solid #D97706;
+  border-radius:12px;
+  padding:20px;
+  text-align:center;
+  margin-bottom:16px;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+</style>
 </head>
 <body>
 <div id="root">
@@ -632,7 +657,18 @@ function Toast({
 }
 
 /* ══ APP ══ */
-function App() {
+// ── CONTROLE DE PLANOS ──
+var PLAN_LIMITS = {
+  starter:      {maxDocs:1,  conversas:300,  lembretes:false, relatorios:false},
+  profissional: {maxDocs:5,  conversas:null, lembretes:true,  relatorios:true},
+  clinica:      {maxDocs:null,conversas:null,lembretes:true,  relatorios:true}
+};
+function getLimits(p){ return PLAN_LIMITS[p] || PLAN_LIMITS.starter; }
+
+
+function App(_ref) {
+  var _ref$plano = _ref === void 0 ? {} : _ref, plano = _ref$plano.plano === void 0 ? "starter" : _ref$plano.plano;
+  var lim = getLimits(plano);
   useEffect(() => {
     var _l=document.getElementById("load");if(_l)_l.style.display="none";
   }, []);
@@ -956,15 +992,19 @@ function App() {
       letterSpacing: ".8px",
       fontWeight: 600
     }
-  }, "Menu")), nav.map(({
+  }, "Menu")), /*#__PURE__*/React.createElement("div", {style:{margin:"0 12px 12px",background:"rgba(26,111,168,.1)",borderRadius:8,padding:"7px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+      React.createElement("span",{style:{fontSize:11,fontWeight:700,color:"#1A6FA8"}},plano==="clinica"?"🏥 Clínica":plano==="profissional"?"⭐ Profissional":"🌱 Starter"),
+      plano==="starter"&&React.createElement("a",{href:"https://botclinica.com.br/checkout",target:"_blank",style:{fontSize:10,color:"#1A6FA8",fontWeight:600,textDecoration:"underline"}},"upgrade ↗")
+    ), nav.map(({
     id,
     lb,
     Ic
   }) => {
     const isH = id === "conversas" && hCount > 0;
+              const isLocked = id === "metricas" && !lim.relatorios;
     return /*#__PURE__*/React.createElement("button", {
       key: id,
-      onClick: () => go(id),
+      onClick: () => { if(isLocked){ alert("Relatórios disponível no plano Profissional ou superior.\nAcesse botclinica.com.br/checkout para upgrade."); return; } go(id); },
       style: {
         width: "100%",
         display: "flex",
@@ -1974,7 +2014,7 @@ function App() {
       margin: "3px 0 0"
     }
   }, "Gerencie os médicos e o bot de cada um")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowAdd(p => !p),
+    onClick: () => { if(lim.maxDocs !== null && docs.length >= lim.maxDocs){ alert("Seu plano permite até " + lim.maxDocs + " médico" + (lim.maxDocs > 1 ? "s" : "") + ".\n\nAcesse botclinica.com.br/checkout para upgrade."); return; } setShowAdd(p => !p); },
     style: {
       background: T.accent,
       border: "none",
@@ -3040,7 +3080,13 @@ function App() {
       overflowY: "auto",
       padding: "20px 22px"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {style:{background:"#FFFBEB",border:"1px solid #D97706",borderRadius:12,padding:"20px 24px",textAlign:"center",marginBottom:16,flexDirection:"column",alignItems:"center",gap:8},className:"plan-banner-rel"},
+    React.createElement("div",{style:{fontSize:28,marginBottom:4}},"🔒"),
+    React.createElement("div",{style:{fontWeight:700,fontSize:14,color:"#1A2535"}},"Relatórios e métricas"),
+    React.createElement("div",{style:{fontSize:12,color:"#6B80A0",margin:"4px 0 10px"}},"Disponível no plano Profissional ou superior"),
+    React.createElement("a",{href:"https://botclinica.com.br/checkout",target:"_blank",style:{background:"#1A6FA8",color:"#fff",padding:"8px 20px",borderRadius:8,fontSize:13,fontWeight:700,textDecoration:"none",display:"inline-block"}},"Fazer upgrade ↗")
+  ), /*#__PURE__*/React.createElement("div", {
+    className: "plan-lock-rel",
     style: {
       marginBottom: 22
     }
@@ -3496,8 +3542,30 @@ function Root() {
     }
   }));
   if (!user) return /*#__PURE__*/React.createElement(Login, null);
-  return /*#__PURE__*/React.createElement(App, null);
+  return /*#__PURE__*/React.createElement(AppWrapper, {user: user});
 }
+
+function AppWrapper({user}) {
+  var _React$useState = React.useState("starter"),
+      plano = _React$useState[0],
+      setPlano = _React$useState[1];
+  var _React$useState2 = React.useState(true),
+      loadingPlano = _React$useState2[0],
+      setLoadingPlano = _React$useState2[1];
+  React.useEffect(function() {
+    fetch("/api/fb", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "getPlano", payload: {email: user.email}})
+    }).then(function(r){ return r.json(); })
+      .then(function(d){ if(d.plano){ var p=d.plano.toLowerCase(); setPlano(p); document.body.setAttribute('data-plano', p); } else { document.body.setAttribute('data-plano','starter'); } })
+      .catch(function(){})
+      .finally(function(){ setLoadingPlano(false); });
+  }, [user.email]);
+  if (loadingPlano) return null;
+  return /*#__PURE__*/React.createElement(App, {plano: plano});
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(Root, null));
 
 </script>

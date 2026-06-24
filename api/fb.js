@@ -75,6 +75,17 @@ module.exports = async (req, res) => {
       return res.status(200).json(data);
     }
 
+    // --- GET PLANO ---
+    if (action === "getPlano") {
+      const { email } = payload;
+      if (!email) return res.status(200).json({ plano: "starter" });
+      const emailKey = email.replace(/[.#$[\]]/g, "_");
+      const r = await fetch(`${FS}/acessos_autorizados/${emailKey}?key=${API_KEY}`);
+      const d = await r.json();
+      const plano = d.fields?.plano?.stringValue || "starter";
+      return res.status(200).json({ plano });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
