@@ -708,16 +708,16 @@ function App(_ref) {
     h2: true,
     msg: "Olá {nome}! 😊 Lembrete da sua consulta com {medico} amanhã às {hora}. Confirme respondendo SIM."
   });
-  
-  
-  
+  const [simDoc, setSimDoc] = useState(DOCS0[0] || null);
+  useEffect(() => { if (!simDoc && docs.length > 0) setSimDoc(docs[0]); }, [docs]);
+  const [simMsgs, setSimMsgs] = useState([{
     f: "b",
     t: "Olá! 😊 Bem-vinda à Clínica Saúde Total. Sou Sofia, assistente da Dra. Ana. Como posso ajudar?"
   }]);
-  
+  const [simIn, setSimIn] = useState("");
   const [humanIn, setHumanIn] = useState("");
-  
-  
+  const [simLoad, setSimLoad] = useState(false);
+  const [dots, setDots] = useState(".");
   const [saved, setSaved] = useState(false);
   const [nSvc, setNSvc] = useState("");
   const [toasts, setToasts] = useState([]);
@@ -725,7 +725,11 @@ function App(_ref) {
   const [notPerm, setNotPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [hCount, setHCount] = useState(0);
   const endRef = useRef(null);
-  
+  useEffect(() => {
+    endRef.current?.scrollIntoView({
+      behavior: "smooth"
+    });
+  }, [simMsgs]);
   useEffect(() => {
     if (!simLoad) return;
     const x = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 400);
@@ -781,7 +785,25 @@ function App(_ref) {
       t: `Olá! 😊 Bem-vind${doc.name.startsWith("Dra") ? "a" : "o"} à ${cfg.name}. Sou ${doc.bot}, assistente d${doc.name.startsWith("Dra") ? "a" : "o"} ${doc.name}. Como posso ajudar?`
     }]);
   };
-  
+  const sendSim = async () => {
+    if (!simIn.trim() || simLoad) return;
+    const txt = simIn;
+    setSimIn("");
+    const isH = HKW.some(k => txt.toLowerCase().includes(k));
+    setSimMsgs(p => [...p, {
+      f: "p",
+      t: txt
+    }]);
+    setSimLoad(true);
+    await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
+    setSimMsgs(p => [...p, {
+      f: "b",
+      t: mockAI(txt, simDoc)
+    }]);
+    setSimLoad(false);
+    setDots(".");
+    if (isH) setTimeout(() => triggerAlert("Paciente (demo)", simDoc.name), 500);
+  };
   const sendHumanReply = () => {
     if (!humanIn.trim() || !selConv || selConv.status !== "human") return;
     const txt = humanIn;
@@ -1593,7 +1615,38 @@ function App(_ref) {
     }, /*#__PURE__*/React.createElement(I.Check, {
       s: 11,
       c: ok ? T.green : T.muted
-    }), ok ? "Ativo" : "Off")))))));
+    }), ok ? "Ativo" : "Off")))), /*#__PURE__*/React.createElement("div", {
+      onClick: () => go("dashboard"),
+      style: {
+        background: `linear-gradient(135deg,${T.accent},${T.accentM})`,
+        borderRadius: 14,
+        padding: "16px 17px",
+        cursor: "pointer"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement(I.Zap, {
+      s: 14,
+      c: "#fff"
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#fff",
+        fontWeight: 700,
+        fontSize: 13
+      }
+    }, "Testar o bot agora")), /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: "rgba(255,255,255,.8)",
+        fontSize: 12,
+        margin: 0,
+        lineHeight: 1.5
+      }
+    }, "Simule e demonstre ao cliente.")))));
   })()), page === "conversas" && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2226,6 +2279,27 @@ function App(_ref) {
       fontWeight: 600
     }
   }, doc.active ? "● Online" : "● Inativo"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      changeDoc(doc);
+      go("dashboard");
+    },
+    style: {
+      background: T.accentL,
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      padding: "5px 11px",
+      color: T.accent,
+      fontSize: 11,
+      cursor: "pointer",
+      fontWeight: 600,
+      display: "flex",
+      alignItems: "center",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement(I.Zap, {
+    s: 11,
+    c: T.accent
+  }), " Testar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditDoc(editDoc?.id === doc.id ? null : {
       ...doc
     }),
