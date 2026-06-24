@@ -12,17 +12,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 input,button,textarea,select{font-family:inherit}
 </style>
-
-<!-- React -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-
-<!-- Firebase Compat (sync, no module needed) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
-<!-- Firebase Init (sync) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew",
@@ -32,28 +26,30 @@ firebase.initializeApp({
   messagingSenderId:"770313823693",
   appId:"1:770313823693:web:0efef012ad2d5cb0941084"
 });
-var _auth=firebase.auth();
-var _db=firebase.firestore();
+var _a=firebase.auth(),_d=firebase.firestore();
 window.__fb={
-  auth:_auth,
-  db:_db,
+  auth:_a,db:_d,
   createUserWithEmailAndPassword:function(a,e,p){return a.createUserWithEmailAndPassword(e,p);},
   signInWithEmailAndPassword:function(a,e,p){return a.signInWithEmailAndPassword(e,p);},
   signOut:function(a){return a.signOut();},
-  onAuthStateChanged:function(a,cb){return a.onAuthStateChanged(cb);},
   sendPasswordResetEmail:function(a,e){return a.sendPasswordResetEmail(e);},
-  doc:function(db){var args=Array.prototype.slice.call(arguments,1);return db.doc(args.join('/'));},
+  onAuthStateChanged:function(a,cb){return a.onAuthStateChanged(cb);},
+  doc:function(db,col,id,sub,subId){
+    if(sub&&subId)return db.collection(col).doc(id).collection(sub).doc(subId);
+    return db.collection(col).doc(id);
+  },
   setDoc:function(ref,data){return ref.set(data);},
   getDoc:function(ref){return ref.get().then(function(d){return{exists:function(){return d.exists;},data:function(){return d.data();},id:d.id};});},
-  collection:function(db){var args=Array.prototype.slice.call(arguments,1);return db.collection(args.join('/'));},
+  collection:function(db,col,id,sub){
+    if(id&&sub)return db.collection(col).doc(id).collection(sub);
+    return db.collection(col);
+  },
   addDoc:function(ref,data){return ref.add(data);},
   deleteDoc:function(ref){return ref.delete();},
   updateDoc:function(ref,data){return ref.update(data);},
-  onSnapshot:function(ref,cb){return ref.onSnapshot(function(snap){snap.docs=snap.docs||[];cb(snap);});}
+  onSnapshot:function(ref,cb){return ref.onSnapshot(cb);}
 };
 </script>
-
-<!-- Babel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 </head>
 <body>
@@ -78,7 +74,6 @@ const useT=()=>useContext(Ctx);
 /* ── ICONS ── */
 const ic=d=>(p={})=><svg width={p.s||16} height={p.s||16} viewBox="0 0 24 24" fill="none" stroke={p.c||"currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:d}}/>;
 const I={
-  User2:({s=16,c="#666"})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   Home:ic('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'),
   Msg:ic('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
   User:ic('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'),
@@ -418,8 +413,6 @@ function Dashboard({user,cdata}){
   const [newApt,setNewApt]=useState({patientName:"",patientPhone:"",notes:""});
   const [aptSaved,setAptSaved]=useState(false);
   const [confirmDelete,setConfirmDelete]=useState(null);
-  const [pacientes,setPacientes]=useState([]);
-  const [pacSearch,setPacSearch]=useState("");
   const [plano,setPlano]=useState('Starter');
   const PLANOS={
     Starter:{medicos:1,conversas:300,botPorMedico:false,lembretes:false,relatorios:false,dashboard:false},
@@ -562,41 +555,6 @@ function Dashboard({user,cdata}){
 
   const [notifying,setNotifying]=useState(null);
 
-  const archiveConv=async(convId,isArchived)=>{
-    if(!window.__fb)return;
-    const fb=window.__fb;
-    const val=!isArchived;
-    await fb.updateDoc(fb.doc(fb.db,"clinicas",user.uid,"conversas",convId),{archived:val});
-    setConvs(p=>p.map(c=>c.id===convId?{...c,archived:val}:c));
-  };
-
-  const deleteConv=async(convId)=>{
-    if(!window.__fb)return;
-    if(!window.confirm("Excluir conversa permanentemente?"))return;
-    const fb=window.__fb;
-    await fb.deleteDoc(fb.doc(fb.db,"clinicas",user.uid,"conversas",convId));
-    setConvs(p=>p.filter(c=>c.id!==convId));
-    if(selConv&&selConv.id===convId)setSelConv(null);
-  };
-
-  const [showArchived,setShowArchived]=useState(false);
-  const activeConvs=convs.filter(c=>!c.archived);
-  const archivedConvs=convs.filter(c=>!!c.archived);
-  const [selPac,setSelPac]=useState(null);
-
-  // Load pacientes
-  useEffect(()=>{
-    if(!user||!window.__fb)return;
-    const fb=window.__fb;
-    const unsub=fb.onSnapshot(fb.collection(fb.db,"clinicas",user.uid,"pacientes"),snap=>{
-      setPacientes(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.visits||0)-(a.visits||0)));
-    });
-    return()=>unsub();
-  },[user]);
-
-
-  const cancelAppointment=async(aptId,notify)=>{
-    if(notify){
       setNotifying(aptId);
       try{
         await fetch("/api/cancel-notify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({aptId,clinicUid:user.uid})});
@@ -643,7 +601,7 @@ function Dashboard({user,cdata}){
 
   const filteredConvs=convs.filter(c=>filter==="Todas"||(filter==="Humano"?c.status==="human":filter==="Bot"?c.status==="bot":c.status==="resolved"));
   const fld={width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:8,padding:"9px 12px",color:T.txt,fontSize:13,outline:"none",boxSizing:"border-box"};
-  const nav=[{id:"dashboard",lb:"Visão Geral",Ic:I.Home},{id:"conversas",lb:"Conversas",Ic:I.Msg},{id:"medicos",lb:"Médicos",Ic:I.User},{id:"pacientes",lb:"Pacientes",Ic:I.User2},{id:"agenda",lb:"Agenda",Ic:I.Cal},{id:"simulador",lb:"Testar Bot",Ic:I.Zap},{id:"configurar",lb:"Configurações",Ic:I.Gear},{id:"metricas",lb:"Relatórios",Ic:I.Bar}];
+  const nav=[{id:"dashboard",lb:"Visão Geral",Ic:I.Home},{id:"conversas",lb:"Conversas",Ic:I.Msg},{id:"medicos",lb:"Médicos",Ic:I.User},{id:"agenda",lb:"Agenda",Ic:I.Cal},{id:"simulador",lb:"Testar Bot",Ic:I.Zap},{id:"configurar",lb:"Configurações",Ic:I.Gear},{id:"metricas",lb:"Relatórios",Ic:I.Bar}];
 
   return <Ctx.Provider value={T}>
     <div style={{position:"fixed",top:16,right:16,zIndex:9999}}>
@@ -824,11 +782,7 @@ function Dashboard({user,cdata}){
                     <Av ini={(c.name||"?")[0]} c={T.acc} sz={34}/>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontWeight:600,fontSize:12,color:T.txt}}>{c.name||"Paciente"}</span><span style={{color:T.mut,fontSize:10}}>{c.time||""}</span></div>
-                      <div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{color:T.mut,fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{c.last||""}</span><div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <Bdg status={c.status||"bot"}/>
-                        <button onClick={e=>{e.stopPropagation();archiveConv(c.id,c.archived);}} title={c.archived?"Desarquivar":"Arquivar"} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:"1px 3px",opacity:0.6,lineHeight:1}}>{c.archived?"📤":"📦"}</button>
-                        <button onClick={e=>{e.stopPropagation();deleteConv(c.id);}} title="Excluir" style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:"1px 3px",opacity:0.6,lineHeight:1}}>🗑️</button>
-                      </div></div>
+                      <div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{color:T.mut,fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{c.last||""}</span><Bdg status={c.status||"bot"}/></div>
                     </div>
                   </div>
                 </div>)
@@ -1211,115 +1165,6 @@ function Dashboard({user,cdata}){
           </Card>
         </div>}
 
-        {/* PACIENTES PAGE */}
-        {page==="pacientes"&&(()=>{
-          const filtered=pacientes.filter(p=>{
-            if(!pacSearch)return true;
-            const s=pacSearch.toLowerCase();
-            return(p.name||"").toLowerCase().includes(s)||(p.phone||"").includes(s);
-          });
-          const formatDate=d=>{if(!d)return"—";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`;};
-          return <div style={{flex:1,overflowY:"auto",padding:"20px 22px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div>
-                <h1 style={{color:T.txt,fontSize:20,fontWeight:700,margin:0}}>Pacientes</h1>
-                <p style={{color:T.mut,fontSize:12,margin:"3px 0 0"}}>{pacientes.length} paciente{pacientes.length!==1?"s":""} registrado{pacientes.length!==1?"s":""}</p>
-              </div>
-              <div style={{background:T.accL,border:"1px solid "+T.border,borderRadius:10,padding:"6px 14px",display:"flex",alignItems:"center",gap:6}}>
-                <I.User2 s={13} c={T.acc}/>
-                <span style={{color:T.acc,fontWeight:600,fontSize:12}}>Base de pacientes</span>
-              </div>
-            </div>
-
-            <div style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:16,height:"calc(100vh - 140px)"}}>
-              {/* Lista de pacientes */}
-              <Card style={{display:"flex",flexDirection:"column",overflow:"hidden"}}>
-                <div style={{padding:"12px 14px",borderBottom:"1px solid "+T.border}}>
-                  <input value={pacSearch} onChange={e=>setPacSearch(e.target.value)} placeholder="🔍 Buscar por nome ou telefone..." style={{width:"100%",background:T.sub,border:"1px solid "+T.border,borderRadius:8,padding:"8px 12px",color:T.txt,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-                </div>
-                <div style={{flex:1,overflowY:"auto"}}>
-                  {filtered.length===0
-                    ?<div style={{padding:"30px",textAlign:"center",color:T.mut}}>
-                      <div style={{fontSize:32,marginBottom:8}}>👤</div>
-                      <div style={{fontWeight:600,fontSize:13}}>{pacSearch?"Nenhum resultado":"Nenhum paciente ainda"}</div>
-                      <div style={{fontSize:11,marginTop:4}}>{pacSearch?"Tente outro nome ou telefone":"Pacientes são registrados automaticamente ao agendar"}</div>
-                    </div>
-                    :filtered.map(p=><div key={p.id} onClick={()=>setSelPac(p)} style={{padding:"12px 14px",borderBottom:"1px solid "+T.border,cursor:"pointer",background:selPac&&selPac.id===p.id?T.accL:"transparent",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=T.sub} onMouseLeave={e=>e.currentTarget.style.background=selPac&&selPac.id===p.id?T.accL:"transparent"}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <Av ini={(p.name||"?")[0]} c={T.acc} sz={36}/>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontWeight:600,fontSize:13,color:T.txt,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name||"Sem nome"}</div>
-                          <div style={{color:T.mut,fontSize:11,marginTop:1}}>{p.phone||"—"}</div>
-                        </div>
-                        <div style={{textAlign:"right",flexShrink:0}}>
-                          <div style={{background:T.accL,borderRadius:20,padding:"2px 8px"}}>
-                            <span style={{color:T.acc,fontSize:11,fontWeight:700}}>{p.visits||1}x</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>)
-                  }
-                </div>
-              </Card>
-
-              {/* Perfil do paciente */}
-              {selPac
-                ?<div style={{display:"flex",flexDirection:"column",gap:14,overflowY:"auto"}}>
-                  {/* Header do perfil */}
-                  <Card style={{padding:"20px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
-                      <Av ini={(selPac.name||"?")[0]} c={T.acc} sz={56}/>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:700,fontSize:18,color:T.txt}}>{selPac.name}</div>
-                        <div style={{color:T.mut,fontSize:13,marginTop:2}}>📱 {selPac.phone||"—"}</div>
-                      </div>
-                      <a href={"https://wa.me/"+((selPac.phone||"").replace(/[^0-9]/g,""))} target="_blank" style={{background:"#25D366",border:"none",borderRadius:10,padding:"10px 16px",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,textDecoration:"none",display:"flex",alignItems:"center",gap:6}}>
-                        💬 WhatsApp
-                      </a>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                      {[
-                        [selPac.visits||1,"Visitas",T.acc,T.accL],
-                        [formatDate(selPac.firstVisit),"Primeira consulta",T.grn,T.grnL],
-                        [formatDate(selPac.lastVisit),"Última consulta",T.warn,T.warnL],
-                      ].map(([v,l,c,bg])=><div key={l} style={{background:bg,borderRadius:10,padding:"12px",textAlign:"center"}}>
-                        <div style={{color:c,fontSize:20,fontWeight:700}}>{v}</div>
-                        <div style={{color:T.mut,fontSize:11,marginTop:3}}>{l}</div>
-                      </div>)}
-                    </div>
-                  </Card>
-
-                  {/* Histórico */}
-                  <Card style={{padding:"18px"}}>
-                    <div style={{fontWeight:700,fontSize:13,color:T.txt,marginBottom:14}}>📋 Histórico de consultas</div>
-                    {(()=>{
-                      const apts=agendamentos.filter(a=>(a.patientPhone===selPac.phone||a.patientPhone===(selPac.phone||"").replace("+",""))).sort((a,b)=>b.date.localeCompare(a.date));
-                      if(!apts.length)return <div style={{textAlign:"center",padding:"20px",color:T.mut,fontSize:13}}>Nenhuma consulta registrada ainda.</div>;
-                      return apts.map(a=>{
-                        const[y,mo,d2]=a.date.split("-");
-                        return <div key={a.id} style={{display:"flex",gap:12,padding:"10px 0",borderBottom:"1px solid "+T.border}}>
-                          <div style={{background:a.status==="cancelled"?T.redL:T.grnL,borderRadius:8,padding:"6px 10px",textAlign:"center",flexShrink:0,minWidth:44}}>
-                            <div style={{color:a.status==="cancelled"?T.red:T.grn,fontWeight:700,fontSize:14}}>{d2}</div>
-                            <div style={{color:a.status==="cancelled"?T.red:T.grn,fontSize:10}}>{["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(mo)-1]}</div>
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:600,fontSize:13,color:T.txt}}>{a.docName}</div>
-                            <div style={{color:T.mut,fontSize:11,marginTop:2}}>🕐 {a.time} · {a.status==="cancelled"?"❌ Cancelada":"✅ Confirmada"}</div>
-                          </div>
-                        </div>;
-                      });
-                    })()}
-                  </Card>
-                </div>
-                :<Card style={{display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,padding:"40px"}}>
-                  <div style={{fontSize:48}}>👤</div>
-                  <div style={{color:T.txt,fontWeight:600,fontSize:15}}>Selecione um paciente</div>
-                  <div style={{color:T.mut,fontSize:13,textAlign:"center"}}>Clique em um paciente na lista para ver o perfil completo, histórico de consultas e contato direto.</div>
-                </Card>
-              }
-            </div>
-          </div>;
-        })()}
 
         {/* RELATÓRIOS PAGE */}
         {page==="metricas"&&(()=>{
