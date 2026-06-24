@@ -708,16 +708,16 @@ function App(_ref) {
     h2: true,
     msg: "Olá {nome}! 😊 Lembrete da sua consulta com {medico} amanhã às {hora}. Confirme respondendo SIM."
   });
-  const [simDoc, setSimDoc] = useState(DOCS0[0] || null);
-  useEffect(() => { if (!simDoc && docs.length > 0) setSimDoc(docs[0]); }, [docs]);
-  const [simMsgs, setSimMsgs] = useState([{
+  
+  
+  
     f: "b",
     t: "Olá! 😊 Bem-vinda à Clínica Saúde Total. Sou Sofia, assistente da Dra. Ana. Como posso ajudar?"
   }]);
-  const [simIn, setSimIn] = useState("");
+  
   const [humanIn, setHumanIn] = useState("");
-  const [simLoad, setSimLoad] = useState(false);
-  const [dots, setDots] = useState(".");
+  
+  
   const [saved, setSaved] = useState(false);
   const [nSvc, setNSvc] = useState("");
   const [toasts, setToasts] = useState([]);
@@ -725,11 +725,7 @@ function App(_ref) {
   const [notPerm, setNotPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [hCount, setHCount] = useState(0);
   const endRef = useRef(null);
-  useEffect(() => {
-    endRef.current?.scrollIntoView({
-      behavior: "smooth"
-    });
-  }, [simMsgs]);
+  
   useEffect(() => {
     if (!simLoad) return;
     const x = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 400);
@@ -785,25 +781,7 @@ function App(_ref) {
       t: `Olá! 😊 Bem-vind${doc.name.startsWith("Dra") ? "a" : "o"} à ${cfg.name}. Sou ${doc.bot}, assistente d${doc.name.startsWith("Dra") ? "a" : "o"} ${doc.name}. Como posso ajudar?`
     }]);
   };
-  const sendSim = async () => {
-    if (!simIn.trim() || simLoad) return;
-    const txt = simIn;
-    setSimIn("");
-    const isH = HKW.some(k => txt.toLowerCase().includes(k));
-    setSimMsgs(p => [...p, {
-      f: "p",
-      t: txt
-    }]);
-    setSimLoad(true);
-    await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
-    setSimMsgs(p => [...p, {
-      f: "b",
-      t: mockAI(txt, simDoc)
-    }]);
-    setSimLoad(false);
-    setDots(".");
-    if (isH) setTimeout(() => triggerAlert("Paciente (demo)", simDoc.name), 500);
-  };
+  
   const sendHumanReply = () => {
     if (!humanIn.trim() || !selConv || selConv.status !== "human") return;
     const txt = humanIn;
@@ -893,10 +871,6 @@ function App(_ref) {
     id: "medicos",
     lb: "Médicos",
     Ic: I.User
-  }, {
-    id: "simulador",
-    lb: "Testar Bot",
-    Ic: I.Zap
   }, {
     id: "configurar",
     lb: "Configurações",
@@ -1197,7 +1171,7 @@ function App(_ref) {
       fontSize: 13,
       fontWeight: 500
     }
-  }, page === "dashboard" ? "Visão Geral" : page === "conversas" ? "Conversas" : page === "medicos" ? "Médicos" : page === "simulador" ? "Testar Bot" : page === "configurar" ? "Configurações" : "Relatórios"), /*#__PURE__*/React.createElement("div", {
+  }, page === "dashboard" ? "Visão Geral" : page === "conversas" ? "Conversas" : page === "medicos" ? "Médicos" : page === "configurar" ? "Configurações" : "Relatórios"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginLeft: "auto",
       display: "flex",
@@ -1619,38 +1593,7 @@ function App(_ref) {
     }, /*#__PURE__*/React.createElement(I.Check, {
       s: 11,
       c: ok ? T.green : T.muted
-    }), ok ? "Ativo" : "Off")))), /*#__PURE__*/React.createElement("div", {
-      onClick: () => go("simulador"),
-      style: {
-        background: `linear-gradient(135deg,${T.accent},${T.accentM})`,
-        borderRadius: 14,
-        padding: "16px 17px",
-        cursor: "pointer"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 7,
-        marginBottom: 5
-      }
-    }, /*#__PURE__*/React.createElement(I.Zap, {
-      s: 14,
-      c: "#fff"
-    }), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: 13
-      }
-    }, "Testar o bot agora")), /*#__PURE__*/React.createElement("p", {
-      style: {
-        color: "rgba(255,255,255,.8)",
-        fontSize: 12,
-        margin: 0,
-        lineHeight: 1.5
-      }
-    }, "Simule e demonstre ao cliente.")))));
+    }), ok ? "Ativo" : "Off")))))));
   })()), page === "conversas" && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2283,27 +2226,6 @@ function App(_ref) {
       fontWeight: 600
     }
   }, doc.active ? "● Online" : "● Inativo"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      changeDoc(doc);
-      go("simulador");
-    },
-    style: {
-      background: T.accentL,
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      padding: "5px 11px",
-      color: T.accent,
-      fontSize: 11,
-      cursor: "pointer",
-      fontWeight: 600,
-      display: "flex",
-      alignItems: "center",
-      gap: 4
-    }
-  }, /*#__PURE__*/React.createElement(I.Zap, {
-    s: 11,
-    c: T.accent
-  }), " Testar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditDoc(editDoc?.id === doc.id ? null : {
       ...doc
     }),
@@ -2445,365 +2367,7 @@ function App(_ref) {
       cursor: "pointer",
       fontSize: 13
     }
-  }, "Cancelar"))))))), page === "simulador" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      overflowY: "auto",
-      padding: "20px 22px"
-    }
-  }, docs.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "center",
-      padding: "60px 20px",
-      color: T.muted
-    }
-  }, /*#__PURE__*/React.createElement("div", {style:{fontSize:40,marginBottom:12}}, "🤖"),
-    /*#__PURE__*/React.createElement("div", {style:{fontWeight:700,fontSize:15,color:T.text,marginBottom:8}}, "Nenhum médico cadastrado"),
-    /*#__PURE__*/React.createElement("div", {style:{fontSize:13,marginBottom:20}}, "Cadastre um médico na aba Médicos para testar o bot."),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: function(){ go("medicos"); },
-      style: {background:T.accent,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",fontSize:14,fontWeight:700,cursor:"pointer"}
-    }, "Ir para Médicos")
-  ), docs.length > 0 && simDoc && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 18
-    }
-  }, /*#__PURE__*/React.createElement("h1", {
-    style: {
-      color: T.text,
-      fontSize: 20,
-      fontWeight: 700,
-      margin: 0
-    }
-  }, "Testar Bot"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: T.muted,
-      fontSize: 12,
-      margin: "3px 0 0"
-    }
-  }, "Simule conversas e demonstre notificações ao cliente.")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: T.dangerL,
-      border: `1.5px solid ${T.danger}`,
-      borderRadius: 12,
-      padding: "12px 17px",
-      marginBottom: 15,
-      display: "flex",
-      alignItems: "center",
-      gap: 13
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 17
-    }
-  }, "🔔"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 700,
-      fontSize: 12.5,
-      color: T.danger
-    }
-  }, "Demonstrar notificações ao cliente"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: T.muted,
-      fontSize: 11
-    }
-  }, "Clique para simular som + alerta visual instantaneamente.")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => triggerAlert("Maria Silva (demo)", simDoc.name),
-    style: {
-      background: T.danger,
-      border: "none",
-      borderRadius: 8,
-      padding: "8px 15px",
-      color: "#fff",
-      fontWeight: 700,
-      cursor: "pointer",
-      fontSize: 12,
-      display: "flex",
-      alignItems: "center",
-      gap: 5
-    }
-  }, /*#__PURE__*/React.createElement(I.Bell, {
-    s: 12,
-    c: "#fff"
-  }), " Disparar")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 7,
-      marginBottom: 15,
-      flexWrap: "wrap"
-    }
-  }, docs.filter(d => d.active).map(doc => /*#__PURE__*/React.createElement("button", {
-    key: doc.id,
-    onClick: () => changeDoc(doc),
-    style: {
-      padding: "6px 13px",
-      borderRadius: 20,
-      cursor: "pointer",
-      fontWeight: 600,
-      fontSize: 12,
-      border: `1.5px solid ${simDoc.id === doc.id ? doc.color : T.border}`,
-      background: simDoc.id === doc.id ? `${doc.color}18` : "transparent",
-      color: simDoc.id === doc.id ? doc.color : T.muted,
-      display: "flex",
-      alignItems: "center",
-      gap: 5
-    }
-  }, /*#__PURE__*/React.createElement(I.Bot, {
-    s: 12,
-    c: simDoc.id === doc.id ? doc.color : T.muted
-  }), doc.bot, " · ", doc.name.split(" ")[0]))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 21,
-      alignItems: "flex-start"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#1C1C1E",
-      borderRadius: 38,
-      padding: "11px",
-      boxShadow: "0 18px 55px rgba(0,0,0,.3)",
-      border: "2px solid #2C2C2E",
-      width: 320
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      padding: "3px 13px 6px",
-      color: "#eee",
-      fontSize: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "9:41"), /*#__PURE__*/React.createElement("span", null, "100%")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#075E54",
-      padding: "8px 13px",
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 31,
-      height: 31,
-      borderRadius: "50%",
-      background: simDoc.color,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontWeight: 700,
-      fontSize: 12,
-      color: "#fff"
-    }
-  }, simDoc.bot[0]), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "#fff",
-      fontWeight: 600,
-      fontSize: 12
-    }
-  }, simDoc.bot), /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "rgba(255,255,255,.7)",
-      fontSize: 9
-    }
-  }, simDoc.name, " · ", simDoc.spec))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: T.chat,
-      minHeight: 400,
-      maxHeight: 400,
-      overflow: "auto",
-      padding: "10px 9px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 7
-    }
-  }, simMsgs.map((m, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    style: {
-      display: "flex",
-      justifyContent: m.f === "p" ? "flex-end" : "flex-start"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      maxWidth: "82%",
-      padding: "7px 11px",
-      lineHeight: 1.5,
-      wordBreak: "break-word",
-      borderRadius: m.f === "p" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-      background: m.f === "p" ? T.chatPat : T.chatBot,
-      color: dark ? "#e8f0ea" : "#111",
-      fontSize: 12,
-      boxShadow: "0 1px 2px rgba(0,0,0,.1)"
-    }
-  }, m.t, /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "#999",
-      fontSize: 9,
-      textAlign: "right",
-      marginTop: 2
-    }
-  }, "✓✓")))), simLoad && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "flex-start"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: T.chatBot,
-      padding: "7px 12px",
-      borderRadius: "12px 12px 12px 2px",
-      color: T.muted,
-      fontSize: 11
-    }
-  }, simDoc.bot, " está digitando", dots)), /*#__PURE__*/React.createElement("div", {
-    ref: endRef
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#F0F0F0",
-      padding: "6px 8px",
-      display: "flex",
-      gap: 6,
-      alignItems: "center"
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    value: simIn,
-    onChange: e => setSimIn(e.target.value),
-    onKeyDown: e => e.key === "Enter" && sendSim(),
-    placeholder: "Mensagem",
-    style: {
-      flex: 1,
-      background: "#fff",
-      border: "none",
-      borderRadius: 20,
-      padding: "7px 12px",
-      color: "#111",
-      fontSize: 12,
-      outline: "none"
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: sendSim,
-    disabled: simLoad,
-    style: {
-      width: 32,
-      height: 32,
-      borderRadius: "50%",
-      background: "#25D366",
-      border: "none",
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      opacity: simLoad ? .6 : 1
-    }
-  }, /*#__PURE__*/React.createElement(I.Send, {
-    s: 12,
-    c: "#fff"
-  })))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => changeDoc(simDoc),
-    style: {
-      width: "100%",
-      marginTop: 8,
-      padding: 8,
-      background: "none",
-      border: `1px solid ${T.border}`,
-      borderRadius: 10,
-      color: T.muted,
-      cursor: "pointer",
-      fontSize: 12
-    }
-  }, "↺ Reiniciar conversa")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      gap: 13
-    }
-  }, /*#__PURE__*/React.createElement(Card, {
-    style: {
-      padding: "17px"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 700,
-      fontSize: 13,
-      marginBottom: 12,
-      color: T.text
-    }
-  }, "💡 Sugestões para testar"), [[`Quero agendar com ${simDoc.name.split(" ")[0]}`, "Fluxo de agendamento"], [`Quais dias ${simDoc.name.startsWith("Dra") ? "ela" : "ele"} atende?`, "Dias e horários"], [`Tenho consulta de ${simDoc.spec} amanhã`, "Confirmação"], ["Qual o valor da consulta?", "Sobre valores"], ["Quero falar com um atendente", "⚡ Dispara notificação"]].map(([msg, desc]) => /*#__PURE__*/React.createElement("button", {
-    key: msg,
-    onClick: () => setSimIn(msg),
-    style: {
-      width: "100%",
-      textAlign: "left",
-      background: msg.includes("atendente") ? T.dangerL : T.subtle,
-      border: `1px solid ${msg.includes("atendente") ? T.danger : T.border}`,
-      borderRadius: 10,
-      padding: "9px 12px",
-      cursor: "pointer",
-      marginBottom: 6,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between"
-    }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: T.text,
-      fontSize: 12.5,
-      fontWeight: 500
-    }
-  }, "\"", msg, "\""), /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: msg.includes("atendente") ? T.danger : T.muted,
-      fontSize: 11,
-      marginTop: 2
-    }
-  }, desc)), /*#__PURE__*/React.createElement(I.Right, {
-    s: 12,
-    c: T.muted
-  })))), /*#__PURE__*/React.createElement(Card, {
-    style: {
-      padding: "15px 17px",
-      borderLeft: `4px solid ${simDoc.color}`,
-      borderRadius: "0 14px 14px 0"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      fontSize: 12,
-      marginBottom: 8,
-      color: simDoc.color
-    }
-  }, "Bot ativo: ", simDoc.bot), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      lineHeight: 1.9,
-      color: T.text
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: T.muted
-    }
-  }, "Médico:"), " ", simDoc.name, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: T.muted
-    }
-  }, "Especialidade:"), " ", simDoc.spec, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: T.muted
-    }
-  }, "Atende:"), " ", simDoc.days, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: T.muted
-    }
-  }, "Tom:"), " ", TONES[simDoc.tone]))))), page === "configurar" && /*#__PURE__*/React.createElement("div", {
+  }, "Cancelar"))))))), page === "configurar" && /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       overflowY: "auto",
