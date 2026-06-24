@@ -42,18 +42,9 @@ window.__fb={
   signIn:function(e,p){return _a.signInWithEmailAndPassword(e,p);},
   createUser:function(e,p){return _a.createUserWithEmailAndPassword(e,p);},
   signOut:function(){return _a.signOut();},
-  resetPassword:function(e){return _a.sendPasswordResetEmail(e);},
-  onAuthChange:function(cb){return _a.onAuthStateChanged(cb);},
-  getDoc:function(key){return _d.collection("acessos_autorizados").doc(key).get();},
-  getClinicDoc:function(uid){return _d.collection("clinicas").doc(uid).get();},
-  setDoc:function(uid,data){return _d.collection("clinicas").doc(uid).set(data);},
-  updateDoc:function(uid,data){return _d.collection("clinicas").doc(uid).update(data);},
-  listenConvs:function(uid,cb){return _d.collection("clinicas").doc(uid).collection("conversas").onSnapshot(cb);},
-  listenDocs:function(uid,cb){return _d.collection("clinicas").doc(uid).collection("medicos").onSnapshot(cb);},
-  listenApts:function(uid,cb){return _d.collection("clinicas").doc(uid).collection("agendamentos").onSnapshot(cb);},
-  addDoc:function(uid,col,data){return _d.collection("clinicas").doc(uid).collection(col).add(data);},
-  deleteDoc:function(uid,col,id){return _d.collection("clinicas").doc(uid).collection(col).doc(id).delete();},
-  updateDocCol:function(uid,col,id,data){return _d.collection("clinicas").doc(uid).collection(col).doc(id).update(data);}
+  reset:function(e){return _a.sendPasswordResetEmail(e);},
+  onAuth:function(cb){return _a.onAuthStateChanged(cb);},
+  setClinic:function(uid,data){return _d.collection("clinicas").doc(uid).set(data);}
 };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -70,7 +61,6 @@ window.__fb={
 
 const {useState,useRef,useEffect,useCallback,createContext,useContext}=React;
 
-/* ── THEMES ── */
 /* ── THEMES ── */
 const LIGHT={bg:"#F4F7FA",card:"#FFFFFF",border:"#E4EAF0",accent:"#1A6FA8",accentL:"#EBF4FB",accentM:"#2E86C8",green:"#0D9B6E",greenL:"#E8F8F2",text:"#1A2535",muted:"#6B80A0",subtle:"#F0F4F8",danger:"#E03E3E",dangerL:"#FEF0F0",warn:"#D97706",warnL:"#FFFBEB",purple:"#7C3AED",sh:"0 1px 4px rgba(0,0,0,.07)",shLg:"0 8px 40px rgba(0,0,0,.14)",chat:"#ECE5DD",chatBot:"#FFFFFF",chatPat:"#DCF8C6"};
 const DARK={bg:"#07101C",card:"#0D1828",border:"#1E3048",accent:"#00D4A0",accentL:"rgba(0,212,160,.15)",accentM:"#00B88A",green:"#22D37A",greenL:"rgba(34,211,122,.15)",text:"#E2EEFF",muted:"#8AAAC8",subtle:"#111F30",danger:"#FF4560",dangerL:"rgba(255,69,96,.15)",warn:"#FFB020",warnL:"rgba(255,176,32,.15)",purple:"#A78BFA",sh:"0 1px 4px rgba(0,0,0,.3)",shLg:"0 8px 40px rgba(0,0,0,.5)",chat:"#0D1828",chatBot:"#162535",chatPat:"#0a3a2a"};
@@ -205,87 +195,8 @@ function Toast({t,onDim,onGo}){
 }
 
 /* ══ APP ══ */
-
-/* ── LOGIN ── */
-function Login(){
-  const [em,setEm]=useState("");
-  const [pw,setPw]=useState("");
-  const [err,setErr]=useState("");
-  const [loading,setLoading]=useState(false);
-  const [isLogin,setIsLogin]=useState(true);
-  const [cname,setCname]=useState("");
-
-  const submit=async()=>{
-    if(!em||!pw)return setErr("Preencha todos os campos.");
-    if(!isLogin&&!cname)return setErr("Informe o nome da clínica.");
-    setLoading(true);setErr("");
-    const fb=window.__fb;
-    try{
-      if(isLogin){
-        await fb.signIn(em,pw);
-        const key=em.toLowerCase().replace(/[^a-z0-9]/g,"_");
-        const doc=await fb.getDoc(key);
-        if(!doc.exists()){await fb.signOut();setLoading(false);return setErr("Acesso não autorizado. Contate +55 31 98215-8450");}
-      }else{
-        const cred=await fb.createUser(em,pw);
-        await fb.setDoc(cred.user.uid,{clinicName:cname,email:em,phone:"",hours:"Seg-Sex: 8h-18h",botName:"Sofia",tone:"cordial",services:[]});
-      }
-    }catch(e){setErr(e.message||"Erro ao autenticar.");setLoading(false);}
-  };
-
-  const forgot=async()=>{
-    if(!em)return alert("Digite seu email primeiro.");
-    try{await fb.resetPassword(em);alert("Email de redefinição enviado! 📧");}
-    catch(e){alert("Erro: "+e.message);}
-  };
-
-  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#F4F7FA"}}>
-    <div style={{background:"#fff",borderRadius:16,padding:"36px 32px",width:360,boxShadow:"0 8px 40px rgba(0,0,0,.12)"}}>
-      <div style={{textAlign:"center",marginBottom:24}}>
-        <div style={{fontSize:36,marginBottom:8}}>🤖</div>
-        <div style={{fontWeight:700,fontSize:20,color:"#1A2535"}}>AtendIA</div>
-        <div style={{fontSize:13,color:"#6B80A0",marginTop:4}}>{isLogin?"Acesse sua conta":"Crie sua conta"}</div>
-      </div>
-      {!isLogin&&<input value={cname} onChange={e=>setCname(e.target.value)} placeholder="Nome da clínica" style={{width:"100%",border:"1px solid #E4EAF0",borderRadius:10,padding:"11px 14px",fontSize:14,marginBottom:10,boxSizing:"border-box",outline:"none"}}/>}
-      <input value={em} onChange={e=>setEm(e.target.value)} placeholder="Email" type="email" style={{width:"100%",border:"1px solid #E4EAF0",borderRadius:10,padding:"11px 14px",fontSize:14,marginBottom:10,boxSizing:"border-box",outline:"none"}}/>
-      <input value={pw} onChange={e=>setPw(e.target.value)} placeholder="Senha" type="password" onKeyDown={e=>e.key==="Enter"&&submit()} style={{width:"100%",border:"1px solid #E4EAF0",borderRadius:10,padding:"11px 14px",fontSize:14,marginBottom:4,boxSizing:"border-box",outline:"none"}}/>
-      {err&&<div style={{color:"#E03E3E",fontSize:12,marginBottom:8,textAlign:"center"}}>{err}</div>}
-      <button onClick={submit} disabled={loading} style={{width:"100%",background:"#1A6FA8",border:"none",borderRadius:10,padding:"13px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",marginTop:8,opacity:loading?0.7:1}}>
-        {loading?"Aguarde...":(isLogin?"Entrar":"Criar conta")}
-      </button>
-      {isLogin&&<div style={{textAlign:"center",marginTop:8}}>
-        <button onClick={forgot} style={{background:"none",border:"none",color:"#1A6FA8",cursor:"pointer",fontSize:13,textDecoration:"underline"}}>Esqueci minha senha</button>
-      </div>}
-      <div style={{textAlign:"center",marginTop:14}}>
-        <span style={{color:"#6B80A0",fontSize:13}}>{isLogin?"Não tem conta? ":"Já tem conta? "}</span>
-        <button onClick={()=>{setIsLogin(p=>!p);setErr("");}} style={{background:"none",border:"none",color:"#1A6FA8",cursor:"pointer",fontWeight:600,fontSize:13}}>{isLogin?"Criar conta":"Entrar"}</button>
-      </div>
-    </div>
-  </div>;
-}
-
-/* ══ APP ══ */
 function App(){
-  const [user,setUser]=useState(null);
-  const [cdata,setCdata]=useState(null);
-  const [checking,setChecking]=useState(true);
-
-  useEffect(()=>{
-    const unsub=window.__fb.onAuthChange(u=>{
-      setUser(u);
-      setChecking(false);
-      if(u){
-        window.__fb.getClinicDoc(u.uid).then(d=>{if(d.exists())setCdata(d.data());});
-        window.__fb.listenConvs(u.uid,snap=>{
-          setConvs(snap.docs.map(d=>({id:d.id,...d.data()})));
-        });
-        window.__fb.listenDocs(u.uid,snap=>{
-          setDocs(snap.docs.map(d=>({id:d.id,...d.data()})));
-        });
-      }
-    });
-    return()=>unsub();
-  },[]);
+  useEffect(()=>{document.getElementById("load").style.display="none";},[]);
 
   const [dark,setDark]=useState(false);
   const [sideOpen,setSideOpen]=useState(true);
@@ -298,6 +209,23 @@ function App(){
   const [convFilter,setConvFilter]=useState("Todas");
   const [docs,setDocs]=useState(DOCS0);
   const [convs,setConvs]=useState(CONVS0);
+  const [showAdd,setShowAdd]=useState(false);
+  const [nd,setNd]=useState({name:"",spec:"",crm:"",days:"",times:"",bot:"",tone:"cordial",preco:""});
+  const [editDoc,setEditDoc]=useState(null);
+  const [cfg,setCfg]=useState({name:"Clínica Saúde Total",phone:"(31) 3333-4444",hours:"Seg–Sex: 8h–18h | Sáb: 8h–12h",svcs:["Clínica Geral","Dermatologia","Cardiologia","Psicologia"]});
+  const [lem,setLem]=useState({on:true,h24:true,h2:true,msg:"Olá {nome}! 😊 Lembrete da sua consulta com {medico} amanhã às {hora}. Confirme respondendo SIM."});
+  const [simDoc,setSimDoc]=useState(DOCS0[0]);
+  const [simMsgs,setSimMsgs]=useState([{f:"b",t:"Olá! 😊 Bem-vinda à Clínica Saúde Total. Sou Sofia, assistente da Dra. Ana. Como posso ajudar?"}]);
+  const [simIn,setSimIn]=useState("");
+  const [humanIn,setHumanIn]=useState("");
+  const [simLoad,setSimLoad]=useState(false);
+  const [dots,setDots]=useState(".");
+  const [saved,setSaved]=useState(false);
+  const [nSvc,setNSvc]=useState("");
+  const [toasts,setToasts]=useState([]);
+  const [snd,setSnd]=useState(true);
+  const [notPerm,setNotPerm]=useState(typeof Notification!=="undefined"?Notification.permission:"denied");
+  const [hCount,setHCount]=useState(CONVS0.filter(c=>c.status==="human").length);
   const endRef=useRef(null);
 
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[simMsgs]);
@@ -738,7 +666,74 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+
+/* ── LOGIN ── */
+function Login({onLogin}){
+  const [em,setEm]=useState("");
+  const [pw,setPw]=useState("");
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [mode,setMode]=useState("in");
+  const [cn,setCn]=useState("");
+  const T=LIGHT;
+  const sub=async()=>{
+    if(!em||!pw)return setErr("Preencha todos os campos.");
+    if(mode==="up"&&!cn)return setErr("Informe o nome da clínica.");
+    setBusy(true);setErr("");
+    try{
+      if(mode==="in"){
+        await window.__fb.signIn(em,pw);
+      }else{
+        const c=await window.__fb.createUser(em,pw);
+        await window.__fb.setClinic(c.user.uid,{clinicName:cn,email:em,phone:"",hours:"Seg-Sex: 8h-18h",botName:"Sofia",tone:"cordial",services:[]});
+      }
+    }catch(e){setErr(e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim());setBusy(false);}
+  };
+  const forgot=async()=>{
+    if(!em)return alert("Digite seu email primeiro.");
+    try{await window.__fb.reset(em);alert("Email enviado! Verifique sua caixa 📧");}
+    catch(e){alert(e.message);}
+  };
+  return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:T.bg}}>
+      <div style={{background:T.card,borderRadius:16,padding:"36px 32px",width:360,boxShadow:"0 8px 40px rgba(0,0,0,.12)"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontSize:40,marginBottom:8}}>🤖</div>
+          <div style={{fontWeight:700,fontSize:20,color:T.text}}>AtendIA</div>
+          <div style={{fontSize:13,color:T.muted,marginTop:4}}>{mode==="in"?"Acesse sua conta":"Crie sua conta"}</div>
+        </div>
+        {mode==="up"&&<input value={cn} onChange={e=>setCn(e.target.value)} placeholder="Nome da clínica" style={{width:"100%",border:"1px solid "+T.border,borderRadius:10,padding:"11px 14px",fontSize:14,marginBottom:10,boxSizing:"border-box",background:T.bg,color:T.text,outline:"none"}}/>}
+        <input value={em} onChange={e=>setEm(e.target.value)} placeholder="Email" type="email" style={{width:"100%",border:"1px solid "+T.border,borderRadius:10,padding:"11px 14px",fontSize:14,marginBottom:10,boxSizing:"border-box",background:T.bg,color:T.text,outline:"none"}}/>
+        <input value={pw} onChange={e=>setPw(e.target.value)} placeholder="Senha" type="password" onKeyDown={e=>e.key==="Enter"&&sub()} style={{width:"100%",border:"1px solid "+T.border,borderRadius:10,padding:"11px 14px",fontSize:14,marginBottom:4,boxSizing:"border-box",background:T.bg,color:T.text,outline:"none"}}/>
+        {err&&<div style={{color:"#E03E3E",fontSize:12,marginBottom:8,textAlign:"center"}}>{err}</div>}
+        <button onClick={sub} disabled={busy} style={{width:"100%",background:T.accent,border:"none",borderRadius:10,padding:"13px",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",marginTop:8,opacity:busy?0.7:1}}>
+          {busy?"Aguarde...":(mode==="in"?"Entrar":"Criar conta")}
+        </button>
+        {mode==="in"&&<div style={{textAlign:"center",marginTop:8}}>
+          <button onClick={forgot} style={{background:"none",border:"none",color:T.accent,cursor:"pointer",fontSize:13,textDecoration:"underline"}}>Esqueci minha senha</button>
+        </div>}
+        <div style={{textAlign:"center",marginTop:14,fontSize:13,color:T.muted}}>
+          {mode==="in"?"Não tem conta? ":"Já tem conta? "}
+          <button onClick={()=>{setMode(m=>m==="in"?"up":"in");setErr("");}} style={{background:"none",border:"none",color:T.accent,cursor:"pointer",fontWeight:600,fontSize:13}}>{mode==="in"?"Criar conta":"Entrar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── ROOT ── */
+function Root(){
+  const [user,setUser]=useState(undefined);
+  useEffect(()=>{
+    return window.__fb.onAuth(function(u){setUser(u);});
+  },[]);
+  if(user===undefined)return null;
+  if(!user)return <Login/>;
+  return <App/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
 
 </script>
 </body>
