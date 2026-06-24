@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BotClínica — Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#07101C;--card:#0D1828;--border:#1E3048;--accent:#1A6FA8;--green:#00D4A0;--red:#E03E3E;--text:#E2EEFF;--muted:#8AAAC8;--subtle:#111F30}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* LOGIN */
+#login-screen{flex:1;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px;width:340px;text-align:center}
+.login-box h1{font-size:22px;font-weight:800;margin-bottom:6px}
+.login-box p{font-size:13px;color:var(--muted);margin-bottom:28px}
+.inp{width:100%;background:var(--subtle);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px}
+.inp:focus{border-color:var(--accent)}
+.btn{width:100%;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-danger{background:var(--red);color:#fff;padding:7px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer}
+.btn-green{background:var(--green);color:#07101C;padding:10px 20px;font-size:14px;border-radius:10px;border:none;cursor:pointer;font-weight:700}
+.err{color:#f87171;font-size:12px;margin-top:6px}
+
+/* APP */
+#app-screen{display:none;flex:1;flex-direction:column}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:17px;font-weight:800}
+.logo span{color:var(--accent)}
+.header-right{display:flex;align-items:center;gap:12px}
+.tag{background:rgba(0,212,160,.12);color:var(--green);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px}
+.logout-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer}
+.logout-btn:hover{border-color:var(--accent);color:var(--text)}
+
+main{flex:1;padding:28px;max-width:860px;width:100%;margin:0 auto}
+
+/* CARDS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.stat-val{font-size:28px;font-weight:800;margin-bottom:4px}
+.stat-lb{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.stat.starter .stat-val{color:#60A5FA}
+.stat.prof .stat-val{color:var(--green)}
+.stat.clin .stat-val{color:#C084FC}
+.stat.total .stat-val{color:var(--text)}
+
+/* ADD FORM */
+.add-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:24px}
+.add-box h2{font-size:14px;font-weight:700;margin-bottom:16px;color:var(--muted)}
+.add-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center}
+.select{background:var(--subtle);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:14px;outline:none;cursor:pointer}
+.select:focus{border-color:var(--accent)}
+.badge-plan{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.bp-starter{background:rgba(96,165,250,.15);color:#60A5FA}
+.bp-profissional{background:rgba(0,212,160,.15);color:var(--green)}
+.bp-clinica{background:rgba(192,132,252,.15);color:#C084FC}
+
+/* TABLE */
+.table-box{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.table-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.table-head h2{font-size:14px;font-weight:700}
+.search-inp{background:var(--subtle);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;width:200px;outline:none}
+.search-inp:focus{border-color:var(--accent)}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:10px 20px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:13px 20px;font-size:13px;border-bottom:1px solid rgba(30,48,72,.5)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(26,111,168,.05)}
+.plan-select-inline{background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-size:12px;cursor:pointer;outline:none}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+.loading{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--green);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--green);font-weight:600;z-index:999;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.add-row{grid-template-columns:1fr 1fr}.add-row .btn-green{grid-column:span 2}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="font-size:38px;margin-bottom:12px">🔐</div>
+    <h1>BotClínica <span style="color:var(--accent)">Admin</span></h1>
+    <p>Acesso restrito — equipe interna</p>
+    <input class="inp" type="password" id="pwd-inp" placeholder="Senha de administrador" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <header>
+    <div class="logo">BotClínica <span>Admin</span></div>
+    <div class="header-right">
+      <span class="tag">⚡ Painel interno</span>
+      <button class="logout-btn" onclick="doLogout()">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat total"><div class="stat-val" id="s-total">–</div><div class="stat-lb">Total clientes</div></div>
+      <div class="stat starter"><div class="stat-val" id="s-starter">–</div><div class="stat-lb">Starter</div></div>
+      <div class="stat prof"><div class="stat-val" id="s-prof">–</div><div class="stat-lb">Profissional</div></div>
+      <div class="stat clin"><div class="stat-val" id="s-clin">–</div><div class="stat-lb">Clínica</div></div>
+    </div>
+
+    <!-- ADD -->
+    <div class="add-box">
+      <h2>➕ Adicionar / liberar acesso</h2>
+      <div class="add-row">
+        <input class="inp" id="new-email" placeholder="email@clinica.com.br" style="margin:0" onkeydown="if(event.key==='Enter')addUser()"/>
+        <select class="select" id="new-plan">
+          <option value="starter">🌱 Starter</option>
+          <option value="profissional" selected>⭐ Profissional</option>
+          <option value="clinica">🏥 Clínica</option>
+        </select>
+        <button class="btn-green" onclick="addUser()" id="add-btn">Liberar acesso</button>
+      </div>
+      <div class="err" id="add-err"></div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-box">
+      <div class="table-head">
+        <h2>👥 Clientes com acesso</h2>
+        <input class="search-inp" id="search" placeholder="Buscar email..." oninput="renderTable()"/>
+      </div>
+      <div id="table-area"><div class="loading"><span class="spin"></span>Carregando...</div></div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── CONFIG ──
+const ADMIN_PWD = "botclinica2026"; // TROQUE AQUI
+const PROXY = "/api/fb";
+
+var clients = [];
+var authed = false;
+
+// ── LOGIN ──
+function doLogin(){
+  var pwd = document.getElementById('pwd-inp').value;
+  if(pwd === ADMIN_PWD){
+    authed = true;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-screen').style.display='flex';
+    loadClients();
+  } else {
+    document.getElementById('login-err').textContent='Senha incorreta.';
+    document.getElementById('pwd-inp').value='';
+    document.getElementById('pwd-inp').focus();
+  }
+}
+
+function doLogout(){
+  authed=false;
+  clients=[];
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('pwd-inp').value='';
+}
+
+// ── API ──
+async function call(action, payload){
+  var r = await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload})});
+  return await r.json();
+}
+
+// ── CARREGAR CLIENTES ──
+async function loadClients(){
+  document.getElementById('table-area').innerHTML='<div class="loading"><span class="spin"></span>Carregando...</div>';
+  var d = await call('listClients',{});
+  clients = d.clients || [];
+  updateStats();
+  renderTable();
+}
+
+function updateStats(){
+  document.getElementById('s-total').textContent = clients.length;
+  document.getElementById('s-starter').textContent = clients.filter(c=>c.plano==='starter').length;
+  document.getElementById('s-prof').textContent = clients.filter(c=>c.plano==='profissional').length;
+  document.getElementById('s-clin').textContent = clients.filter(c=>c.plano==='clinica').length;
+}
+
+function renderTable(){
+  var q = document.getElementById('search').value.toLowerCase();
+  var filtered = q ? clients.filter(c=>c.email.toLowerCase().includes(q)) : clients;
+
+  if(!filtered.length){
+    document.getElementById('table-area').innerHTML='<div class="empty">Nenhum cliente encontrado.</div>';
+    return;
+  }
+
+  var rows = filtered.map(c=>{
+    var badge = c.plano==='clinica'
+      ? '<span class="badge-plan bp-clinica">🏥 Clínica</span>'
+      : c.plano==='profissional'
+      ? '<span class="badge-plan bp-profissional">⭐ Profissional</span>'
+      : '<span class="badge-plan bp-starter">🌱 Starter</span>';
+
+    return `<tr>
+      <td>${c.email}</td>
+      <td>${badge}</td>
+      <td>
+        <select class="plan-select-inline" onchange="changePlan('${c.email}',this.value)">
+          <option value="starter" ${c.plano==='starter'?'selected':''}>Starter</option>
+          <option value="profissional" ${c.plano==='profissional'?'selected':''}>Profissional</option>
+          <option value="clinica" ${c.plano==='clinica'?'selected':''}>Clínica</option>
+        </select>
+      </td>
+      <td><button class="btn-danger" onclick="removeUser('${c.email}')">Remover</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-area').innerHTML=`
+    <table>
+      <thead><tr><th>Email</th><th>Plano atual</th><th>Alterar plano</th><th>Ação</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── ADICIONAR ──
+async function addUser(){
+  var email = document.getElementById('new-email').value.trim().toLowerCase();
+  var plano = document.getElementById('new-plan').value;
+  if(!email || !email.includes('@')){
+    document.getElementById('add-err').textContent='Email inválido.';
+    return;
+  }
+  document.getElementById('add-err').textContent='';
+  document.getElementById('add-btn').textContent='Salvando...';
+  document.getElementById('add-btn').disabled=true;
+
+  var d = await call('setAccess',{email,plano});
+  document.getElementById('add-btn').textContent='Liberar acesso';
+  document.getElementById('add-btn').disabled=false;
+
+  if(d.error){ document.getElementById('add-err').textContent=d.error; return; }
+
+  document.getElementById('new-email').value='';
+  toast(`✅ ${email} liberado como ${plano}`);
+  await loadClients();
+}
+
+// ── ALTERAR PLANO ──
+async function changePlan(email, plano){
+  await call('setAccess',{email,plano});
+  var idx = clients.findIndex(c=>c.email===email);
+  if(idx>-1) clients[idx].plano=plano;
+  updateStats();
+  toast(`✅ ${email} → ${plano}`);
+}
+
+// ── REMOVER ──
+async function removeUser(email){
+  if(!confirm(`Remover acesso de:\n${email}?`)) return;
+  await call('removeAccess',{email});
+  clients = clients.filter(c=>c.email!==email);
+  updateStats();
+  renderTable();
+  toast(`🗑️ ${email} removido`);
+}
+
+// ── TOAST ──
+function toast(msg){
+  var t=document.createElement('div');
+  t.className='toast';t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+document.getElementById('pwd-inp').focus();
+</script>
+</body>
+</html>

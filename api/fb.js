@@ -86,6 +86,56 @@ module.exports = async (req, res) => {
       return res.status(200).json({ plano });
     }
 
+    // --- LIST CLIENTS ---
+    if (action === "listClients") {
+      const r = await fetch(`${FS}/acessos_autorizados?key=${API_KEY}`);
+      const d = await r.json();
+      const docs = d.documents || [];
+      const clients = docs.map(doc => {
+        const parts = doc.name.split("/");
+        const emailKey = parts[parts.length - 1];
+        const email = emailKey.replace(/_/g, ".").replace(/\.(\w+)$/, (m, tld) => "@" + tld.replace(/\./g, "."));
+        // Reconstruct email properly
+        const emailClean = emailKey.replace(/_at_/gi, "@").replace(/(.*?)_([^_]+)$/, "$1@$2").replace(/_/g, ".");
+        return {
+          email: doc.fields?.email?.stringValue || emailKey.replace(/_/g, "."),
+          plano: doc.fields?.plano?.stringValue || "starter",
+          createdAt: doc.fields?.createdAt?.stringValue || ""
+        };
+      });
+      return res.status(200).json({ clients });
+    }
+
+    // --- SET ACCESS ---
+    if (action === "setAccess") {
+      const { email, plano } = payload;
+      if (!email) return res.status(400).json({ error: "Email required" });
+      const emailKey = email.replace(/[@.]/g, "_");
+      const r = await fetch(`${FS}/acessos_autorizados/${emailKey}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            email: { stringValue: email },
+            plano: { stringValue: plano || "starter" },
+            createdAt: { stringValue: new Date().toISOString() }
+          }
+        })
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // --- REMOVE ACCESS ---
+    if (action === "removeAccess") {
+      const { email } = payload;
+      if (!email) return res.status(400).json({ error: "Email required" });
+      const emailKey = email.replace(/[@.]/g, "_");
+      await fetch(`${FS}/acessos_autorizados/${emailKey}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
