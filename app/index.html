@@ -708,7 +708,7 @@ function App(_ref) {
     h2: true,
     msg: "Olá {nome}! 😊 Lembrete da sua consulta com {medico} amanhã às {hora}. Confirme respondendo SIM."
   });
-  const [simDoc, setSimDoc] = useState(DOCS0[0]);
+  const [simDoc, setSimDoc] = useState(DOCS0[0] || null);
   const [simMsgs, setSimMsgs] = useState([{
     f: "b",
     t: "Olá! 😊 Bem-vinda à Clínica Saúde Total. Sou Sofia, assistente da Dra. Ana. Como posso ajudar?"
@@ -1133,7 +1133,25 @@ function App(_ref) {
       color: T.muted,
       fontSize: 11
     }
-  }, cfg.name)))), /*#__PURE__*/React.createElement("main", {
+  }, cfg.name))), /*#__PURE__*/React.createElement("button", {
+    onClick: function(){ window.__fb.signOut(); },
+    style: {
+      width: "calc(100% - 24px)",
+      margin: "8px 12px 12px",
+      padding: "10px",
+      background: "transparent",
+      border: "1px solid " + T.border,
+      borderRadius: 10,
+      color: T.muted,
+      fontSize: 13,
+      fontWeight: 600,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7
+    }
+  }, "→ Sair da conta")), /*#__PURE__*/React.createElement("main", {
     style: {
       flex: 1,
       display: "flex",
@@ -2432,7 +2450,20 @@ function App(_ref) {
       overflowY: "auto",
       padding: "20px 22px"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, docs.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "60px 20px",
+      color: T.muted
+    }
+  }, /*#__PURE__*/React.createElement("div", {style:{fontSize:40,marginBottom:12}}, "🤖"),
+    /*#__PURE__*/React.createElement("div", {style:{fontWeight:700,fontSize:15,color:T.text,marginBottom:8}}, "Nenhum médico cadastrado"),
+    /*#__PURE__*/React.createElement("div", {style:{fontSize:13,marginBottom:20}}, "Cadastre um médico na aba Médicos para testar o bot."),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: function(){ go("medicos"); },
+      style: {background:T.accent,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",fontSize:14,fontWeight:700,cursor:"pointer"}
+    }, "Ir para Médicos")
+  ), docs.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 18
     }
