@@ -33,7 +33,6 @@ nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop
 .hero h1{font-size:clamp(26px,4vw,40px);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
 .hero p{font-size:16px;color:rgba(255,255,255,.82);max-width:480px;margin:0 auto}
 
-
 /* PLANOS */
 .plans-section{padding:48px 5%;background:var(--bg)}
 .section-label{text-align:center;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
@@ -151,7 +150,6 @@ footer a{color:var(--blue)}
         <span class="value" id="p1-val">297</span>
         <span class="period">/mês</span>
       </div>
-      
       <div class="plan-desc">Ideal pra clínicas pequenas que querem começar</div>
       <ul class="plan-features">
         <li>1 número de WhatsApp</li>
@@ -174,7 +172,6 @@ footer a{color:var(--blue)}
         <span class="value" id="p2-val">497</span>
         <span class="period">/mês</span>
       </div>
-      
       <div class="plan-desc">Para clínicas que querem automatizar de verdade</div>
       <ul class="plan-features">
         <li>1 número de WhatsApp</li>
@@ -195,7 +192,6 @@ footer a{color:var(--blue)}
         <span class="value" id="p3-val">897</span>
         <span class="period">/mês</span>
       </div>
-      
       <div class="plan-desc">Para clínicas com múltiplos médicos e alto volume</div>
       <ul class="plan-features">
         <li>Múltiplos médicos</li>
@@ -205,7 +201,7 @@ footer a{color:var(--blue)}
         <li>Suporte WhatsApp</li>
         <li>Onboarding presencial</li>
       </ul>
-      <a href="https://mpago.la/1qHaMTD" target="_blank" class="btn btn-outline" id="btn3">Falar com consultor</a>
+      <a href="https://mpago.la/1qHaMTD" target="_blank" class="btn btn-outline" id="btn3">Começar agora</a>
     </div>
 
   </div>
@@ -218,10 +214,10 @@ footer a{color:var(--blue)}
         <a href="#" class="pay-card" id="btn-mp" onclick="irMercadoPago();return false">
           <div class="pay-icon">💳</div>
           <div class="pay-name">Cartão / PIX</div>
-          <div class="pay-sub">Mercado Pago · PIX disponível · Parcelamento no cartão</div>
+          <div class="pay-sub">Mercado Pago · PIX e parcelamento disponíveis</div>
         </a>
       </div>
-    </div>
+      </div>
   </div>
 </section>
 
@@ -245,17 +241,6 @@ footer a{color:var(--blue)}
   </div>
 </section>
 
-    <div class="pix-key" id="pix-key">contato@botclinica.com.br</div>
-    <button class="btn-copy" onclick="copiarPix()">📋 Copiar chave PIX</button>
-    <div class="copied" id="copied-msg">✅ Copiado! Abra seu banco e pague.</div>
-    <div class="modal-notice">
-      Após o pagamento, envie o comprovante para<br>
-      <strong>+55 31 9 8215-8450</strong> (WhatsApp)<br>
-      Ativamos seu acesso em até 2 horas.
-    </div>
-    <button class="btn-close-modal" onclick="fecharModal()">Fechar</button>
-  </div>
-</div>
 
 <footer>
   <p>© 2026 BotClínica · <a href="/app">Acessar painel</a> · Dúvidas? <a href="https://wa.me/5531982158450">Fale no WhatsApp</a></p>
@@ -266,6 +251,7 @@ var planoSelecionado=null;
 var precos={'Starter':297,'Profissional':497,'Clínica':897};
 var linksMp={'Starter':'https://mpago.la/2nie3Qn','Profissional':'https://mpago.la/2tFxdmw','Clínica':'https://mpago.la/1qHaMTD'};
 
+
 // Botões dos planos abrem o seletor de forma de pagamento
 document.getElementById('btn1').addEventListener('click',function(e){e.preventDefault();abrirPagamento('Starter');});
 document.getElementById('btn2').addEventListener('click',function(e){e.preventDefault();abrirPagamento('Profissional');});
@@ -273,23 +259,15 @@ document.getElementById('btn3').addEventListener('click',function(e){e.preventDe
 
 function abrirPagamento(plano){
   planoSelecionado=plano;
-  var preco=precos[plano];
-  document.getElementById('pay-title').textContent='Plano '+plano+' — R$ '+preco+'/mês';
   var ps=document.getElementById('pay-section');
+  document.getElementById('pay-title').textContent='Plano '+plano+' — R$ '+precos[plano]+'/mês';
   ps.style.display='block';
   setTimeout(function(){ps.scrollIntoView({behavior:'smooth',block:'center'});},100);
-});},100);
 }
 function irMercadoPago(){
   if(!planoSelecionado)return;
   window.open(linksMp[planoSelecionado],'_blank');
 }
-
-
-,3000);
-  });
-}
-
 
 // ?plano= na URL
 var p=new URLSearchParams(window.location.search).get('plano');
