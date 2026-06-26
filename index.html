@@ -650,7 +650,14 @@ Lembrete na véspera!',time:'14:33'},
     if(!c)return;
     var idx=0;
 
-    function typing(){var d=document.createElement('div');d.className='msg msg-bot msg-anim';d.id='tdot';d.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';c.appendChild(d);c.scrollTop=9999;}
+    function typing(){
+      var d=document.createElement('div');
+      d.id='tdot';
+      d.style.cssText='background:#fff;border-radius:0 8px 8px 8px;padding:10px 14px;align-self:flex-start;box-shadow:0 1px 2px rgba(0,0,0,.1);animation:msg-in .35s ease forwards;opacity:0';
+      d.innerHTML='<div style="display:flex;gap:4px;align-items:center"><span style="width:7px;height:7px;background:#999;border-radius:50%;display:inline-block;animation:tdot .8s infinite"></span><span style="width:7px;height:7px;background:#999;border-radius:50%;display:inline-block;animation:tdot .8s .15s infinite"></span><span style="width:7px;height:7px;background:#999;border-radius:50%;display:inline-block;animation:tdot .8s .3s infinite"></span></div>';
+      c.appendChild(d);
+      c.scrollTop=9999;
+    }
     function rmTyping(){var t=document.getElementById('tdot');if(t)t.remove();}
     function addMsg(m){var d=document.createElement('div');d.className='msg msg-'+m.t+' msg-anim';d.innerHTML=m.txt.replace(/
 /g,'<br>')+'<div class="msg-time">'+m.time+'</div>';c.appendChild(d);c.scrollTop=9999;}
