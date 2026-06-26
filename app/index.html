@@ -1541,7 +1541,63 @@ function App(_ref) {
     const tot = docs.reduce((s, d) => s + d.s.today, 0),
       res = docs.reduce((s, d) => s + d.s.res, 0),
       pct = tot ? Math.round(res / tot * 100) : 0;
-    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{background:"linear-gradient(135deg,#075E54,#128C7E)",borderRadius:14,padding:"16px 20px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}, /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:10}}, /*#__PURE__*/React.createElement("span", {style:{fontSize:24}}, "💬"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:13,color:"#fff"}}, "WhatsApp Business API — Ativo ✅"), /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"rgba(255,255,255,.75)"}}, "+55 31 9 9103-0288 · API oficial Meta"))), /*#__PURE__*/React.createElement("a", {href:"https://business.facebook.com/latest/whatsapp_manager/phone_numbers/?asset_id=2055858788663742&business_id=2393172651207835",target:"_blank",style:{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.3)",color:"#fff",padding:"7px 14px",borderRadius:8,fontSize:12,fontWeight:700,textDecoration:"none"}}, "⚙️ Gerenciar")), /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement("div", null, (!cfg.waConnected ? /*#__PURE__*/React.createElement("div", {style:{
+      background:"linear-gradient(135deg,#EBF4FB,#F0F8FF)",
+      border:"2px dashed #1A6FA8",
+      borderRadius:16,
+      padding:"24px 24px",
+      marginBottom:20,
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"space-between",
+      flexWrap:"wrap",
+      gap:16
+    }},
+    /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:14}},
+      /*#__PURE__*/React.createElement("div", {style:{
+        width:52,height:52,background:"#fff",borderRadius:14,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:26,boxShadow:"0 2px 8px rgba(26,111,168,.15)",flexShrink:0
+      }}, "📱"),
+      /*#__PURE__*/React.createElement("div", null,
+        /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:15,color:"#1A2535",marginBottom:4}}, "Conecte seu WhatsApp Business"),
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:13,color:"#6B80A0",lineHeight:1.5}}, "Seu bot está quase pronto! Conecte seu número para começar a atender pacientes automaticamente."),
+        /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:16,marginTop:8}},
+          /*#__PURE__*/React.createElement("span", {style:{fontSize:12,color:"#10B981",fontWeight:600}}, "✓ Leva menos de 2 minutos"),
+          /*#__PURE__*/React.createElement("span", {style:{fontSize:12,color:"#10B981",fontWeight:600}}, "✓ Sem instalar nada")
+        )
+      )
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setCfg(p => ({...p, waConnecting:true}));
+        window.__openWAModal && window.__openWAModal();
+      },
+      style:{
+        background:"#1A6FA8",color:"#fff",border:"none",
+        borderRadius:10,padding:"13px 24px",fontSize:14,fontWeight:700,
+        cursor:"pointer",whiteSpace:"nowrap",
+        boxShadow:"0 4px 14px rgba(26,111,168,.35)",
+        display:"flex",alignItems:"center",gap:8
+      }
+    }, "💬 Conectar WhatsApp Business")
+  ) : /*#__PURE__*/React.createElement("div", {style:{
+      background:"#F0FDF4",border:"1.5px solid #BBF7D0",
+      borderRadius:12,padding:"12px 18px",marginBottom:16,
+      display:"flex",alignItems:"center",justifyContent:"space-between"
+    }},
+    /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:10}},
+      /*#__PURE__*/React.createElement("span", {style:{fontSize:18}}, "✅"),
+      /*#__PURE__*/React.createElement("div", null,
+        /*#__PURE__*/React.createElement("div", {style:{fontWeight:700,fontSize:13,color:"#065F46"}}, "WhatsApp Business conectado"),
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"#6EE7B7"}}, cfg.waNumber || "+55 31 9 9103-0288 · Ativo")
+      )
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => { if(window.confirm("Desconectar o WhatsApp Business?")) { setCfg(p=>({...p,waConnected:false,waNumber:""})); } },
+      style:{background:"transparent",border:"1px solid #BBF7D0",color:"#065F46",padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}
+    }, "Desconectar")
+  )), /*#__PURE__*/React.createElement("div", {
       style: {
         marginBottom: 22
       }
@@ -3671,6 +3727,52 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
     tries++;
     if(tries > 20 || document.getElementById('clinic-profile')) clearInterval(interval);
   }, 500);
+})();
+</script>
+
+
+<script id="wa-connect-modal">
+(function(){
+  var modal = document.createElement('div');
+  modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:36px;width:480px;max-width:95vw;box-shadow:0 24px 48px rgba(0,0,0,.12)">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:48px;margin-bottom:12px">📱</div>
+        <h2 style="font-size:20px;font-weight:800;color:#111827;margin-bottom:8px">Conectar WhatsApp Business</h2>
+        <p style="font-size:14px;color:#6B7280;line-height:1.6">Nossa equipe vai configurar seu número de WhatsApp Business em até 24h após a confirmação do pagamento.</p>
+      </div>
+      <div style="background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:14px;padding:20px;margin-bottom:20px">
+        <div style="font-weight:700;font-size:13px;color:#0369A1;margin-bottom:12px">📋 O que você precisa ter:</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#0C4A6E">
+          <div>✓ Um número de telefone dedicado para a clínica</div>
+          <div>✓ O número <strong>não pode</strong> ter WhatsApp instalado</div>
+          <div>✓ Acesso ao chip para receber SMS de verificação</div>
+        </div>
+      </div>
+      <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:14px;padding:16px;margin-bottom:24px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:24px">💬</span>
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#065F46;margin-bottom:2px">Falar com nossa equipe</div>
+          <div style="font-size:12px;color:#6EE7B7">+55 31 9 8215-8450 · Respondemos em minutos</div>
+        </div>
+        <a href="https://wa.me/5531982158450?text=Olá!%20Quero%20conectar%20meu%20WhatsApp%20Business%20ao%20BotClínica" target="_blank" 
+           style="margin-left:auto;background:#25D366;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap">
+          Falar agora →
+        </a>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('wa-modal-wrap').style.display='none'" 
+                style="padding:10px 18px;background:transparent;border:1.5px solid #E5EAF2;color:#6B7280;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif">
+          Fechar
+        </button>
+      </div>
+    </div>
+  `;
+  modal.id = 'wa-modal-wrap';
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
+  window.__openWAModal = function(){ modal.style.display='flex'; };
 })();
 </script>
 
