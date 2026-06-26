@@ -5,22 +5,80 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>AtendIA</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body,#root{height:100%;width:100%;overflow:hidden}
-body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;transition:background .3s,color .3s}
-textarea,input,button{font-family:inherit}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-thumb{background:#D0DBE8;border-radius:10px}
-:root{--vh:100vh}
-html,body{height:var(--vh)}
-#load{position:fixed;inset:0;background:#F4F7FA;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999}
-.spin{width:34px;height:34px;border:3px solid #E4EAF0;border-top-color:#1A6FA8;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-@keyframes shrink{from{width:100%}to{width:0%}}
-@keyframes hpulse{0%,100%{box-shadow:0 0 0 0 rgba(224,62,62,.35)}50%{box-shadow:0 0 0 7px rgba(224,62,62,0)}}
-@keyframes bbounce{0%,100%{transform:scale(1)}30%{transform:scale(1.25)}60%{transform:scale(.95)}}
-@keyframes rbell{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  /* Cores */
+  --sidebar-bg: #0F1623;
+  --sidebar-hover: rgba(255,255,255,.06);
+  --sidebar-active-bg: rgba(26,111,168,.18);
+  --sidebar-active-border: #1A6FA8;
+  --sidebar-text: rgba(255,255,255,.55);
+  --sidebar-text-active: #fff;
+  --sidebar-section: rgba(255,255,255,.3);
+
+  --bg: #F0F2F5;
+  --card: #FFFFFF;
+  --card-hover: #FAFBFC;
+  --border: #E5EAF2;
+  --border-light: #F0F2F5;
+
+  --primary: #1A6FA8;
+  --primary-dark: #135A8C;
+  --primary-light: #EBF4FB;
+  --primary-glow: rgba(26,111,168,.15);
+
+  --green: #10B981;
+  --green-light: #D1FAE5;
+  --red: #EF4444;
+  --red-light: #FEE2E2;
+  --yellow: #F59E0B;
+  --yellow-light: #FEF3C7;
+  --purple: #8B5CF6;
+  --purple-light: #EDE9FE;
+
+  --text: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6B7280;
+  --text-placeholder: #9CA3AF;
+
+  /* Sombras */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,.05), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,.06), 0 4px 6px rgba(0,0,0,.04);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
+
+/* ── ANIMAÇÕES ── */
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+@keyframes spin-anim { to{transform:rotate(360deg)} }
+@keyframes bounce-anim { 0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)} }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -117,6 +175,214 @@ body:not([data-plano="starter"]) .plan-upgrade-link { display:none !important; }
   gap:8px;
 }
 </style>
+
+<style id="premium-ui">
+/* ── LAYOUT GLOBAL ── */
+body { background: var(--bg) !important; color: var(--text) !important; }
+
+/* ── SIDEBAR PREMIUM ── */
+/* Override do sidebar via atributo de estilo detectado */
+nav[style*="220px"], nav[style*="width:220"], div[style*="width:220"][style*="fixed"] {
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid rgba(255,255,255,.06) !important;
+  box-shadow: 4px 0 24px rgba(0,0,0,.15) !important;
+}
+
+/* Logo area do sidebar */
+div[style*="22px 20px"][style*="border-bottom"] {
+  border-bottom: 1px solid rgba(255,255,255,.08) !important;
+  padding: 20px 16px !important;
+}
+
+/* Nav buttons do sidebar */
+button[style*="cursor:pointer"][style*="border:none"][style*="background:transparent"] {
+  border-radius: var(--radius) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: all .15s ease !important;
+}
+
+/* ── MAIN CONTENT ── */
+main[style], div[style*="margin-left:220"] {
+  background: var(--bg) !important;
+}
+
+/* ── CARDS ── */
+div[style*="borderRadius:16px"][style*="padding:22px"],
+div[style*="border-radius:16px"][style*="padding"],
+div[style*="borderRadius:14px"],
+div[style*="borderRadius:12px"] {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* ── TIPOGRAFIA ── */
+h1[style*="fontSize:22px"], h1[style*="font-size:22"] {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.3px !important;
+}
+
+/* ── INPUTS ── */
+input[style*="borderRadius"], textarea[style*="borderRadius"], select[style*="borderRadius"] {
+  border-radius: var(--radius) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  transition: border-color .15s, box-shadow .15s !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--primary-glow) !important;
+}
+
+/* ── BOTÕES ── */
+button[style*="cursor:pointer"] {
+  font-family: 'Inter', sans-serif !important;
+  transition: all .15s ease !important;
+  cursor: pointer !important;
+}
+
+button[style*="background:#1A6FA8"], button[style*="background:var(--accent)"] {
+  background: var(--primary) !important;
+  box-shadow: 0 2px 8px rgba(26,111,168,.3) !important;
+}
+
+button[style*="background:#1A6FA8"]:hover {
+  background: var(--primary-dark) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(26,111,168,.4) !important;
+}
+
+/* ── BADGES ── */
+span[style*="borderRadius:20px"][style*="fontSize:11px"],
+span[style*="border-radius:20px"][style*="font-size:11"] {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: .3px !important;
+}
+
+/* ── TABLES ── */
+table { border-collapse: collapse !important; width: 100% !important; }
+th { 
+  font-size: 11px !important; 
+  font-weight: 600 !important; 
+  text-transform: uppercase !important;
+  letter-spacing: .6px !important;
+  color: var(--text-muted) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+td { border-bottom: 1px solid var(--border-light) !important; font-size: 13px !important; }
+tr:last-child td { border-bottom: none !important; }
+tr:hover td { background: #FAFBFF !important; }
+
+/* ── MODAL ── */
+div[style*="position:fixed"][style*="background:rgba(0,0,0"] {
+  backdrop-filter: blur(6px) !important;
+}
+div[style*="borderRadius:20px"][style*="padding:32px"] {
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.05) !important;
+}
+
+/* ── TOASTS ── */
+div[class="toast"] {
+  font-family: 'Inter', sans-serif !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+/* ── PROFILE SECTION ── */
+#clinic-profile {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  cursor: pointer;
+  transition: background .15s;
+  border-radius: var(--radius);
+  margin: 6px 8px;
+}
+#clinic-profile:hover { background: rgba(255,255,255,.06); }
+.clinic-logo {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--primary), #00D4A0);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff;
+  flex-shrink: 0; overflow: hidden;
+}
+.clinic-logo img { width: 100%; height: 100%; object-fit: cover; }
+.clinic-name { font-size: 13px; font-weight: 700; color: #fff; }
+.clinic-email { font-size: 11px; color: rgba(255,255,255,.45); }
+
+/* ── PROFILE MODAL ── */
+#profile-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+}
+#profile-modal.open { display: flex; animation: fadeIn .2s ease; }
+#profile-modal-box {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  width: 440px;
+  max-width: 95vw;
+  box-shadow: var(--shadow-lg);
+}
+#profile-modal-box h2 { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 20px; }
+.logo-upload-area {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+  padding: 16px; background: var(--bg); border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--border);
+}
+.logo-preview {
+  width: 56px; height: 56px; border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--primary), #00D4A0);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: #fff;
+  overflow: hidden; flex-shrink: 0;
+}
+.logo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.logo-upload-info { flex: 1; }
+.logo-upload-info p { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.btn-upload {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; background: var(--primary-light);
+  color: var(--primary); border: none; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif; transition: .15s;
+}
+.btn-upload:hover { background: var(--primary); color: #fff; }
+.profile-field { margin-bottom: 14px; }
+.profile-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
+.profile-field input {
+  width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 10px 12px;
+  font-size: 13px; color: var(--text); font-family: 'Inter', sans-serif; outline: none;
+}
+.profile-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+.profile-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.btn-cancel {
+  padding: 10px 18px; background: transparent; border: 1.5px solid var(--border);
+  color: var(--text-muted); border-radius: var(--radius); font-size: 13px;
+  font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: .15s;
+}
+.btn-cancel:hover { border-color: var(--red); color: var(--red); }
+.btn-save-profile {
+  padding: 10px 20px; background: var(--primary); color: #fff;
+  border: none; border-radius: var(--radius); font-size: 13px;
+  font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+  box-shadow: 0 2px 8px rgba(26,111,168,.3); transition: .15s;
+}
+.btn-save-profile:hover { background: var(--primary-dark); transform: translateY(-1px); }
+</style>
+
 </head>
 <body>
 <div id="root">
@@ -684,7 +950,54 @@ function App(_ref) {
   const [convFilter, setConvFilter] = useState("Todas");
   const [docs, setDocs] = useState(DOCS0);
   const [convs, setConvs] = useState(CONVS0);
+  const [convMsgs, setConvMsgs] = useState([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+
+  // Carregar conversas reais do Firebase com polling
+  useEffect(() => {
+    async function fetchConvs() {
+      try {
+        const r = await fetch('/api/fb', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'listConversas',payload:{}})});
+        const d = await r.json();
+        if (d.convs && d.convs.length > 0) {
+          setConvs(d.convs);
+          setHCount(d.convs.filter(c => c.status === 'human').length);
+        }
+      } catch(e) {}
+    }
+    fetchConvs();
+    const interval = setInterval(fetchConvs, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Carregar mensagens de uma conversa
+  async function loadMsgs(convId) {
+    setLoadingMsgs(true);
+    try {
+      const r = await fetch('/api/fb', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'getMsgs',payload:{convId}})});
+      const d = await r.json();
+      setConvMsgs(d.msgs || []);
+      // Marcar como lido
+      await fetch('/api/fb', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'markRead',payload:{convId}})});
+    } catch(e) { setConvMsgs([]); }
+    setLoadingMsgs(false);
+  }
+
+  // Enviar resposta manual
+  async function sendReply(to, text, convId) {
+    try {
+      await fetch('/api/reply', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,text,convId})});
+    } catch(e) {}
+  }
+
+  // Alternar bot/humano
+  async function toggleStatus(convId, current) {
+    const next = current === 'human' ? 'bot' : 'human';
+    await fetch('/api/fb', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'setConvStatus',payload:{convId,status:next}})});
+    setConvs(p => p.map(c => c.id === convId ? {...c, status:next} : c));
+    setHCount(p => next === 'human' ? p+1 : Math.max(0,p-1));
+  }
   const [nd, setNd] = useState({
     name: "",
     spec: "",
@@ -804,10 +1117,15 @@ function App(_ref) {
     setDots(".");
     if (isH) setTimeout(() => triggerAlert("Paciente (demo)", simDoc.name), 500);
   };
-  const sendHumanReply = () => {
-    if (!humanIn.trim() || !selConv || selConv.status !== "human") return;
+  const sendHumanReply = async () => {
+    if (!humanIn.trim() || !selConv) return;
     const txt = humanIn;
     setHumanIn("");
+    // Enviar via Meta API
+    try {
+      await fetch('/api/reply', {method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({to:selConv.from||selConv.id,text:txt,convId:selConv.id})});
+    } catch(e) {}
     const now = new Date().toLocaleTimeString("pt-BR", {
       hour: "2-digit",
       minute: "2-digit"
@@ -1858,7 +2176,7 @@ function App(_ref) {
       flexDirection: "column",
       gap: 9
     }
-  }, selConv.msgs.map((m, i) => {
+  }, (convMsgs.length > 0 ? convMsgs : (selConv.msgs || [])).map((m, i) => {
     const doc = docs.find(d => d.id === selConv.did);
     return /*#__PURE__*/React.createElement("div", {
       key: i,
@@ -3213,5 +3531,148 @@ function AppWrapper({user}) {
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(Root, null));
 
 </script>
+
+<script id="profile-system">
+(function(){
+  // ── PROFILE MODAL ──
+  var modal = document.createElement('div');
+  modal.id = 'profile-modal';
+  modal.innerHTML = `
+    <div id="profile-modal-box">
+      <h2>⚙️ Perfil da clínica</h2>
+      <div class="logo-upload-area">
+        <div class="logo-preview" id="logo-preview-big">
+          <span id="logo-initial">B</span>
+          <img id="logo-img-big" style="display:none;width:100%;height:100%;object-fit:cover"/>
+        </div>
+        <div class="logo-upload-info">
+          <p>Adicione o logotipo da sua clínica</p>
+          <label class="btn-upload" for="logo-file-input">📷 Escolher imagem</label>
+          <input type="file" id="logo-file-input" accept="image/*" style="display:none"/>
+        </div>
+      </div>
+      <div class="profile-field">
+        <label>Nome da clínica</label>
+        <input id="pf-nome" placeholder="Ex: Clínica São Lucas"/>
+      </div>
+      <div class="profile-field">
+        <label>Telefone de contato</label>
+        <input id="pf-tel" placeholder="+55 31 9 0000-0000"/>
+      </div>
+      <div class="profile-field">
+        <label>Endereço</label>
+        <input id="pf-end" placeholder="Rua, número, cidade"/>
+      </div>
+      <div class="profile-actions">
+        <button class="btn-cancel" onclick="closeProfile()">Cancelar</button>
+        <button class="btn-save-profile" onclick="saveProfile()">💾 Salvar perfil</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e){ if(e.target===modal) closeProfile(); });
+
+  // File input
+  document.getElementById('logo-file-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var data = ev.target.result;
+      localStorage.setItem('clinic_logo', data);
+      updateLogoDisplay(data);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function updateLogoDisplay(data){
+    // Modal
+    var imgBig = document.getElementById('logo-img-big');
+    var initBig = document.getElementById('logo-initial');
+    if(data){ imgBig.src=data; imgBig.style.display='block'; if(initBig) initBig.style.display='none'; }
+    // Sidebar
+    var sideImg = document.getElementById('sidebar-logo-img');
+    var sideInit = document.getElementById('sidebar-logo-initial');
+    if(sideImg && data){ sideImg.src=data; sideImg.style.display='block'; if(sideInit) sideInit.style.display='none'; }
+  }
+
+  window.openProfile = function(){
+    modal.classList.add('open');
+    // Preencher campos salvos
+    var nome = localStorage.getItem('clinic_nome') || '';
+    var tel  = localStorage.getItem('clinic_tel')  || '';
+    var end  = localStorage.getItem('clinic_end')  || '';
+    var logo = localStorage.getItem('clinic_logo') || '';
+    document.getElementById('pf-nome').value = nome;
+    document.getElementById('pf-tel').value  = tel;
+    document.getElementById('pf-end').value  = end;
+    if(logo) updateLogoDisplay(logo);
+  };
+  window.closeProfile = function(){ modal.classList.remove('open'); };
+  window.saveProfile  = function(){
+    var nome = document.getElementById('pf-nome').value.trim();
+    var tel  = document.getElementById('pf-tel').value.trim();
+    var end  = document.getElementById('pf-end').value.trim();
+    if(nome) localStorage.setItem('clinic_nome', nome);
+    if(tel)  localStorage.setItem('clinic_tel',  tel);
+    if(end)  localStorage.setItem('clinic_end',  end);
+    // Atualizar nome no sidebar
+    var nameEl = document.getElementById('sidebar-clinic-name');
+    if(nameEl && nome) nameEl.textContent = nome;
+    closeProfile();
+    // Toast
+    var t=document.createElement('div');
+    t.className='toast';
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#fff;border:1px solid #10B981;border-radius:10px;padding:12px 18px;font-size:13px;color:#10B981;font-weight:600;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.1)';
+    t.textContent='✅ Perfil atualizado!';
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),3000);
+  };
+
+  // ── INJETAR PERFIL NO SIDEBAR ──
+  function injectSidebarProfile(){
+    // Encontrar o sidebar (nav ou div fixo com 220px de largura)
+    var sidebar = document.querySelector('div[style*="position: fixed"][style*="220px"]') ||
+                  document.querySelector('div[style*="position:fixed"][style*="220px"]');
+    if(!sidebar || document.getElementById('clinic-profile')) return;
+
+    var nome  = localStorage.getItem('clinic_nome') || 'Minha Clínica';
+    var email = document.querySelector('input[type="email"]')?.value || '';
+    var logo  = localStorage.getItem('clinic_logo') || '';
+    var init  = nome.charAt(0).toUpperCase();
+
+    var profile = document.createElement('div');
+    profile.id = 'clinic-profile';
+    profile.onclick = openProfile;
+    profile.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="clinic-logo">
+          <span id="sidebar-logo-initial" style="${logo?'display:none':''}">${init}</span>
+          <img id="sidebar-logo-img" src="${logo}" style="${logo?'':'display:none'};width:100%;height:100%;object-fit:cover"/>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="clinic-name" id="sidebar-clinic-name">${nome}</div>
+          <div class="clinic-email">Editar perfil →</div>
+        </div>
+        <div style="color:rgba(255,255,255,.3);font-size:12px">⚙️</div>
+      </div>
+    `;
+
+    // Inserir antes do botão de logout (último filho do sidebar)
+    var logoutBtn = sidebar.querySelector('button');
+    var lastDiv = sidebar.lastElementChild;
+    sidebar.insertBefore(profile, lastDiv);
+  }
+
+  // Tentar injetar após o React renderizar
+  var tries = 0;
+  var interval = setInterval(function(){
+    injectSidebarProfile();
+    tries++;
+    if(tries > 20 || document.getElementById('clinic-profile')) clearInterval(interval);
+  }, 500);
+})();
+</script>
+
 </body>
 </html>
