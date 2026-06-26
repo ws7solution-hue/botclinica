@@ -239,7 +239,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
                 </div>
               </div>
             </div>
-            <div class="phone-chat" id="phone-chat-anim" style="min-height:320px"></div>
+            <div class="phone-chat" id="phone-chat-anim" style="min-height:320px;background:#ECE5DD;padding:12px 10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto"></div>
             <div style="background:#f0f0f0;padding:8px 12px;display:flex;align-items:center;gap:8px;border-top:1px solid #ddd">
               <div style="flex:1;background:#fff;border-radius:20px;padding:7px 12px;font-size:11px;color:#999">Mensagem...</div>
               <div style="width:28px;height:28px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center">
@@ -665,9 +665,12 @@ Lembrete na véspera!',time:'14:33'},
       else{addMsg(m);setTimeout(next,1400);}
     }
 
-    var started=false;
-    var io=new IntersectionObserver(function(entries){if(entries[0].isIntersecting&&!started){started=true;setTimeout(next,600);}},{threshold:0.3});
-    io.observe(c);
+    // Iniciar direto após load
+    if(document.readyState==='loading'){
+      document.addEventListener('DOMContentLoaded',function(){setTimeout(next,1200);});
+    } else {
+      setTimeout(next,1200);
+    }
   }
 
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){reveal();counters();chatAnim();});}
