@@ -224,6 +224,61 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+
+    // ── CONVERSAS: listar ────────────────────────────────────
+    if (action === "listConversas") {
+      const r = await fetch(`${FS}/conversas?key=${API_KEY}`);
+      const d = await r.json();
+      const docs = d.documents || [];
+      const convs = docs.map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        return {
+          id: doc.name.split("/").pop(),
+          from: g("from"), name: g("name"),
+          lastMsg: g("lastMsg"), lastTime: g("lastTime"),
+          status: g("status") || "bot", unread: g("unread") || "0"
+        };
+      }).sort((a,b) => b.lastTime.localeCompare(a.lastTime));
+      return res.status(200).json({ convs });
+    }
+
+    // ── CONVERSAS: mensagens de uma conversa ─────────────────
+    if (action === "getMsgs") {
+      const { convId } = payload;
+      const r = await fetch(`${FS}/conversas/${convId}/msgs?key=${API_KEY}`);
+      const d = await r.json();
+      const docs = d.documents || [];
+      const msgs = docs.map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        return { id: doc.name.split("/").pop(), text: g("text"), from: g("from"), time: g("time") };
+      }).sort((a,b) => a.time.localeCompare(b.time));
+      return res.status(200).json({ msgs });
+    }
+
+    // ── CONVERSAS: marcar como lido ──────────────────────────
+    if (action === "markRead") {
+      const { convId } = payload;
+      await fetch(`${FS}/conversas/${convId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({fields:{unread:{stringValue:"0"}}})
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── CONVERSAS: atualizar status (bot/human) ──────────────
+    if (action === "setConvStatus") {
+      const { convId, status } = payload;
+      await fetch(`${FS}/conversas/${convId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({fields:{status:{stringValue:status}}})
+      });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
