@@ -1223,32 +1223,7 @@ function App(_ref) {
     const tot = docs.reduce((s, d) => s + d.s.today, 0),
       res = docs.reduce((s, d) => s + d.s.res, 0),
       pct = tot ? Math.round(res / tot * 100) : 0;
-    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: "linear-gradient(135deg,#075E54,#128C7E)",
-        borderRadius: 14,
-        padding: "18px 22px",
-        marginBottom: 18,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 12
-      }
-    },
-      /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:12}},
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:28}}, "💬"),
-        /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:14,color:"#fff"}}, "WhatsApp Business API — Conectado"),
-          /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"rgba(255,255,255,.8)"}}, "+55 31 9 9103-0288 · API oficial Meta ✅")
-        )
-      ),
-      /*#__PURE__*/React.createElement("a", {
-        href:"https://business.facebook.com/latest/whatsapp_manager/phone_numbers/?asset_id=2055858788663742&business_id=2393172651207835",
-        target:"_blank",
-        style:{background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"#fff",padding:"8px 16px",borderRadius:8,fontSize:12,fontWeight:700,textDecoration:"none"}
-      }, "⚙️ Gerenciar no Meta")
-    ), /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{background:"linear-gradient(135deg,#075E54,#128C7E)",borderRadius:14,padding:"16px 20px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}, /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:10}}, /*#__PURE__*/React.createElement("span", {style:{fontSize:24}}, "💬"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:13,color:"#fff"}}, "WhatsApp Business API — Ativo ✅"), /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"rgba(255,255,255,.75)"}}, "+55 31 9 9103-0288 · API oficial Meta"))), /*#__PURE__*/React.createElement("a", {href:"https://business.facebook.com/latest/whatsapp_manager/phone_numbers/?asset_id=2055858788663742&business_id=2393172651207835",target:"_blank",style:{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.3)",color:"#fff",padding:"7px 14px",borderRadius:8,fontSize:12,fontWeight:700,textDecoration:"none"}}, "⚙️ Gerenciar")), /*#__PURE__*/React.createElement("div", {
       style: {
         marginBottom: 22
       }
@@ -1640,7 +1615,7 @@ function App(_ref) {
     }, /*#__PURE__*/React.createElement(I.Check, {
       s: 11,
       c: ok ? T.green : T.muted
-    }), ok ? "Ativo" : "Off")))), 
+    }), ok ? "Ativo" : "Off")))), )));
   })()), page === "conversas" && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -3196,36 +3171,6 @@ function Root() {
       color: "#6B80A0"
     }
   }, "Carregando..."), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: "linear-gradient(135deg, #075E54, #128C7E)",
-        borderRadius: 16,
-        padding: "24px 28px",
-        marginBottom: 20,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 16
-      }
-    },
-    /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:14}},
-      /*#__PURE__*/React.createElement("div", {style:{width:48,height:48,background:"rgba(255,255,255,.15)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}, "💬"),
-      /*#__PURE__*/React.createElement("div", null,
-        /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:16,color:"#fff",marginBottom:3}}, "WhatsApp Business API"),
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:13,color:"rgba(255,255,255,.8)"}}, "Número +55 31 9 9103-0288 conectado via API oficial Meta ✅")
-      )
-    ),
-    /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:10,flexWrap:"wrap"}},
-      /*#__PURE__*/React.createElement("a", {
-        href: "https://business.facebook.com/latest/whatsapp_manager/phone_numbers/?asset_id=2055858788663742&business_id=2393172651207835",
-        target: "_blank",
-        style: {background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.4)",color:"#fff",padding:"9px 18px",borderRadius:9,fontSize:13,fontWeight:700,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}
-      }, "⚙️ Gerenciar"),
-      /*#__PURE__*/React.createElement("div", {
-        style: {background:"#25D366",color:"#fff",padding:"9px 18px",borderRadius:9,fontSize:13,fontWeight:700,display:"inline-flex",alignItems:"center",gap:6}
-      }, "● Ativo")
-    )
-  ), /*#__PURE__*/React.createElement("div", {
     style: {
       width: 34,
       height: 34,
