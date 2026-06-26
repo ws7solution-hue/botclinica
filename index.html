@@ -509,85 +509,105 @@ footer{background:#0D1828;padding:48px 5% 32px}
 </section>
 
 <script>
-// ── DEMO BOT ──
 var demoHistory = [];
 var demoLoading = false;
-var DEMO_SYSTEM = "Você é Sofia, assistente virtual da Clínica Exemplo em Belo Horizonte. A clínica tem o Dr. Carlos Mendes (Clínica Geral, Seg/Qua/Sex 8h-17h) e a Dra. Ana Lima (Dermatologia, Ter/Qui 9h-18h). Valor da consulta: R$180. Não atende convênio, apenas particular. Atendimento geral Seg-Sex 8h-18h, Sáb 8h-12h. Responda de forma simpática, objetiva e profissional. Máximo 3 linhas por resposta. Se o paciente quiser agendar, peça nome e telefone para contato. Você é apenas uma demonstração do BotClínica.";
-
-function addMsg(text, who) {
-  var container = document.getElementById('demo-msgs');
-  var isBot = who === 'bot';
-  var div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:8px;align-items:flex-end;' + (isBot ? '' : 'flex-direction:row-reverse');
-  
-  var avatar = isBot ? '<div style="width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🤖</div>' : '';
-  
-  var bubble = '<div style="background:' + (isBot ? '#fff;border:1px solid #E4EAF0;border-radius:16px 16px 16px 4px' : '#1A6FA8;border-radius:16px 16px 4px 16px') + ';padding:11px 14px;font-size:13px;color:' + (isBot ? '#1A2535' : '#fff') + ';max-width:78%;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.06)">' + text.replace(/
-/g,'<br>') + '</div>';
-  
-  div.innerHTML = avatar + bubble;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-function addTyping() {
-  var container = document.getElementById('demo-msgs');
-  var div = document.createElement('div');
-  div.id = 'demo-typing';
-  div.style.cssText = 'display:flex;gap:8px;align-items:flex-end';
-  div.innerHTML = '<div style="width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px">🤖</div><div style="background:#fff;border:1px solid #E4EAF0;border-radius:16px 16px 16px 4px;padding:11px 16px"><div style="display:flex;gap:4px;align-items:center"><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s infinite"></span><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s .15s infinite"></span><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s .3s infinite"></span></div></div>';
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-function removeTyping() {
-  var t = document.getElementById('demo-typing');
-  if (t) t.remove();
-}
+var DEMO_SYSTEM = "Voce e Sofia, assistente virtual da Clinica Exemplo em Belo Horizonte. Dr. Carlos Mendes (Clinica Geral, Seg/Qua/Sex 8h-17h) e Dra. Ana Lima (Dermatologia, Ter/Qui 9h-18h). Consulta: R$180, apenas particular. Horario: Seg-Sex 8h-18h, Sab 8h-12h. Seja simpatica, objetiva, maximo 3 frases. Se quiser agendar, peca nome e telefone. Voce e uma demonstracao do BotClinica.";
 
 function fillMsg(text) {
   document.getElementById('demo-input').value = text;
   document.getElementById('demo-input').focus();
 }
 
-async function demoSend() {
+function addMsgToChat(text, isBot) {
+  var container = document.getElementById('demo-msgs');
+  var wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.gap = '8px';
+  wrapper.style.alignItems = 'flex-end';
+  if (!isBot) wrapper.style.flexDirection = 'row-reverse';
+
+  if (isBot) {
+    var avatar = document.createElement('div');
+    avatar.style.cssText = 'width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0';
+    avatar.textContent = '🤖';
+    wrapper.appendChild(avatar);
+  }
+
+  var bubble = document.createElement('div');
+  bubble.style.cssText = 'padding:11px 14px;font-size:13px;max-width:78%;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.06)';
+  if (isBot) {
+    bubble.style.background = '#fff';
+    bubble.style.border = '1px solid #E4EAF0';
+    bubble.style.borderRadius = '16px 16px 16px 4px';
+    bubble.style.color = '#1A2535';
+  } else {
+    bubble.style.background = '#1A6FA8';
+    bubble.style.borderRadius = '16px 16px 4px 16px';
+    bubble.style.color = '#fff';
+  }
+  bubble.textContent = text;
+  wrapper.appendChild(bubble);
+  container.appendChild(wrapper);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  var container = document.getElementById('demo-msgs');
+  var div = document.createElement('div');
+  div.id = 'demo-typing';
+  div.style.cssText = 'display:flex;gap:8px;align-items:flex-end';
+  div.innerHTML = '<div style="width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px">🤖</div><div style="background:#fff;border:1px solid #E4EAF0;border-radius:16px 16px 16px 4px;padding:11px 16px"><div style="display:flex;gap:4px"><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s infinite;display:inline-block"></span><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s .15s infinite;display:inline-block"></span><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s .3s infinite;display:inline-block"></span></div></div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function hideTyping() {
+  var t = document.getElementById('demo-typing');
+  if (t) t.remove();
+}
+
+function demoSend() {
   if (demoLoading) return;
   var input = document.getElementById('demo-input');
-  var text = input.value.trim();
+  var text = (input.value || '').trim();
   if (!text) return;
-  
+
   input.value = '';
-  addMsg(text, 'user');
-  demoHistory.push({ role: 'user', content: text });
-  
+  addMsgToChat(text, false);
+  demoHistory.push({role: 'user', content: text});
+
   demoLoading = true;
-  document.getElementById('demo-send-btn').style.opacity = '0.5';
-  addTyping();
-  
-  try {
-    var r = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 300,
-        system: DEMO_SYSTEM,
-        messages: demoHistory
-      })
-    });
-    var d = await r.json();
-    var reply = (d.content && d.content[0] && d.content[0].text) || 'Desculpe, tente novamente.';
-    removeTyping();
-    addMsg(reply, 'bot');
-    demoHistory.push({ role: 'assistant', content: reply });
+  var btn = document.getElementById('demo-send-btn');
+  if (btn) btn.style.opacity = '0.5';
+  showTyping();
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 300,
+      system: DEMO_SYSTEM,
+      messages: demoHistory
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    hideTyping();
+    var reply = (d.content && d.content[0] && d.content[0].text) ? d.content[0].text : 'Desculpe, tente novamente.';
+    addMsgToChat(reply, true);
+    demoHistory.push({role: 'assistant', content: reply});
     if (demoHistory.length > 16) demoHistory = demoHistory.slice(-16);
-  } catch(e) {
-    removeTyping();
-    addMsg('Desculpe, houve um erro. Tente novamente!', 'bot');
-  }
-  
-  demoLoading = false;
-  document.getElementById('demo-send-btn').style.opacity = '1';
+  })
+  .catch(function(e) {
+    hideTyping();
+    addMsgToChat('Erro de conexao. Tente novamente!', true);
+    console.error('Demo error:', e);
+  })
+  .finally(function() {
+    demoLoading = false;
+    if (btn) btn.style.opacity = '1';
+  });
 }
 </script>
 
