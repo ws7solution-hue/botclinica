@@ -222,21 +222,35 @@ footer{background:#0D1828;padding:48px 5% 32px}
         </div>
       </div>
       <div>
-        <div class="phone">
-          <div class="phone-bar"><span>9:41</span><span>100%</span></div>
-          <div class="phone-header">
-            <div class="phone-avatar">S</div>
-            <div><div class="phone-name">Sofia · Clínica Exemplo</div><div class="phone-status">online agora</div></div>
+        <div style="position:relative;display:inline-block"><div class="phone" style="position:relative;z-index:1">
+            <div class="phone-bar">
+              <span>9:41</span>
+              <span>📶 100%</span>
+            </div>
+            <div class="phone-header">
+              <div class="phone-avatar" style="position:relative">S
+                <span style="position:absolute;bottom:0;right:0;width:8px;height:8px;background:#4ADE80;border-radius:50%;border:1.5px solid #075E54"></span>
+              </div>
+              <div>
+                <div class="phone-name">Sofia · Clínica Exemplo</div>
+                <div class="phone-status" style="display:flex;align-items:center;gap:4px">
+                  <span style="width:6px;height:6px;background:#4ADE80;border-radius:50%;display:inline-block;animation:pulse-dot 2s infinite"></span>
+                  online agora
+                </div>
+              </div>
+            </div>
+            <div class="phone-chat" id="phone-chat-anim" style="min-height:320px"></div>
+            <div style="background:#f0f0f0;padding:8px 12px;display:flex;align-items:center;gap:8px;border-top:1px solid #ddd">
+              <div style="flex:1;background:#fff;border-radius:20px;padding:7px 12px;font-size:11px;color:#999">Mensagem...</div>
+              <div style="width:28px;height:28px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center">
+                <svg width="12" height="12" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+            </div>
           </div>
-          <div class="phone-chat">
-            <div class="msg msg-p">Oi, quero agendar com a dermatologista<div class="msg-time">14:31 ✓✓</div></div>
-            <div class="msg msg-bot">Olá! 😊 A Dra. Carla atende às terças e quintas. Qual seria a melhor data pra você?<div class="msg-time">14:31</div></div>
-            <div class="msg msg-p">Quinta-feira que vem<div class="msg-time">14:32 ✓✓</div></div>
-            <div class="msg msg-bot">Temos horários às 10h, 14h e 16h. Qual prefere?<div class="msg-time">14:32</div></div>
-            <div class="msg msg-p">14h por favor<div class="msg-time">14:33 ✓✓</div></div>
-            <div class="msg msg-bot">Perfeito! 📅 Agendado:<br/><br/><strong>Dra. Carla — Dermatologia</strong><br/>Quinta-feira, 14h<br/><br/>Enviaremos lembrete na véspera. Até lá! 😊<div class="msg-time">14:33</div></div>
-          </div>
-        </div>
+          <div style="position:absolute;top:-10px;right:-20px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:12px;z-index:2;animation:float-badge 3s ease-in-out infinite;white-space:nowrap">
+            <div style="font-weight:700;color:#1A2535;margin-bottom:2px">✅ Consulta confirmada!</div>
+            <div style="color:#6B80A0">Dra. Ana · Qui 14h</div>
+          </div></div>
       </div>
     </div>
   </div>
@@ -570,6 +584,95 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
     if(el){e.preventDefault();el.scrollIntoView({behavior:'smooth',block:'start'});}
   });
 });
+</script>
+<style id="anim-css">
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes float-badge{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.msg-anim{opacity:0;transform:translateY(6px);animation:msg-in .35s ease forwards}
+@keyframes msg-in{to{opacity:1;transform:translateY(0)}}
+.typing-dots span{display:inline-block;width:7px;height:7px;background:#999;border-radius:50%;margin:0 2px;animation:tdot .8s infinite}
+.typing-dots span:nth-child(2){animation-delay:.15s}
+.typing-dots span:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+</style>
+<script id="anim-js">
+(function(){
+  // Scroll reveal
+  function reveal(){
+    document.querySelectorAll('.section-label,.section-title,.section-sub,.feature-item,.price-card,.step,.faq-item,.mockup-text').forEach(function(el,i){
+      el.classList.add('reveal');
+      el.style.transitionDelay=(Math.floor(i%3)*0.12)+'s';
+    });
+    var io=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target);}});},{threshold:0.1});
+    document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+  }
+
+  // Contador animado
+  function counters(){
+    var els=document.querySelectorAll('.hero-num-val');
+    var done=false;
+    var io=new IntersectionObserver(function(entries){
+      if(!entries[0].isIntersecting||done)return;
+      done=true;
+      els.forEach(function(el){
+        var txt=el.textContent;
+        var num=parseInt(txt.replace(/\D/g,''));
+        var suf=txt.replace(/[0-9]/g,'');
+        var start=performance.now();
+        (function step(ts){
+          var p=Math.min((ts-start)/1600,1);
+          var ease=1-Math.pow(1-p,3);
+          el.textContent=Math.round(ease*num)+suf;
+          if(p<1)requestAnimationFrame(step);
+        })(start);
+      });
+    },{threshold:0.5});
+    if(els.length)io.observe(els[0].closest('div')||els[0]);
+  }
+
+  // Chat animado
+  function chatAnim(){
+    var msgs=[
+      {t:'p',txt:'Oi, quero agendar com a dermatologista',time:'14:31 ✓✓'},
+      {t:'bot',txt:'Olá! 😊 A Dra. Ana atende terças e quintas. Qual data fica melhor?',time:'14:31'},
+      {t:'p',txt:'Quinta-feira que vem',time:'14:32 ✓✓'},
+      {t:'bot',txt:'Temos horários às 10h, 14h e 16h. Qual prefere?',time:'14:32'},
+      {t:'p',txt:'14h por favor 😊',time:'14:33 ✓✓'},
+      {t:'bot',txt:'Perfeito! 📅 Agendado:
+Dra. Ana — Dermatologia
+Qui-feira, 14h
+
+Lembrete na véspera!',time:'14:33'},
+    ];
+    var c=document.getElementById('phone-chat-anim');
+    if(!c)return;
+    var idx=0;
+
+    function typing(){var d=document.createElement('div');d.className='msg msg-bot msg-anim';d.id='tdot';d.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';c.appendChild(d);c.scrollTop=9999;}
+    function rmTyping(){var t=document.getElementById('tdot');if(t)t.remove();}
+    function addMsg(m){var d=document.createElement('div');d.className='msg msg-'+m.t+' msg-anim';d.innerHTML=m.txt.replace(/
+/g,'<br>')+'<div class="msg-time">'+m.time+'</div>';c.appendChild(d);c.scrollTop=9999;}
+
+    function next(){
+      if(idx>=msgs.length){
+        setTimeout(function(){c.style.transition='opacity .5s';c.style.opacity='0';setTimeout(function(){c.innerHTML='';c.style.opacity='1';idx=0;setTimeout(next,600);},500);},4000);
+        return;
+      }
+      var m=msgs[idx++];
+      if(m.t==='bot'){typing();setTimeout(function(){rmTyping();addMsg(m);setTimeout(next,1800);},1000+Math.random()*400);}
+      else{addMsg(m);setTimeout(next,1400);}
+    }
+
+    var started=false;
+    var io=new IntersectionObserver(function(entries){if(entries[0].isIntersecting&&!started){started=true;setTimeout(next,600);}},{threshold:0.3});
+    io.observe(c);
+  }
+
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){reveal();counters();chatAnim();});}
+  else{reveal();counters();chatAnim();}
+})();
 </script>
 </body>
 </html>
