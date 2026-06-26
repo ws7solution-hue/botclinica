@@ -25,6 +25,14 @@
       "destination": "/admin.html"
     },
     {
+      "source": "/crm",
+      "destination": "/crm.html"
+    },
+    {
+      "source": "/crm/:path*",
+      "destination": "/crm.html"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }

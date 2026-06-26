@@ -152,6 +152,78 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+
+    // ── CRM: listar clientes ────────────────────────────────
+    if (action === "crmListClientes") {
+      let r = await fetch(`${FS}/crm_clientes?key=${API_KEY}`);
+      let d = await r.json();
+      const docs = d.documents || [];
+      const clientes = docs.map(doc => {
+        const f = doc.fields || {};
+        const get = (k, type) => f[k]?.[type] || f[k]?.stringValue || "";
+        return {
+          id: doc.name.split("/").pop(),
+          nome: get("nome","stringValue"),
+          email: get("email","stringValue"),
+          plano: get("plano","stringValue") || "starter",
+          status: get("status","stringValue") || "ativo",
+          inicio: get("inicio","stringValue"),
+          vencimento: get("vencimento","stringValue"),
+          telefone: get("telefone","stringValue"),
+          cidade: get("cidade","stringValue"),
+          obs: get("obs","stringValue"),
+          createdAt: get("createdAt","stringValue"),
+          updatedAt: get("updatedAt","stringValue"),
+        };
+      });
+      return res.status(200).json({ clientes });
+    }
+
+    // ── CRM: salvar cliente ──────────────────────────────────
+    if (action === "crmSaveCliente") {
+      const { cliente } = payload;
+      if (!cliente?.id) return res.status(400).json({ error: "ID obrigatório" });
+      const r = await fetch(`${FS}/crm_clientes/${cliente.id}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: toFsFields(cliente) })
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── CRM: deletar cliente ─────────────────────────────────
+    if (action === "crmDeleteCliente") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+      await fetch(`${FS}/crm_clientes/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── CRM: get config ──────────────────────────────────────
+    if (action === "crmGetConfig") {
+      const r = await fetch(`${FS}/crm_config/main?key=${API_KEY}`);
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json({ config: null });
+      const raw = d.fields?.config?.stringValue;
+      try { return res.status(200).json({ config: JSON.parse(raw) }); }
+      catch(e) { return res.status(200).json({ config: null }); }
+    }
+
+    // ── CRM: save config ─────────────────────────────────────
+    if (action === "crmSaveConfig") {
+      const { config } = payload;
+      const r = await fetch(`${FS}/crm_config/main?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { config: { stringValue: JSON.stringify(config) } } })
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
