@@ -119,32 +119,17 @@ module.exports = async (req, res) => {
 
     // ── ADMIN: liberar/atualizar acesso ──────────────────
     if (action === "setAccess") {
-      const { email, plano, senha } = payload;
+      const { email, plano } = payload;
       if (!email) return res.status(400).json({ error: "Email obrigatório" });
       const key = emailToKey(email);
-      const senhaFinal = senha || "BotClinica@2026";
-
-      // 1. Criar/atualizar no Firebase Auth
-      const signUpR = await fetch(ENDPOINTS.signUp, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase(), password: senhaFinal, returnSecureToken: false }),
-      });
-      const signUpD = await signUpR.json();
-      // Ignorar erro se usuário já existe
-      if (signUpD.error && !signUpD.error.message.includes("EMAIL_EXISTS")) {
-        console.log("Auth create err:", signUpD.error.message);
-      }
-
-      // 2. Salvar plano no Firestore
       const body = JSON.stringify({
         fields: {
           email:     { stringValue: email.toLowerCase() },
           plano:     { stringValue: plano || "starter" },
-          senha:     { stringValue: senhaFinal },
           createdAt: { stringValue: new Date().toISOString() },
         }
       });
+      // Tenta PATCH (com e sem token)
       let r = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -155,7 +140,7 @@ module.exports = async (req, res) => {
         console.log("setAccess err:", d.error.message, "| key:", key, "| plano:", plano);
         return res.status(200).json({ error: d.error.message });
       }
-      return res.status(200).json({ ok: true, email, plano, key, senha: senhaFinal });
+      return res.status(200).json({ ok: true, email, plano, key });
     }
 
     // ── ADMIN: remover acesso ─────────────────────────────
@@ -315,6 +300,165 @@ module.exports = async (req, res) => {
       });
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+
+    // ── LOGIN (wrapper do signIn) ──────────────────────────
+    if (action === "login") {
+      const { email, password } = payload;
+      const r = await fetch(ENDPOINTS.signIn, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      // Buscar plano do usuário
+      const planR = await fsReq(`acessos_autorizados/${emailToKey(email)}`);
+      const planD = await planR.json();
+      const plano = planD.fields?.plano?.stringValue || "starter";
+      return res.status(200).json({ ok: true, email, plano, idToken: d.idToken });
+    }
+
+    // ── GET PLAN ──────────────────────────────────────────
+    if (action === "getPlan") {
+      const { email } = payload;
+      const r = await fsReq(`acessos_autorizados/${emailToKey(email)}`);
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ plano: "starter" });
+      return res.status(200).json({ plano: d.fields?.plano?.stringValue || "starter" });
+    }
+
+    // ── MÉDICOS: listar ───────────────────────────────────
+    if (action === "listDoctors") {
+      const { clinicId } = payload;
+      const col = clinicId ? `doctors_${emailToKey(clinicId)}` : "doctors";
+      const r = await fsReq(col);
+      const d = await r.json();
+      const docs = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = (k, type="stringValue") => f[k]?.[type] || f[k]?.stringValue || "";
+        const arr = k => (f[k]?.arrayValue?.values || []).map(v => v.stringValue || "");
+        return {
+          id: doc.name.split("/").pop(),
+          name: g("name"), specialty: g("specialty"), crm: g("crm"),
+          rating: parseFloat(f.rating?.doubleValue || f.rating?.integerValue || "4.5"),
+          avatarUrl: g("avatarUrl"),
+          schedules: arr("schedules"),
+          consultationFee: parseFloat(f.consultationFee?.doubleValue || f.consultationFee?.integerValue || "0"),
+          activePatientsCount: parseInt(f.activePatientsCount?.integerValue || "0"),
+          isActive: f.isActive?.booleanValue !== false,
+          attendanceDays: arr("attendanceDays"),
+          startTime: g("startTime"), endTime: g("endTime"),
+          procedures: g("procedures"), insurancePlans: g("insurancePlans"),
+          exams: g("exams"), discounts: g("discounts"),
+          schedulingPolicy: g("schedulingPolicy"), preparationInstructions: g("preparationInstructions"),
+          additionalNotes: g("additionalNotes"),
+          botName: g("botName") || "Sofia", botTone: g("botTone") || "Cordial",
+        };
+      });
+      return res.status(200).json({ doctors: docs });
+    }
+
+    // ── MÉDICOS: salvar ───────────────────────────────────
+    if (action === "saveDoctor") {
+      const { doctor, clinicId } = payload;
+      if (!doctor?.id) return res.status(400).json({ error: "ID obrigatório" });
+      const col = clinicId ? `doctors_${emailToKey(clinicId)}` : "doctors";
+      const r = await fsReq(`${col}/${doctor.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields({
+          ...doctor,
+          attendanceDays: undefined, schedules: undefined,
+        }) }),
+      });
+      const d = await r.json();
+      // Salvar arrays separadamente
+      if (doctor.attendanceDays) {
+        await fsReq(`${col}/${doctor.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ fields: {
+            attendanceDays: { arrayValue: { values: doctor.attendanceDays.map(v => ({ stringValue: v })) } },
+            schedules: { arrayValue: { values: (doctor.schedules || []).map(v => ({ stringValue: v })) } },
+          }}),
+        });
+      }
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── MÉDICOS: deletar ──────────────────────────────────
+    if (action === "deleteDoctor") {
+      const { id, clinicId } = payload;
+      const col = clinicId ? `doctors_${emailToKey(clinicId)}` : "doctors";
+      await fsReq(`${col}/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── AGENDAMENTOS: listar ──────────────────────────────
+    if (action === "listAppointments") {
+      const { clinicId } = payload;
+      const col = clinicId ? `appointments_${emailToKey(clinicId)}` : "appointments";
+      const r = await fsReq(col);
+      const d = await r.json();
+      const apts = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        return {
+          id: doc.name.split("/").pop(),
+          patientName: g("patientName"), patientPhone: g("patientPhone"),
+          doctorId: g("doctorId"), doctorName: g("doctorName"),
+          specialty: g("specialty"), date: g("date"), time: g("time"),
+          status: g("status") || "pending",
+          reminderSent: f.reminderSent?.booleanValue || false,
+          reminderStatus: g("reminderStatus") || "none",
+        };
+      });
+      return res.status(200).json({ appointments: apts });
+    }
+
+    // ── AGENDAMENTOS: salvar ──────────────────────────────
+    if (action === "saveAppointment") {
+      const { appointment, clinicId } = payload;
+      if (!appointment?.id) return res.status(400).json({ error: "ID obrigatório" });
+      const col = clinicId ? `appointments_${emailToKey(clinicId)}` : "appointments";
+      const r = await fsReq(`${col}/${appointment.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields(appointment) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── AGENDAMENTOS: deletar ─────────────────────────────
+    if (action === "deleteAppointment") {
+      const { id, clinicId } = payload;
+      const col = clinicId ? `appointments_${emailToKey(clinicId)}` : "appointments";
+      await fsReq(`${col}/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── CONFIGURAÇÕES DA CLÍNICA ──────────────────────────
+    if (action === "getClinicSettings") {
+      const { clinicId } = payload;
+      const key = clinicId ? `clinic_settings_${emailToKey(clinicId)}` : "clinic_settings_main";
+      const r = await fsReq(`clinic_config/${key}`);
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json({ settings: null });
+      try {
+        const raw = d.fields?.data?.stringValue || "{}";
+        return res.status(200).json({ settings: JSON.parse(raw) });
+      } catch(e) { return res.status(200).json({ settings: null }); }
+    }
+
+    if (action === "saveClinicSettings") {
+      const { settings, clinicId } = payload;
+      const key = clinicId ? `clinic_settings_${emailToKey(clinicId)}` : "clinic_settings_main";
+      await fsReq(`clinic_config/${key}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: { data: { stringValue: JSON.stringify(settings) } } }),
+      });
       return res.status(200).json({ ok: true });
     }
 
