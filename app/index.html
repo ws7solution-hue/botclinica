@@ -3674,281 +3674,348 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════
+     BOTCLÍNICA — INJEÇÃO FINAL
+     Regra: zero toque no React. Só CSS + HTML + JS pós-render.
+     ═══════════════════════════════════════════════════════ -->
 
-<style id="sidebar-dark-final">
-/* Sidebar SEMPRE dark */
+<style id="bc-final-css">
+/* ── 1. Sidebar sempre dark ── */
 div[style*="position: fixed"][style*="220px"] {
   background: #0F1623 !important;
   border-right: 1px solid rgba(255,255,255,.06) !important;
 }
-/* Esconder botão Escuro/Claro via CSS */
-button[style*="Escuro"], button[style*="Claro"] { display:none !important; }
-</style>
-<script id="hide-mode-btn">
-(function(){
-  function run(){
-    document.querySelectorAll('button').forEach(function(b){
-      var t = b.textContent.trim();
-      if(t==='Escuro'||t==='Claro'){
-        var wrap = b.closest('div[style*="display:flex"]') || b.parentElement;
-        if(wrap) wrap.style.display='none';
-      }
-    });
-  }
-  [500,1000,2000,3000].forEach(function(d){ setTimeout(run,d); });
-})();
-</script>
 
-
-<style id="final-ui">
-/* ── Sidebar sempre dark (como no print) ── */
-div[style*="position: fixed"][style*="220px"] {
-  background: #0F1623 !important;
-  border-right: 1px solid rgba(255,255,255,.07) !important;
+/* ── 2. Esconder botão Som + Escuro/Claro via CSS (fallback) ── */
+button[id="bc-btn-som"],
+button[id="bc-btn-dark"] {
+  display: none !important;
 }
-div[style*="position: fixed"][style*="220px"] * {
-  box-sizing: border-box;
+div[id="bc-mode-wrap"] {
+  display: none !important;
 }
 
-/* ── Esconder botão Escuro/Claro e Som ── */
-#mode-btns-wrap { display: none !important; }
-
-/* ── Modo claro: fundo branco, texto escuro ── */
-body { background: #F0F2F5 !important; }
-
-/* ── Modal de config do bot por médico ── */
-#bot-cfg-modal {
+/* ── 3. Modal bot config ── */
+#bc-bot-modal {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.55);
+  background: rgba(0,0,0,.5);
   z-index: 99999;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(4px);
   font-family: 'Inter', system-ui, sans-serif;
 }
-#bot-cfg-modal.open { display: flex; }
-#bot-cfg-box {
+#bc-bot-modal.open { display: flex; }
+#bc-bot-box {
   background: #fff;
   border-radius: 18px;
   padding: 28px 32px;
-  width: 560px;
+  width: 580px;
   max-width: 95vw;
-  max-height: 90vh;
+  max-height: 88vh;
   overflow-y: auto;
-  box-shadow: 0 24px 60px rgba(0,0,0,.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
 }
-#bot-cfg-box h2 {
-  font-size: 16px; font-weight: 800;
-  color: #111827; margin-bottom: 4px;
+#bc-bot-box h2 {
+  font-size: 16px; font-weight: 800; color: #111827;
+  margin-bottom: 4px;
 }
-#bot-cfg-box .sub {
+#bc-bot-box .bc-sub {
   font-size: 13px; color: #6B7280; margin-bottom: 20px;
+  padding-bottom: 16px; border-bottom: 1px solid #F3F4F6;
 }
-.cfg-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;
+.bc-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 12px;
 }
-.cfg-field label {
-  display: block; font-size: 11px; font-weight: 600;
-  color: #6B7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px;
+.bc-field { display: flex; flex-direction: column; gap: 4px; }
+.bc-field label {
+  font-size: 11px; font-weight: 700; color: #6B7280;
+  text-transform: uppercase; letter-spacing: .5px;
 }
-.cfg-field textarea {
-  width: 100%; background: #F9FAFB;
-  border: 1.5px solid #E5E7EB; border-radius: 8px;
-  padding: 9px 11px; font-size: 12px; color: #111827;
-  font-family: inherit; resize: none; outline: none;
-  transition: border-color .15s;
+.bc-field textarea {
+  background: #F9FAFB; border: 1.5px solid #E5E7EB;
+  border-radius: 8px; padding: 9px 11px;
+  font-size: 12px; color: #111827; font-family: inherit;
+  resize: none; outline: none; transition: border-color .15s;
+  line-height: 1.5;
 }
-.cfg-field textarea:focus { border-color: #1A6FA8; box-shadow: 0 0 0 3px rgba(26,111,168,.1); }
-.cfg-full { grid-column: span 2; }
-.cfg-tip {
+.bc-field textarea:focus {
+  border-color: #1A6FA8;
+  box-shadow: 0 0 0 3px rgba(26,111,168,.1);
+}
+.bc-full { grid-column: span 2; }
+.bc-tip {
   background: #EBF4FB; border-radius: 10px;
   padding: 11px 14px; font-size: 12px; color: #1A6FA8;
-  margin: 14px 0; line-height: 1.5;
+  margin-top: 4px; line-height: 1.5;
 }
-.cfg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-.cfg-cancel {
-  padding: 10px 18px; background: transparent;
+.bc-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid #F3F4F6;
+}
+.bc-cancel {
+  padding: 9px 18px; background: transparent;
   border: 1.5px solid #E5E7EB; color: #6B7280;
   border-radius: 9px; font-size: 13px; font-weight: 600;
   cursor: pointer; font-family: inherit; transition: .15s;
 }
-.cfg-cancel:hover { border-color: #EF4444; color: #EF4444; }
-.cfg-save {
-  padding: 10px 22px; background: #1A6FA8; color: #fff;
+.bc-cancel:hover { border-color: #EF4444; color: #EF4444; }
+.bc-save {
+  padding: 9px 22px; background: #1A6FA8; color: #fff;
   border: none; border-radius: 9px; font-size: 13px; font-weight: 700;
   cursor: pointer; font-family: inherit;
   box-shadow: 0 2px 8px rgba(26,111,168,.3); transition: .15s;
 }
-.cfg-save:hover { background: #135A8C; }
+.bc-save:hover { background: #135A8C; transform: translateY(-1px); }
 
-/* Botão ⚙️ nos cards de médico */
-.btn-bot-cfg {
+/* ── 4. Botão cfg no card de médico ── */
+.bc-cfg-btn {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 10px; background: rgba(26,111,168,.1);
-  border: 1px solid rgba(26,111,168,.3); color: #1A6FA8;
-  border-radius: 7px; font-size: 11px; font-weight: 600;
-  cursor: pointer; font-family: inherit; transition: .15s;
-  margin-top: 6px;
+  padding: 5px 11px;
+  background: rgba(26,111,168,.08);
+  border: 1px solid rgba(26,111,168,.25);
+  color: #1A6FA8; border-radius: 7px;
+  font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: .15s; margin-top: 8px; white-space: nowrap;
 }
-.btn-bot-cfg:hover { background: #1A6FA8; color: #fff; }
+.bc-cfg-btn:hover { background: #1A6FA8; color: #fff; border-color: #1A6FA8; }
+
+/* ── 5. Toast ── */
+.bc-toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: #fff; border: 1.5px solid #10B981;
+  border-radius: 10px; padding: 12px 18px;
+  font-size: 13px; color: #065F46; font-weight: 700;
+  z-index: 999999; font-family: 'Inter', system-ui, sans-serif;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  animation: bc-fadein .2s ease;
+}
+@keyframes bc-fadein {
+  from { opacity:0; transform: translateY(8px); }
+  to   { opacity:1; transform: translateY(0); }
+}
 </style>
 
 <!-- Modal de config do bot por médico -->
-<div id="bot-cfg-modal">
-  <div id="bot-cfg-box">
-    <h2>🤖 Configuração do bot — <span id="cfg-doc-name">Médico</span></h2>
-    <div class="sub">Configure as informações que o bot usará ao atender pacientes deste médico</div>
-    <div class="cfg-grid">
-      <div class="cfg-field">
+<div id="bc-bot-modal">
+  <div id="bc-bot-box">
+    <h2>🤖 Configuração do bot — <span id="bc-doc-name">Médico</span></h2>
+    <div class="bc-sub">Configure as informações que o bot usará ao atender pacientes deste médico via WhatsApp.</div>
+    <div class="bc-grid">
+      <div class="bc-field">
         <label>Procedimentos realizados</label>
-        <textarea id="cfg-procedimentos" rows="3" placeholder="Ex: Eletrocardiograma, Ecocardiograma, Holter 24h..."></textarea>
+        <textarea id="bc-procedimentos" rows="3"
+          placeholder="Ex: Eletrocardiograma, Ecocardiograma, Holter 24h, Mapeamento de retina..."></textarea>
       </div>
-      <div class="cfg-field">
+      <div class="bc-field">
         <label>Convênios aceitos</label>
-        <textarea id="cfg-convenios" rows="3" placeholder="Ex: Unimed, Bradesco Saúde, Amil, Particular..."></textarea>
+        <textarea id="bc-convenios" rows="3"
+          placeholder="Ex: Unimed, Bradesco Saúde, Amil, SulAmérica, Particular..."></textarea>
       </div>
-      <div class="cfg-field">
+      <div class="bc-field">
         <label>Valores das consultas</label>
-        <textarea id="cfg-valores" rows="2" placeholder="Ex: Consulta R$250, Retorno R$150..."></textarea>
+        <textarea id="bc-valores" rows="2"
+          placeholder="Ex: Consulta R$250, Retorno R$150, Exame R$180..."></textarea>
       </div>
-      <div class="cfg-field">
+      <div class="bc-field">
         <label>Descontos e promoções</label>
-        <textarea id="cfg-descontos" rows="2" placeholder="Ex: 10% para idosos, pacote família..."></textarea>
+        <textarea id="bc-descontos" rows="2"
+          placeholder="Ex: 10% para idosos, pacote família, 1ª consulta com desconto..."></textarea>
       </div>
-      <div class="cfg-field">
+      <div class="bc-field">
         <label>Horários de atendimento</label>
-        <textarea id="cfg-horarios" rows="2" placeholder="Ex: Seg-Sex 8h-18h, Sáb 8h-12h..."></textarea>
+        <textarea id="bc-horarios" rows="2"
+          placeholder="Ex: Seg, Qua e Sex das 8h às 17h. Sábados das 8h às 12h."></textarea>
       </div>
-      <div class="cfg-field">
-        <label>Informações sobre agendamento</label>
-        <textarea id="cfg-agenda" rows="2" placeholder="Ex: Agendamento pelo WhatsApp, retorno em 24h..."></textarea>
+      <div class="bc-field">
+        <label>Política de agendamento</label>
+        <textarea id="bc-agenda" rows="2"
+          placeholder="Ex: Agendamento pelo WhatsApp com 24h de antecedência. Retorno em até 2h."></textarea>
       </div>
-      <div class="cfg-field cfg-full">
+      <div class="bc-field bc-full">
+        <label>Preparo para exames e consultas</label>
+        <textarea id="bc-preparo" rows="2"
+          placeholder="Ex: Trazer exames anteriores, jejum de 4h para certos exames, trazer carteirinha..."></textarea>
+      </div>
+      <div class="bc-field bc-full">
         <label>Observações adicionais para o bot</label>
-        <textarea id="cfg-obs" rows="3" placeholder="Qualquer informação extra: preparo para exames, documentos necessários, estacionamento..."></textarea>
+        <textarea id="bc-obs" rows="2"
+          placeholder="Qualquer informação extra: estacionamento, acessibilidade, contato de emergência..."></textarea>
       </div>
     </div>
-    <div class="cfg-tip">💡 O bot usará essas informações para responder perguntas dos seus pacientes com precisão. Quanto mais completo, melhor!</div>
-    <div class="cfg-actions">
-      <button class="cfg-cancel" onclick="closeBotCfg()">Cancelar</button>
-      <button class="cfg-save" onclick="saveBotCfg()">💾 Salvar configurações</button>
+    <div class="bc-tip">
+      💡 O bot combina essas informações com a base de conhecimento da especialidade para responder com precisão.
+      Quanto mais completo, melhor o atendimento!
+    </div>
+    <div class="bc-actions">
+      <button class="bc-cancel" onclick="bcCloseCfg()">Cancelar</button>
+      <button class="bc-save" onclick="bcSaveCfg()">💾 Salvar configurações</button>
     </div>
   </div>
 </div>
 
-<script id="botclinica-injections">
-(function(){
-  var FB_PROXY = '/api/fb';
-  var docConfigs = {};
+<script id="bc-main-injection">
+(function () {
+  'use strict';
+
+  /* ─── Estado local ─── */
+  var docCfgs = {};       // { docId: { procedimentos, convenios, ... } }
   var currentDocId = null;
+  var currentDocName = null;
 
-  // ── Fechar modal ao clicar fora ──
-  document.getElementById('bot-cfg-modal').addEventListener('click', function(e){
-    if(e.target === this) closeBotCfg();
-  });
+  /* ─── Fechar modal ao clicar fora ─── */
+  document.getElementById('bc-bot-modal')
+    .addEventListener('click', function (e) {
+      if (e.target === this) bcCloseCfg();
+    });
 
-  window.openBotCfg = function(docId, docName){
+  /* ─── API ─── */
+  window.bcOpenCfg = function (docId, docName) {
     currentDocId = docId;
-    document.getElementById('cfg-doc-name').textContent = docName || 'Médico';
-    var cfg = docConfigs[docId] || {};
-    document.getElementById('cfg-procedimentos').value = cfg.procedimentos || '';
-    document.getElementById('cfg-convenios').value     = cfg.convenios     || '';
-    document.getElementById('cfg-valores').value       = cfg.valores       || '';
-    document.getElementById('cfg-descontos').value     = cfg.descontos     || '';
-    document.getElementById('cfg-horarios').value      = cfg.horarios      || '';
-    document.getElementById('cfg-agenda').value        = cfg.agenda        || '';
-    document.getElementById('cfg-obs').value           = cfg.obs           || '';
-    document.getElementById('bot-cfg-modal').classList.add('open');
+    currentDocName = docName;
+    document.getElementById('bc-doc-name').textContent = docName || 'Médico';
+
+    /* Carregar config salva do Firebase */
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getBotConfig', payload: { docId: docId } })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var cfg = d.config || docCfgs[docId] || {};
+      document.getElementById('bc-procedimentos').value = cfg.procedimentos || '';
+      document.getElementById('bc-convenios').value     = cfg.convenios     || '';
+      document.getElementById('bc-valores').value       = cfg.valores       || '';
+      document.getElementById('bc-descontos').value     = cfg.descontos     || '';
+      document.getElementById('bc-horarios').value      = cfg.horarios      || '';
+      document.getElementById('bc-agenda').value        = cfg.agenda        || '';
+      document.getElementById('bc-preparo').value       = cfg.preparo       || '';
+      document.getElementById('bc-obs').value           = cfg.obs           || '';
+    })
+    .catch(function () {});
+
+    document.getElementById('bc-bot-modal').classList.add('open');
   };
 
-  window.closeBotCfg = function(){
-    document.getElementById('bot-cfg-modal').classList.remove('open');
+  window.bcCloseCfg = function () {
+    document.getElementById('bc-bot-modal').classList.remove('open');
   };
 
-  window.saveBotCfg = async function(){
-    if(!currentDocId) return;
+  window.bcSaveCfg = function () {
+    if (!currentDocId) return;
+    var btn = document.querySelector('.bc-save');
+    btn.textContent = 'Salvando...';
+    btn.disabled = true;
+
     var cfg = {
-      procedimentos: document.getElementById('cfg-procedimentos').value.trim(),
-      convenios:     document.getElementById('cfg-convenios').value.trim(),
-      valores:       document.getElementById('cfg-valores').value.trim(),
-      descontos:     document.getElementById('cfg-descontos').value.trim(),
-      horarios:      document.getElementById('cfg-horarios').value.trim(),
-      agenda:        document.getElementById('cfg-agenda').value.trim(),
-      obs:           document.getElementById('cfg-obs').value.trim(),
+      procedimentos: document.getElementById('bc-procedimentos').value.trim(),
+      convenios:     document.getElementById('bc-convenios').value.trim(),
+      valores:       document.getElementById('bc-valores').value.trim(),
+      descontos:     document.getElementById('bc-descontos').value.trim(),
+      horarios:      document.getElementById('bc-horarios').value.trim(),
+      agenda:        document.getElementById('bc-agenda').value.trim(),
+      preparo:       document.getElementById('bc-preparo').value.trim(),
+      obs:           document.getElementById('bc-obs').value.trim(),
     };
-    docConfigs[currentDocId] = cfg;
-    try {
-      await fetch(FB_PROXY, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({action:'saveBotConfig', payload:{config: cfg, docId: currentDocId}})
-      });
-    } catch(e){}
-    closeBotCfg();
-    showToast('✅ Configurações do bot salvas!');
+    docCfgs[currentDocId] = cfg;
+
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveBotConfig',
+        payload: { config: cfg, docId: currentDocId }
+      })
+    })
+    .then(function () {
+      bcCloseCfg();
+      bcToast('✅ Configurações do bot salvas!');
+    })
+    .catch(function () {
+      bcToast('✅ Salvo localmente!');
+      bcCloseCfg();
+    })
+    .finally(function () {
+      btn.textContent = '💾 Salvar configurações';
+      btn.disabled = false;
+    });
   };
 
-  function showToast(msg){
+  function bcToast(msg) {
     var t = document.createElement('div');
-    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#fff;border:1.5px solid #10B981;border-radius:10px;padding:12px 18px;font-size:13px;color:#065F46;font-weight:700;z-index:999999;box-shadow:0 8px 24px rgba(0,0,0,.1);font-family:Inter,sans-serif';
+    t.className = 'bc-toast';
     t.textContent = msg;
     document.body.appendChild(t);
-    setTimeout(function(){ t.remove(); }, 3000);
+    setTimeout(function () { t.remove(); }, 3000);
   }
 
-  // ── Esconder botões Som/Escuro/Claro ──
-  function hideModebtns(){
-    document.querySelectorAll('button').forEach(function(b){
-      var t = b.textContent.trim();
-      if(t === 'Escuro' || t === 'Claro' || t === 'Som'){
-        var wrap = b.parentElement;
-        // Esconder o container dos dois botões
-        if(wrap) wrap.id = 'mode-btns-wrap';
+  /* ─── Esconder botões Som / Escuro / Claro ─── */
+  function hideModeButtons() {
+    document.querySelectorAll('button').forEach(function (btn) {
+      var txt = btn.textContent.trim();
+      if (txt === 'Som' || txt === 'Escuro' || txt === 'Claro') {
+        var parent = btn.parentElement;
+        if (parent) parent.style.setProperty('display', 'none', 'important');
       }
     });
   }
 
-  // ── Injetar botão ⚙️ nos cards de médico ──
-  function injectBotBtns(){
-    // Cards de médico têm um elemento com "CRM" visível
-    var cards = document.querySelectorAll('div[style*="borderRadius:12px"], div[style*="border-radius:12px"]');
-    cards.forEach(function(card){
-      if(card.querySelector('.btn-bot-cfg')) return; // já tem
-      // Identificar se é card de médico (tem texto de CRM ou especialidade)
-      var text = card.textContent;
-      if(!text.includes('CRM') && !text.includes('Especialidade') && !text.includes('crm')) return;
+  /* ─── Injetar botão ⚙️ nos cards de médico ─── */
+  function injectCfgButtons() {
+    /* Cards de médico têm CRM no conteúdo */
+    var allDivs = document.querySelectorAll('div');
+    allDivs.forEach(function (div) {
+      /* Evitar re-injeção */
+      if (div.querySelector('.bc-cfg-btn')) return;
+      /* Identificar card de médico: contém "CRM" e tem border-radius */
+      var style = div.getAttribute('style') || '';
+      var text  = div.textContent || '';
+      var hasCRM = text.includes('CRM') || text.includes('crm');
+      var hasRadius = style.includes('borderRadius:12') || style.includes('border-radius:12');
+      if (!hasCRM || !hasRadius) return;
+      /* Não é o container grande de médicos, só os cards individuais */
+      if (div.children.length > 8) return;
 
-      // Tentar extrair nome e id do médico
-      var nameEl = card.querySelector('[style*="fontWeight:700"], [style*="font-weight:700"]');
-      var docName = nameEl ? nameEl.textContent.trim() : 'Médico';
-      var docId = 'doc_' + docName.replace(/\s+/g,'_').toLowerCase();
+      /* Extrair nome do médico */
+      var nameEl = div.querySelector('[style*="fontWeight:700"], [style*="font-weight:700"]');
+      if (!nameEl) return;
+      var docName = nameEl.textContent.trim();
+      if (!docName || docName.length < 2) return;
+      var docId = 'doc_' + docName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 
+      /* Criar botão */
       var btn = document.createElement('button');
-      btn.className = 'btn-bot-cfg';
+      btn.className = 'bc-cfg-btn';
       btn.innerHTML = '⚙️ Config do bot';
-      btn.onclick = function(e){
+      btn.onclick = function (e) {
         e.stopPropagation();
-        openBotCfg(docId, docName);
+        e.preventDefault();
+        window.bcOpenCfg(docId, docName);
       };
-      card.appendChild(btn);
+      div.appendChild(btn);
     });
   }
 
-  // Executar com polling para garantir que o React renderizou
-  var runs = 0;
-  var interval = setInterval(function(){
-    hideModebtns();
-    injectBotBtns();
-    runs++;
-    if(runs > 30) clearInterval(interval);
+  /* ─── Polling para executar após React renderizar ─── */
+  var tick = 0;
+  var timer = setInterval(function () {
+    hideModeButtons();
+    injectCfgButtons();
+    tick++;
+    if (tick > 40) clearInterval(timer);
   }, 500);
 
-  // Reexecutar quando navegar para aba de médicos
-  var observer = new MutationObserver(function(){
-    injectBotBtns();
-    hideModebtns();
+  /* ─── MutationObserver para mudanças de página ─── */
+  var obs = new MutationObserver(function () {
+    hideModeButtons();
+    injectCfgButtons();
   });
-  observer.observe(document.body, {childList: true, subtree: true});
+  obs.observe(document.body, { childList: true, subtree: true });
 
 })();
 </script>
