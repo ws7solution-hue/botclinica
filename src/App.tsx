@@ -85,23 +85,13 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('atendia_logged_in') === 'true';
   });
-  const [userPlan, setUserPlan] = useState<string>(() => {
-    return localStorage.getItem('atendia_plan') || 'starter';
-  });
-  const [userEmail, setUserEmail] = useState<string>(() => {
-    return localStorage.getItem('atendia_email') || '';
-  });
 
   const handleLoginSuccess = (profile: UserProfile) => {
     setUserProfile(profile);
     setIsLoggedIn(true);
-    const plan = localStorage.getItem('atendia_plan') || 'starter';
-    const email = localStorage.getItem('atendia_email') || '';
-    setUserPlan(plan);
-    setUserEmail(email);
     localStorage.setItem('atendia_logged_in', 'true');
     localStorage.setItem('atendia_user_profile', JSON.stringify(profile));
-    addSystemLog('success', `Bem-vindo de volta! Plano: ${plan}.`);
+    addSystemLog('success', `Bem-vindo de volta, ${profile.accountType === 'clinic' ? (profile.clinicName || profile.name) : (profile.doctorName || profile.name)}! Login efetuado.`);
   };
 
   const handleLogout = () => {
@@ -142,22 +132,6 @@ export default function App() {
     const interval = setInterval(loadConversas, 5000);
     return () => clearInterval(interval);
   }, [isLoggedIn, loadConversas]);
-
-  // ── Carregar médicos do Firebase ──
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    fbListDoctors(userEmail).then(docs => {
-      if (docs && docs.length > 0) setDoctors(docs);
-    }).catch(() => {});
-  }, [isLoggedIn, userEmail]);
-
-  // ── Carregar agenda do Firebase ──
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    fbListAppointments(userEmail).then(apts => {
-      if (apts && apts.length > 0) setAppointments(apts);
-    }).catch(() => {});
-  }, [isLoggedIn, userEmail]);
 
   // Save profile to localStorage whenever it changes
   React.useEffect(() => {
@@ -487,7 +461,6 @@ export default function App() {
         whatsappConnected={whatsappConnected}
         userProfile={userProfile}
         onEditProfile={() => setProfileModalOpen(true)}
-        userPlan={userPlan}
         onLogout={() => {
           setIsLoggedIn(false);
           localStorage.removeItem('atendia_logged_in');

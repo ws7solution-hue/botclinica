@@ -1,4 +1,6 @@
 // ── Firebase Service Layer ── BotClínica
+// Todas as chamadas ao backend via /api/fb
+
 const API = '/api/fb';
 
 async function post(action: string, payload: Record<string, unknown> = {}) {
@@ -40,41 +42,17 @@ export async function fbSetConvStatus(convId: string, status: string) {
 }
 
 // ── MÉDICOS ──
-export async function fbListDoctors(clinicId?: string) {
-  const d = await post('listDoctors', { clinicId: clinicId || '' });
-  return d.doctors || [];
+export async function fbListDoctors() {
+  const d = await post('crmListClientes', {});
+  return d.clientes || [];
 }
 
-export async function fbSaveDoctor(doctor: Record<string, unknown>, clinicId?: string) {
-  return post('saveDoctor', { doctor, clinicId: clinicId || '' });
+export async function fbSaveDoctor(doctor: Record<string, unknown>) {
+  return post('crmSaveCliente', { cliente: doctor });
 }
 
-export async function fbDeleteDoctor(id: string, clinicId?: string) {
-  return post('deleteDoctor', { id, clinicId: clinicId || '' });
-}
-
-// ── AGENDAMENTOS ──
-export async function fbListAppointments(clinicId?: string) {
-  const d = await post('listAppointments', { clinicId: clinicId || '' });
-  return d.appointments || [];
-}
-
-export async function fbSaveAppointment(appointment: Record<string, unknown>, clinicId?: string) {
-  return post('saveAppointment', { appointment, clinicId: clinicId || '' });
-}
-
-export async function fbDeleteAppointment(id: string, clinicId?: string) {
-  return post('deleteAppointment', { id, clinicId: clinicId || '' });
-}
-
-// ── CONFIGURAÇÕES DA CLÍNICA ──
-export async function fbGetClinicSettings(clinicId?: string) {
-  const d = await post('getClinicSettings', { clinicId: clinicId || '' });
-  return d.settings || null;
-}
-
-export async function fbSaveClinicSettings(settings: Record<string, unknown>, clinicId?: string) {
-  return post('saveClinicSettings', { settings, clinicId: clinicId || '' });
+export async function fbDeleteDoctor(id: string) {
+  return post('crmDeleteCliente', { id });
 }
 
 // ── BOT CONFIG ──
@@ -87,7 +65,27 @@ export async function fbSaveBotConfig(docId: string, config: Record<string, unkn
   return post('saveBotConfig', { docId, config });
 }
 
-// ── REPLY MANUAL ──
+// ── CONFIGURAÇÕES DA CLÍNICA ──
+export async function fbGetClinicConfig() {
+  const d = await post('getBotConfig', { docId: 'clinic_settings' });
+  return d.config || null;
+}
+
+export async function fbSaveClinicConfig(config: Record<string, unknown>) {
+  return post('saveBotConfig', { docId: 'clinic_settings', config });
+}
+
+// ── AGENDAMENTOS ──
+export async function fbListAppointments() {
+  const d = await post('crmListClientes', { collection: 'appointments' });
+  return d.clientes || [];
+}
+
+export async function fbSaveAppointment(apt: Record<string, unknown>) {
+  return post('crmSaveCliente', { cliente: apt, collection: 'appointments' });
+}
+
+// ── REPLY (enviar mensagem manual) ──
 export async function sendReply(to: string, text: string, convId: string) {
   const r = await fetch('/api/reply', {
     method: 'POST',

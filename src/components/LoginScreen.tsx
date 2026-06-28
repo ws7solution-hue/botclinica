@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { fbLogin } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building, 
@@ -46,12 +45,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!loginIdentifier.trim()) {
-      setError('Por favor, insira seu E-mail.');
+      setError('Por favor, insira seu Nome ou E-mail.');
       return;
     }
     if (!loginPassword || loginPassword.length < 4) {
@@ -59,39 +58,39 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    // ── Firebase Auth Real ──
-    try {
-      const result = await fbLogin(loginIdentifier.trim().toLowerCase(), loginPassword);
-      if (result.error) {
-        const msg = result.error.includes('INVALID') || result.error.includes('wrong-password')
-          ? 'Email ou senha incorretos.'
-          : result.error.includes('too-many')
-          ? 'Muitas tentativas. Tente novamente em alguns minutos.'
-          : 'Erro ao fazer login. Verifique suas credenciais.';
-        setError(msg);
-        return;
+    // Dynamic login mock success
+    // Detect if they logged in with custom registered profile
+    const registeredLocal = localStorage.getItem('atendia_registered_profile');
+    if (registeredLocal) {
+      try {
+        const parsed = JSON.parse(registeredLocal);
+        if (loginIdentifier.trim().toLowerCase() === parsed.email.toLowerCase() || loginIdentifier.trim() === parsed.name) {
+          onLoginSuccess({
+            accountType: parsed.accountType,
+            clinicName: parsed.clinicName,
+            doctorName: parsed.doctorName,
+            name: parsed.name,
+            role: parsed.role,
+            avatarUrl: parsed.avatarUrl,
+            crm: parsed.crm,
+            specialty: parsed.specialty
+          });
+          return;
+        }
+      } catch (err) {
+        // Fallback
       }
-      // Salvar plano no localStorage
-      localStorage.setItem('atendia_plan', result.plano || 'starter');
-      localStorage.setItem('atendia_email', loginIdentifier.trim().toLowerCase());
-
-      // Sucesso — chamar onLoginSuccess com perfil do Firebase
-      const email = loginIdentifier.trim().toLowerCase();
-      const plan = result.plano || 'starter';
-      const planLabels: Record<string, string> = {
-        starter: 'Starter', profissional: 'Profissional',
-        clinica: 'Clínica', premium: 'Premium'
-      };
-      onLoginSuccess({
-        accountType: 'clinic',
-        clinicName: email.split('@')[0],
-        name: email.split('@')[0],
-        role: planLabels[plan] || 'Starter',
-        avatarUrl: '',
-      });
-    } catch (err) {
-      setError('Erro de conexão. Verifique sua internet e tente novamente.');
     }
+
+    // Default Fallback success
+    const defaultProfile: UserProfile = {
+      accountType: 'clinic',
+      clinicName: 'Clínica Atendia',
+      name: 'Dra. Patrícia Lima',
+      role: 'Diretora Clínica',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150'
+    };
+    onLoginSuccess(defaultProfile);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
