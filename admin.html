@@ -242,14 +242,16 @@ async function addUser(){
   document.getElementById('add-btn').textContent='Salvando...';
   document.getElementById('add-btn').disabled=true;
 
-  var d = await call('setAccess',{email,plano});
+  var senha = document.getElementById('new-senha')?.value.trim() || 'BotClinica@2026';
+  var d = await call('setAccess',{email,plano,senha});
   document.getElementById('add-btn').textContent='Liberar acesso';
   document.getElementById('add-btn').disabled=false;
 
   if(d.error){ document.getElementById('add-err').textContent=d.error; return; }
 
   document.getElementById('new-email').value='';
-  toast(`✅ ${email} liberado como ${plano}`);
+  var senhaInfo = d.senha ? ` | Senha: ${d.senha}` : ' | Senha: BotClinica@2026';
+  toast(`✅ ${email} liberado como ${plano}${senhaInfo}`);
   await loadClients();
 }
 
