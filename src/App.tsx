@@ -453,6 +453,9 @@ export default function App() {
         whatsappConnected={whatsappConnected}
         userProfile={userProfile}
         onEditProfile={() => setProfileModalOpen(true)}
+        onLogout={handleLogout}
+        userEmail={userEmail}
+        userPlan={userPlan}
       />
 
       {/* 2. Main content block */}

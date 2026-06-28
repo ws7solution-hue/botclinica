@@ -32,7 +32,8 @@ export default function Sidebar({
   unreadChats, 
   whatsappConnected,
   userProfile,
-  onEditProfile
+  onEditProfile,
+  onLogout,
 }: SidebarProps) {
   const menuItems = [
     { id: 'overview' as SidebarTab, label: 'Visão Geral', icon: LayoutDashboard },
