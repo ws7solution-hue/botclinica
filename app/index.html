@@ -383,6 +383,14 @@ div[class="toast"] {
 .btn-save-profile:hover { background: var(--primary-dark); transform: translateY(-1px); }
 </style>
 
+<style id="bc-theme">
+/* Sidebar sempre dark */
+aside { background: #0F1623 !important; border-right: 1px solid rgba(255,255,255,.06) !important; }
+
+/* Esconder botões Som e Escuro/Claro */
+aside button[style*="setSnd"],
+aside button[style*="setDark"] { display: none !important; }
+</style>
 </head>
 <body>
 <div id="root">
@@ -1246,8 +1254,8 @@ function App(_ref) {
     style: {
       width: sideOpen ? 228 : 0,
       minWidth: 0,
-      background: "#0F1623",
-      borderRight: sideOpen ? "1px solid rgba(255,255,255,.06)" : "none",
+      background: T.card,
+      borderRight: sideOpen ? `1px solid ${T.border}` : "none",
       display: "flex",
       flexDirection: "column",
       height: "var(--vh, 100vh)",
@@ -1361,7 +1369,63 @@ function App(_ref) {
       padding: "11px 13px 17px",
       borderTop: `1px solid ${T.border}`
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSnd(p => !p),
+    style: {
+      flex: 1,
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      background: T.subtle,
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      padding: "7px 10px",
+      cursor: "pointer"
+    }
+  }, snd ? /*#__PURE__*/React.createElement(I.Vol, {
+    s: 13,
+    c: T.green
+  }) : /*#__PURE__*/React.createElement(I.Mute, {
+    s: 13,
+    c: T.muted
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: snd ? T.green : T.muted,
+      fontWeight: 500
+    }
+  }, "Som")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDark(p => !p),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 5,
+      background: dark ? T.accentL : T.subtle,
+      border: `1px solid ${dark ? T.accent : T.border}`,
+      borderRadius: 8,
+      padding: "7px 11px",
+      cursor: "pointer",
+      transition: "all .2s"
+    }
+  }, dark ? /*#__PURE__*/React.createElement(I.Sun, {
+    s: 14,
+    c: T.accent
+  }) : /*#__PURE__*/React.createElement(I.Moon, {
+    s: 14,
+    c: T.muted
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: dark ? T.accent : T.muted,
+      fontWeight: 500
+    }
+  }, dark ? "Claro" : "Escuro"))), /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.greenL,
       borderRadius: 10,
@@ -3720,8 +3784,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 })();
 </script>
 
-
-<style id="bc-s">
+<style id="bc-modal-css">
 #bc-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px);font-family:system-ui,sans-serif}
 #bc-modal.open{display:flex}
 #bc-box{background:#fff;border-radius:18px;padding:28px 32px;width:580px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
@@ -3752,7 +3815,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
       <div class="bc-f bc-full"><label>Preparo e documentos</label><textarea id="bc-prep" rows="2" placeholder="Ex: Trazer exames anteriores, jejum..."></textarea></div>
       <div class="bc-f bc-full"><label>Observações adicionais</label><textarea id="bc-obs" rows="2" placeholder="Estacionamento, acessibilidade..."></textarea></div>
     </div>
-    <div class="bc-tip">💡 O bot usa essas informações junto com a base de conhecimento médica para responder seus pacientes.</div>
+    <div class="bc-tip">💡 O bot usa essas informações para responder seus pacientes com precisão.</div>
     <div class="bc-acts">
       <button class="bc-cancel" onclick="document.getElementById('bc-modal').classList.remove('open')">Cancelar</button>
       <button class="bc-save" onclick="bcSave()">💾 Salvar</button>
