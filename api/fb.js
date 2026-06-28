@@ -119,17 +119,31 @@ module.exports = async (req, res) => {
 
     // ── ADMIN: liberar/atualizar acesso ──────────────────
     if (action === "setAccess") {
-      const { email, plano } = payload;
+      const { email, plano, senha } = payload;
       if (!email) return res.status(400).json({ error: "Email obrigatório" });
       const key = emailToKey(email);
+      const senhaFinal = senha || "BotClinica@2026";
+
+      // 1. Criar usuário no Firebase Auth (ignora se já existe)
+      const signUpR = await fetch(ENDPOINTS.signUp, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase(), password: senhaFinal, returnSecureToken: false }),
+      });
+      const signUpD = await signUpR.json();
+      if (signUpD.error && !signUpD.error.message.includes("EMAIL_EXISTS")) {
+        console.log("Auth create err:", signUpD.error.message);
+      }
+
+      // 2. Salvar plano no Firestore
       const body = JSON.stringify({
         fields: {
           email:     { stringValue: email.toLowerCase() },
           plano:     { stringValue: plano || "starter" },
+          senha:     { stringValue: senhaFinal },
           createdAt: { stringValue: new Date().toISOString() },
         }
       });
-      // Tenta PATCH (com e sem token)
       let r = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -140,7 +154,7 @@ module.exports = async (req, res) => {
         console.log("setAccess err:", d.error.message, "| key:", key, "| plano:", plano);
         return res.status(200).json({ error: d.error.message });
       }
-      return res.status(200).json({ ok: true, email, plano, key });
+      return res.status(200).json({ ok: true, email, plano, key, senha: senhaFinal });
     }
 
     // ── ADMIN: remover acesso ─────────────────────────────
