@@ -1,0 +1,6 @@
+{
+  "name": "AtendIA BotClínica",
+  "description": "Professional SaaS dashboard for AtendIA, a medical clinic WhatsApp chatbot platform by BotClínica, facilitating appointment scheduling and patient management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
