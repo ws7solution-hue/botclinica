@@ -383,27 +383,6 @@ div[class="toast"] {
 .btn-save-profile:hover { background: var(--primary-dark); transform: translateY(-1px); }
 </style>
 
-
-
-
-
-
-
-
-<style id="sidebar-fix">
-/* Sidebar sempre dark */
-div[style*="220px"][style*="fixed"],
-div[style*="220px"][style*="position: fixed"] {
-  background: #0F1623 !important;
-}
-/* Esconder botão de modo */
-button[style*="setDark"],
-button[style*="Escuro"],
-button[style*="Claro"] {
-  display: none !important;
-}
-</style>
-
 </head>
 <body>
 <div id="root">
@@ -1020,11 +999,14 @@ function App(_ref) {
     setHCount(p => next === 'human' ? p+1 : Math.max(0,p-1));
   }
   const [nd, setNd] = useState({
-    name: "", spec: "", crm: "", days: "", times: "",
-    bot: "", tone: "cordial", preco: "",
-    // Config do bot por médico
-    procedimentos: "", convenios: "", valores_info: "",
-    descontos: "", observacoes_bot: ""
+    name: "",
+    spec: "",
+    crm: "",
+    days: "",
+    times: "",
+    bot: "",
+    tone: "cordial",
+    preco: ""
   });
   const [editDoc, setEditDoc] = useState(null);
   const [cfg, setCfg] = useState({
@@ -1055,33 +1037,6 @@ function App(_ref) {
   const [snd, setSnd] = useState(true);
   const [notPerm, setNotPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [hCount, setHCount] = useState(0);
-  const [botConfig, setBotConfig] = useState({
-    especialidades:"", procedimentos:"", convenios:"",
-    valores:"", descontos:"", horarios:"", medicos:"", endereco:"", observacoes:""
-  });
-  const [savingBot, setSavingBot] = useState(false);
-
-  // Carregar config do bot do Firebase
-  useEffect(() => {
-    async function loadBotConfig(){
-      try {
-        const r = await fetch('/api/fb',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({action:'getBotConfig',payload:{}})});
-        const d = await r.json();
-        if(d.config) setBotConfig(d.config);
-      } catch(e){}
-    }
-    loadBotConfig();
-  }, []);
-
-  async function saveBotConfig(){
-    setSavingBot(true);
-    try {
-      await fetch('/api/fb',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'saveBotConfig',payload:{config:botConfig}})});
-    } catch(e){}
-    setSavingBot(false);
-  }
   const endRef = useRef(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({
@@ -1437,7 +1392,8 @@ function App(_ref) {
       color: snd ? T.green : T.muted,
       fontWeight: 500
     }
-  }, "Som")), ; },
+  }, "Som")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDark(p => !p),
     style: {
       display: "flex",
       alignItems: "center",
@@ -1585,63 +1541,7 @@ function App(_ref) {
     const tot = docs.reduce((s, d) => s + d.s.today, 0),
       res = docs.reduce((s, d) => s + d.s.res, 0),
       pct = tot ? Math.round(res / tot * 100) : 0;
-    return /*#__PURE__*/React.createElement("div", null, (!cfg.waConnected ? /*#__PURE__*/React.createElement("div", {style:{
-      background:"linear-gradient(135deg,#EBF4FB,#F0F8FF)",
-      border:"2px dashed #1A6FA8",
-      borderRadius:16,
-      padding:"24px 24px",
-      marginBottom:20,
-      display:"flex",
-      alignItems:"center",
-      justifyContent:"space-between",
-      flexWrap:"wrap",
-      gap:16
-    }},
-    /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:14}},
-      /*#__PURE__*/React.createElement("div", {style:{
-        width:52,height:52,background:"#fff",borderRadius:14,
-        display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:26,boxShadow:"0 2px 8px rgba(26,111,168,.15)",flexShrink:0
-      }}, "📱"),
-      /*#__PURE__*/React.createElement("div", null,
-        /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:15,color:"#1A2535",marginBottom:4}}, "Conecte seu WhatsApp Business"),
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:13,color:"#6B80A0",lineHeight:1.5}}, "Seu bot está quase pronto! Conecte seu número para começar a atender pacientes automaticamente."),
-        /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:16,marginTop:8}},
-          /*#__PURE__*/React.createElement("span", {style:{fontSize:12,color:"#10B981",fontWeight:600}}, "✓ Leva menos de 2 minutos"),
-          /*#__PURE__*/React.createElement("span", {style:{fontSize:12,color:"#10B981",fontWeight:600}}, "✓ Sem instalar nada")
-        )
-      )
-    ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        setCfg(p => ({...p, waConnecting:true}));
-        window.__openWAModal && window.__openWAModal();
-      },
-      style:{
-        background:"#1A6FA8",color:"#fff",border:"none",
-        borderRadius:10,padding:"13px 24px",fontSize:14,fontWeight:700,
-        cursor:"pointer",whiteSpace:"nowrap",
-        boxShadow:"0 4px 14px rgba(26,111,168,.35)",
-        display:"flex",alignItems:"center",gap:8
-      }
-    }, "💬 Conectar WhatsApp Business")
-  ) : /*#__PURE__*/React.createElement("div", {style:{
-      background:"#F0FDF4",border:"1.5px solid #BBF7D0",
-      borderRadius:12,padding:"12px 18px",marginBottom:16,
-      display:"flex",alignItems:"center",justifyContent:"space-between"
-    }},
-    /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:10}},
-      /*#__PURE__*/React.createElement("span", {style:{fontSize:18}}, "✅"),
-      /*#__PURE__*/React.createElement("div", null,
-        /*#__PURE__*/React.createElement("div", {style:{fontWeight:700,fontSize:13,color:"#065F46"}}, "WhatsApp Business conectado"),
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"#6EE7B7"}}, cfg.waNumber || "+55 31 9 9103-0288 · Ativo")
-      )
-    ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => { if(window.confirm("Desconectar o WhatsApp Business?")) { setCfg(p=>({...p,waConnected:false,waNumber:""})); } },
-      style:{background:"transparent",border:"1px solid #BBF7D0",color:"#065F46",padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer"}
-    }, "Desconectar")
-  )), /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{background:"linear-gradient(135deg,#075E54,#128C7E)",borderRadius:14,padding:"16px 20px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}, /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:10}}, /*#__PURE__*/React.createElement("span", {style:{fontSize:24}}, "💬"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:13,color:"#fff"}}, "WhatsApp Business API — Ativo ✅"), /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"rgba(255,255,255,.75)"}}, "+55 31 9 9103-0288 · API oficial Meta"))), /*#__PURE__*/React.createElement("a", {href:"https://business.facebook.com/latest/whatsapp_manager/phone_numbers/?asset_id=2055858788663742&business_id=2393172651207835",target:"_blank",style:{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.3)",color:"#fff",padding:"7px 14px",borderRadius:8,fontSize:12,fontWeight:700,textDecoration:"none"}}, "⚙️ Gerenciar")), /*#__PURE__*/React.createElement("div", {
       style: {
         marginBottom: 22
       }
@@ -2505,35 +2405,7 @@ function App(_ref) {
       background: nd.tone === v ? T.accentL : "transparent",
       color: nd.tone === v ? T.accent : T.muted
     }
-  }, l)))), /*#__PURE__*/React.createElement("div", {style:{marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}`}},
-    /*#__PURE__*/React.createElement("div", {style:{fontSize:12,fontWeight:700,color:T.accent,marginBottom:10}}, "🤖 Configurações do bot deste médico"),
-    /*#__PURE__*/React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-      [
-        ["procedimentos","Procedimentos realizados","Ex: Eletrocardiograma, Ecocardiograma"],
-        ["convenios","Convênios aceitos","Ex: Unimed, Amil, Particular"],
-        ["valores_info","Valores","Ex: Consulta R$250, Retorno R$150"],
-        ["descontos","Descontos","Ex: 10% para idosos"],
-      ].map(([field,label,ph]) => /*#__PURE__*/React.createElement("div", {key:field},
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:11,fontWeight:600,color:T.muted,marginBottom:4}}, label),
-        /*#__PURE__*/React.createElement("textarea", {
-          value: nd[field]||"",
-          onChange: e => setNd(p=>({...p,[field]:e.target.value})),
-          placeholder: ph, rows:2,
-          style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 10px",color:T.text,fontSize:12,fontFamily:"inherit",resize:"none",outline:"none"}
-        })
-      )),
-      /*#__PURE__*/React.createElement("div", {style:{gridColumn:"span 2"}},
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:11,fontWeight:600,color:T.muted,marginBottom:4}}, "Observações adicionais"),
-        /*#__PURE__*/React.createElement("textarea", {
-          value: nd.observacoes_bot||"",
-          onChange: e => setNd(p=>({...p,observacoes_bot:e.target.value})),
-          placeholder:"Informações específicas deste médico para o bot...",
-          rows:2,
-          style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 10px",color:T.text,fontSize:12,fontFamily:"inherit",resize:"none",outline:"none"}
-        })
-      )
-    )
-  ), /*#__PURE__*/React.createElement("div", {
+  }, l)))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 7
@@ -3803,64 +3675,281 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 </script>
 
 
-<script id="wa-connect-modal">
+<style id="sidebar-dark-final">
+/* Sidebar SEMPRE dark */
+div[style*="position: fixed"][style*="220px"] {
+  background: #0F1623 !important;
+  border-right: 1px solid rgba(255,255,255,.06) !important;
+}
+/* Esconder botão Escuro/Claro via CSS */
+button[style*="Escuro"], button[style*="Claro"] { display:none !important; }
+</style>
+<script id="hide-mode-btn">
 (function(){
-  var modal = document.createElement('div');
-  modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
-  modal.innerHTML = `
-    <div style="background:#fff;border-radius:20px;padding:36px;width:480px;max-width:95vw;box-shadow:0 24px 48px rgba(0,0,0,.12)">
-      <div style="text-align:center;margin-bottom:24px">
-        <div style="font-size:48px;margin-bottom:12px">📱</div>
-        <h2 style="font-size:20px;font-weight:800;color:#111827;margin-bottom:8px">Conectar WhatsApp Business</h2>
-        <p style="font-size:14px;color:#6B7280;line-height:1.6">Nossa equipe vai configurar seu número de WhatsApp Business em até 24h após a confirmação do pagamento.</p>
-      </div>
-      <div style="background:#F0F9FF;border:1.5px solid #BAE6FD;border-radius:14px;padding:20px;margin-bottom:20px">
-        <div style="font-weight:700;font-size:13px;color:#0369A1;margin-bottom:12px">📋 O que você precisa ter:</div>
-        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#0C4A6E">
-          <div>✓ Um número de telefone dedicado para a clínica</div>
-          <div>✓ O número <strong>não pode</strong> ter WhatsApp instalado</div>
-          <div>✓ Acesso ao chip para receber SMS de verificação</div>
-        </div>
-      </div>
-      <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:14px;padding:16px;margin-bottom:24px;display:flex;align-items:center;gap:12px">
-        <span style="font-size:24px">💬</span>
-        <div>
-          <div style="font-weight:700;font-size:13px;color:#065F46;margin-bottom:2px">Falar com nossa equipe</div>
-          <div style="font-size:12px;color:#6EE7B7">+55 31 9 8215-8450 · Respondemos em minutos</div>
-        </div>
-        <a href="https://wa.me/5531982158450?text=Olá!%20Quero%20conectar%20meu%20WhatsApp%20Business%20ao%20BotClínica" target="_blank" 
-           style="margin-left:auto;background:#25D366;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap">
-          Falar agora →
-        </a>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button onclick="document.getElementById('wa-modal-wrap').style.display='none'" 
-                style="padding:10px 18px;background:transparent;border:1.5px solid #E5EAF2;color:#6B7280;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif">
-          Fechar
-        </button>
-      </div>
-    </div>
-  `;
-  modal.id = 'wa-modal-wrap';
-  document.body.appendChild(modal);
-  modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
-  window.__openWAModal = function(){ modal.style.display='flex'; };
+  function run(){
+    document.querySelectorAll('button').forEach(function(b){
+      var t = b.textContent.trim();
+      if(t==='Escuro'||t==='Claro'){
+        var wrap = b.closest('div[style*="display:flex"]') || b.parentElement;
+        if(wrap) wrap.style.display='none';
+      }
+    });
+  }
+  [500,1000,2000,3000].forEach(function(d){ setTimeout(run,d); });
 })();
 </script>
 
 
-<script id="hide-dark-btn">
+<style id="final-ui">
+/* ── Sidebar sempre dark (como no print) ── */
+div[style*="position: fixed"][style*="220px"] {
+  background: #0F1623 !important;
+  border-right: 1px solid rgba(255,255,255,.07) !important;
+}
+div[style*="position: fixed"][style*="220px"] * {
+  box-sizing: border-box;
+}
+
+/* ── Esconder botão Escuro/Claro e Som ── */
+#mode-btns-wrap { display: none !important; }
+
+/* ── Modo claro: fundo branco, texto escuro ── */
+body { background: #F0F2F5 !important; }
+
+/* ── Modal de config do bot por médico ── */
+#bot-cfg-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 99999;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+#bot-cfg-modal.open { display: flex; }
+#bot-cfg-box {
+  background: #fff;
+  border-radius: 18px;
+  padding: 28px 32px;
+  width: 560px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,.15);
+}
+#bot-cfg-box h2 {
+  font-size: 16px; font-weight: 800;
+  color: #111827; margin-bottom: 4px;
+}
+#bot-cfg-box .sub {
+  font-size: 13px; color: #6B7280; margin-bottom: 20px;
+}
+.cfg-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;
+}
+.cfg-field label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: #6B7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px;
+}
+.cfg-field textarea {
+  width: 100%; background: #F9FAFB;
+  border: 1.5px solid #E5E7EB; border-radius: 8px;
+  padding: 9px 11px; font-size: 12px; color: #111827;
+  font-family: inherit; resize: none; outline: none;
+  transition: border-color .15s;
+}
+.cfg-field textarea:focus { border-color: #1A6FA8; box-shadow: 0 0 0 3px rgba(26,111,168,.1); }
+.cfg-full { grid-column: span 2; }
+.cfg-tip {
+  background: #EBF4FB; border-radius: 10px;
+  padding: 11px 14px; font-size: 12px; color: #1A6FA8;
+  margin: 14px 0; line-height: 1.5;
+}
+.cfg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.cfg-cancel {
+  padding: 10px 18px; background: transparent;
+  border: 1.5px solid #E5E7EB; color: #6B7280;
+  border-radius: 9px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: .15s;
+}
+.cfg-cancel:hover { border-color: #EF4444; color: #EF4444; }
+.cfg-save {
+  padding: 10px 22px; background: #1A6FA8; color: #fff;
+  border: none; border-radius: 9px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 2px 8px rgba(26,111,168,.3); transition: .15s;
+}
+.cfg-save:hover { background: #135A8C; }
+
+/* Botão ⚙️ nos cards de médico */
+.btn-bot-cfg {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; background: rgba(26,111,168,.1);
+  border: 1px solid rgba(26,111,168,.3); color: #1A6FA8;
+  border-radius: 7px; font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: .15s;
+  margin-top: 6px;
+}
+.btn-bot-cfg:hover { background: #1A6FA8; color: #fff; }
+</style>
+
+<!-- Modal de config do bot por médico -->
+<div id="bot-cfg-modal">
+  <div id="bot-cfg-box">
+    <h2>🤖 Configuração do bot — <span id="cfg-doc-name">Médico</span></h2>
+    <div class="sub">Configure as informações que o bot usará ao atender pacientes deste médico</div>
+    <div class="cfg-grid">
+      <div class="cfg-field">
+        <label>Procedimentos realizados</label>
+        <textarea id="cfg-procedimentos" rows="3" placeholder="Ex: Eletrocardiograma, Ecocardiograma, Holter 24h..."></textarea>
+      </div>
+      <div class="cfg-field">
+        <label>Convênios aceitos</label>
+        <textarea id="cfg-convenios" rows="3" placeholder="Ex: Unimed, Bradesco Saúde, Amil, Particular..."></textarea>
+      </div>
+      <div class="cfg-field">
+        <label>Valores das consultas</label>
+        <textarea id="cfg-valores" rows="2" placeholder="Ex: Consulta R$250, Retorno R$150..."></textarea>
+      </div>
+      <div class="cfg-field">
+        <label>Descontos e promoções</label>
+        <textarea id="cfg-descontos" rows="2" placeholder="Ex: 10% para idosos, pacote família..."></textarea>
+      </div>
+      <div class="cfg-field">
+        <label>Horários de atendimento</label>
+        <textarea id="cfg-horarios" rows="2" placeholder="Ex: Seg-Sex 8h-18h, Sáb 8h-12h..."></textarea>
+      </div>
+      <div class="cfg-field">
+        <label>Informações sobre agendamento</label>
+        <textarea id="cfg-agenda" rows="2" placeholder="Ex: Agendamento pelo WhatsApp, retorno em 24h..."></textarea>
+      </div>
+      <div class="cfg-field cfg-full">
+        <label>Observações adicionais para o bot</label>
+        <textarea id="cfg-obs" rows="3" placeholder="Qualquer informação extra: preparo para exames, documentos necessários, estacionamento..."></textarea>
+      </div>
+    </div>
+    <div class="cfg-tip">💡 O bot usará essas informações para responder perguntas dos seus pacientes com precisão. Quanto mais completo, melhor!</div>
+    <div class="cfg-actions">
+      <button class="cfg-cancel" onclick="closeBotCfg()">Cancelar</button>
+      <button class="cfg-save" onclick="saveBotCfg()">💾 Salvar configurações</button>
+    </div>
+  </div>
+</div>
+
+<script id="botclinica-injections">
 (function(){
-  function hideDarkBtn(){
-    var btns = document.querySelectorAll('button');
-    btns.forEach(function(b){
-      if(b.textContent.includes('Escuro') || b.textContent.includes('Claro') || b.textContent.includes('Som')){
-        b.parentElement.style.display = 'none';
+  var FB_PROXY = '/api/fb';
+  var docConfigs = {};
+  var currentDocId = null;
+
+  // ── Fechar modal ao clicar fora ──
+  document.getElementById('bot-cfg-modal').addEventListener('click', function(e){
+    if(e.target === this) closeBotCfg();
+  });
+
+  window.openBotCfg = function(docId, docName){
+    currentDocId = docId;
+    document.getElementById('cfg-doc-name').textContent = docName || 'Médico';
+    var cfg = docConfigs[docId] || {};
+    document.getElementById('cfg-procedimentos').value = cfg.procedimentos || '';
+    document.getElementById('cfg-convenios').value     = cfg.convenios     || '';
+    document.getElementById('cfg-valores').value       = cfg.valores       || '';
+    document.getElementById('cfg-descontos').value     = cfg.descontos     || '';
+    document.getElementById('cfg-horarios').value      = cfg.horarios      || '';
+    document.getElementById('cfg-agenda').value        = cfg.agenda        || '';
+    document.getElementById('cfg-obs').value           = cfg.obs           || '';
+    document.getElementById('bot-cfg-modal').classList.add('open');
+  };
+
+  window.closeBotCfg = function(){
+    document.getElementById('bot-cfg-modal').classList.remove('open');
+  };
+
+  window.saveBotCfg = async function(){
+    if(!currentDocId) return;
+    var cfg = {
+      procedimentos: document.getElementById('cfg-procedimentos').value.trim(),
+      convenios:     document.getElementById('cfg-convenios').value.trim(),
+      valores:       document.getElementById('cfg-valores').value.trim(),
+      descontos:     document.getElementById('cfg-descontos').value.trim(),
+      horarios:      document.getElementById('cfg-horarios').value.trim(),
+      agenda:        document.getElementById('cfg-agenda').value.trim(),
+      obs:           document.getElementById('cfg-obs').value.trim(),
+    };
+    docConfigs[currentDocId] = cfg;
+    try {
+      await fetch(FB_PROXY, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'saveBotConfig', payload:{config: cfg, docId: currentDocId}})
+      });
+    } catch(e){}
+    closeBotCfg();
+    showToast('✅ Configurações do bot salvas!');
+  };
+
+  function showToast(msg){
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#fff;border:1.5px solid #10B981;border-radius:10px;padding:12px 18px;font-size:13px;color:#065F46;font-weight:700;z-index:999999;box-shadow:0 8px 24px rgba(0,0,0,.1);font-family:Inter,sans-serif';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3000);
+  }
+
+  // ── Esconder botões Som/Escuro/Claro ──
+  function hideModebtns(){
+    document.querySelectorAll('button').forEach(function(b){
+      var t = b.textContent.trim();
+      if(t === 'Escuro' || t === 'Claro' || t === 'Som'){
+        var wrap = b.parentElement;
+        // Esconder o container dos dois botões
+        if(wrap) wrap.id = 'mode-btns-wrap';
       }
     });
   }
-  setTimeout(hideDarkBtn, 1000);
-  setTimeout(hideDarkBtn, 2000);
+
+  // ── Injetar botão ⚙️ nos cards de médico ──
+  function injectBotBtns(){
+    // Cards de médico têm um elemento com "CRM" visível
+    var cards = document.querySelectorAll('div[style*="borderRadius:12px"], div[style*="border-radius:12px"]');
+    cards.forEach(function(card){
+      if(card.querySelector('.btn-bot-cfg')) return; // já tem
+      // Identificar se é card de médico (tem texto de CRM ou especialidade)
+      var text = card.textContent;
+      if(!text.includes('CRM') && !text.includes('Especialidade') && !text.includes('crm')) return;
+
+      // Tentar extrair nome e id do médico
+      var nameEl = card.querySelector('[style*="fontWeight:700"], [style*="font-weight:700"]');
+      var docName = nameEl ? nameEl.textContent.trim() : 'Médico';
+      var docId = 'doc_' + docName.replace(/\s+/g,'_').toLowerCase();
+
+      var btn = document.createElement('button');
+      btn.className = 'btn-bot-cfg';
+      btn.innerHTML = '⚙️ Config do bot';
+      btn.onclick = function(e){
+        e.stopPropagation();
+        openBotCfg(docId, docName);
+      };
+      card.appendChild(btn);
+    });
+  }
+
+  // Executar com polling para garantir que o React renderizou
+  var runs = 0;
+  var interval = setInterval(function(){
+    hideModebtns();
+    injectBotBtns();
+    runs++;
+    if(runs > 30) clearInterval(interval);
+  }, 500);
+
+  // Reexecutar quando navegar para aba de médicos
+  var observer = new MutationObserver(function(){
+    injectBotBtns();
+    hideModebtns();
+  });
+  observer.observe(document.body, {childList: true, subtree: true});
+
 })();
 </script>
 
