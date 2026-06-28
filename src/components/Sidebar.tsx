@@ -75,6 +75,30 @@ export default function Sidebar({
         </div>
       </div>
 
+      {/* Plan Badge */}
+      <div className="px-4 py-2 border-b border-slate-800">
+        {userPlan === 'starter' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            ⭐ Starter
+          </span>
+        )}
+        {userPlan === 'profissional' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            🚀 Profissional
+          </span>
+        )}
+        {userPlan === 'clinica' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            🏥 Clínica
+          </span>
+        )}
+        {userPlan === 'premium' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            👑 Premium
+          </span>
+        )}
+      </div>
+
       {/* Navigation Menu */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {menuItems.map((item) => {
