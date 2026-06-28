@@ -279,30 +279,6 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
-
-    // ── BOT CONFIG: get ──────────────────────────────────────
-    if (action === "getBotConfig") {
-      const r = await fetch(`${FS}/clinic_config/main?key=${API_KEY}`);
-      const d = await r.json();
-      if (d.error || !d.fields) return res.status(200).json({ config: null });
-      const raw = d.fields?.botConfig?.stringValue;
-      try { return res.status(200).json({ config: JSON.parse(raw) }); }
-      catch(e) { return res.status(200).json({ config: null }); }
-    }
-
-    // ── BOT CONFIG: save ─────────────────────────────────────
-    if (action === "saveBotConfig") {
-      const { config } = payload;
-      const r = await fetch(`${FS}/clinic_config/main?key=${API_KEY}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields: { botConfig: { stringValue: JSON.stringify(config) } } })
-      });
-      const d = await r.json();
-      if (d.error) return res.status(200).json({ error: d.error.message });
-      return res.status(200).json({ ok: true });
-    }
-
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
