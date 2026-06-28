@@ -384,103 +384,23 @@ div[class="toast"] {
 </style>
 
 
-<style id="sidebar-always-dark">
-/* Sidebar SEMPRE escuro */
-div[style*="position: fixed"][style*="220px"],
-div[style*="position:fixed"][style*="220px"] {
+
+
+
+
+
+
+<style id="sidebar-fix">
+/* Sidebar sempre dark */
+div[style*="220px"][style*="fixed"],
+div[style*="220px"][style*="position: fixed"] {
   background: #0F1623 !important;
-  color: #E2EEFF !important;
 }
-div[style*="position: fixed"][style*="220px"] button,
-div[style*="position:fixed"][style*="220px"] a,
-div[style*="position:fixed"][style*="220px"] span {
-  color: inherit !important;
-}
-
-/* Modo claro — main content com fundo claro e texto escuro */
-body[data-theme="light"] main,
-body:not([data-dark]) main {
-  background: #F0F2F5 !important;
-}
-
-/* Cards no modo claro — fundo branco, texto escuro */
-body[data-theme="light"] div[style*="borderRadius"][style*="border:1px"],
-body[data-theme="light"] div[style*="border-radius"][style*="padding"] {
-  background: #ffffff !important;
-  color: #111827 !important;
-}
-
-/* Textos no modo claro legíveis */
-body[data-theme="light"] {
-  color: #111827 !important;
-}
-
-/* Topbar no modo claro */
-body[data-theme="light"] div[style*="borderBottom"][style*="display:flex"] {
-  background: #ffffff !important;
-  border-bottom: 1px solid #E5EAF2 !important;
-}
-
-/* Inputs no modo claro */
-body[data-theme="light"] textarea[style*="background"],
-body[data-theme="light"] input[style*="background"],
-body[data-theme="light"] select[style*="background"] {
-  background: #F0F2F5 !important;
-  color: #111827 !important;
-  border-color: #E5EAF2 !important;
-}
-
-/* KPI cards legíveis */
-body[data-theme="light"] div[style*="background:var(--card)"] {
-  background: #ffffff !important;
-}
-</style>
-
-
-<style id="force-sidebar-dark">
-/* Forçar sidebar sempre escuro */
-div[style*="position: fixed"][style*="220px"],
-div[style*="position:fixed"][style*="220px"] {
-  background: #0F1623 !important;
-  border-right: 1px solid rgba(255,255,255,.06) !important;
-}
-/* Textos do sidebar */
-div[style*="position: fixed"][style*="220px"] span,
-div[style*="position: fixed"][style*="220px"] div,
-div[style*="position: fixed"][style*="220px"] button {
-  color: inherit;
-}
-/* Nav buttons */
-div[style*="position: fixed"][style*="220px"] button[style*="cursor:pointer"] {
-  color: rgba(255,255,255,.55) !important;
-}
-div[style*="position: fixed"][style*="220px"] button[style*="color:#1A6FA8"],
-div[style*="position: fixed"][style*="220px"] button[style*="color:var(--accent)"] {
-  color: #1A6FA8 !important;
-  background: rgba(26,111,168,.18) !important;
-}
-/* Logo do sidebar */
-div[style*="position: fixed"][style*="220px"] div[style*="fontWeight:800"][style*="fontSize:15"],
-div[style*="position: fixed"][style*="220px"] div[style*="font-weight:800"] {
-  color: #fff !important;
-}
-div[style*="position: fixed"][style*="220px"] div[style*="fontSize:11"],
-div[style*="position: fixed"][style*="220px"] div[style*="font-size:11"] {
-  color: rgba(255,255,255,.5) !important;
-}
-/* Section labels */
-div[style*="position: fixed"][style*="220px"] div[style*="fontSize:10"],
-div[style*="position: fixed"][style*="220px"] span[style*="fontSize:10"] {
-  color: rgba(255,255,255,.3) !important;
-}
-/* Status bots */
-div[style*="position: fixed"][style*="220px"] div[style*="background"][style*="borderRadius:10"] {
-  background: rgba(0,0,0,.2) !important;
-}
-/* Botão sair */
-div[style*="position: fixed"][style*="220px"] button[style*="border"][style*="cursor:pointer"]:last-of-type {
-  border-color: rgba(255,255,255,.15) !important;
-  color: rgba(255,255,255,.5) !important;
+/* Esconder botão de modo */
+button[style*="setDark"],
+button[style*="Escuro"],
+button[style*="Claro"] {
+  display: none !important;
 }
 </style>
 
@@ -3925,6 +3845,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
   document.body.appendChild(modal);
   modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
   window.__openWAModal = function(){ modal.style.display='flex'; };
+})();
+</script>
+
+
+<script id="hide-dark-btn">
+(function(){
+  function hideDarkBtn(){
+    var btns = document.querySelectorAll('button');
+    btns.forEach(function(b){
+      if(b.textContent.includes('Escuro') || b.textContent.includes('Claro') || b.textContent.includes('Som')){
+        b.parentElement.style.display = 'none';
+      }
+    });
+  }
+  setTimeout(hideDarkBtn, 1000);
+  setTimeout(hideDarkBtn, 2000);
 })();
 </script>
 
