@@ -1037,6 +1037,33 @@ function App(_ref) {
   const [snd, setSnd] = useState(true);
   const [notPerm, setNotPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [hCount, setHCount] = useState(0);
+  const [botConfig, setBotConfig] = useState({
+    especialidades:"", procedimentos:"", convenios:"",
+    valores:"", descontos:"", horarios:"", medicos:"", endereco:"", observacoes:""
+  });
+  const [savingBot, setSavingBot] = useState(false);
+
+  // Carregar config do bot do Firebase
+  useEffect(() => {
+    async function loadBotConfig(){
+      try {
+        const r = await fetch('/api/fb',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'getBotConfig',payload:{}})});
+        const d = await r.json();
+        if(d.config) setBotConfig(d.config);
+      } catch(e){}
+    }
+    loadBotConfig();
+  }, []);
+
+  async function saveBotConfig(){
+    setSavingBot(true);
+    try {
+      await fetch('/api/fb',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'saveBotConfig',payload:{config:botConfig}})});
+    } catch(e){}
+    setSavingBot(false);
+  }
   const endRef = useRef(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({
@@ -2365,7 +2392,62 @@ function App(_ref) {
       fontWeight: 700,
       margin: 0
     }
-  }, "Médicos"), /*#__PURE__*/React.createElement("p", {
+  }, "Médicos", /*#__PURE__*/React.createElement("div", {
+      style:{marginBottom:20}
+    },
+    /*#__PURE__*/React.createElement("div", {style:{
+      display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16
+    }},
+      /*#__PURE__*/React.createElement("div", null,
+        /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:16,color:T.text,marginBottom:2}}, "🤖 Configuração do Bot"),
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:13,color:T.muted}}, "Configure as informações que o bot usará para responder seus pacientes")
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: saveBotConfig,
+        style:{background:T.accent,color:"#fff",border:"none",borderRadius:9,padding:"9px 20px",fontSize:13,fontWeight:700,cursor:"pointer",opacity:savingBot?0.7:1}
+      }, savingBot ? "Salvando..." : "💾 Salvar configurações")
+    ),
+    /*#__PURE__*/React.createElement("div", {style:{
+      display:"grid",gridTemplateColumns:"1fr 1fr",gap:14
+    }},
+      ...[
+        ["especialidades","Especialidades médicas","Ex: Cardiologia, Dermatologia, Clínica Geral"],
+        ["medicos","Médicos da clínica","Ex: Dr. João Silva (Cardiologia), Dra. Ana Lima (Dermatologia)"],
+        ["procedimentos","Procedimentos realizados","Ex: Eletrocardiograma, Ecocardiograma, Holter"],
+        ["convenios","Convênios aceitos","Ex: Unimed, Bradesco Saúde, Amil, Particular"],
+        ["valores","Valores das consultas","Ex: Consulta R$250, Retorno R$150"],
+        ["descontos","Descontos e promoções","Ex: 10% para idosos, pacote família"],
+        ["horarios","Horários de atendimento","Ex: Seg-Sex 8h-18h, Sáb 8h-12h"],
+        ["endereco","Endereço completo","Ex: Rua das Flores, 123 - Centro - BH/MG"],
+      ].map(([field, label, placeholder]) =>
+        /*#__PURE__*/React.createElement("div", {key:field},
+          /*#__PURE__*/React.createElement("div", {style:{fontSize:12,fontWeight:600,color:T.muted,marginBottom:5}}, label),
+          /*#__PURE__*/React.createElement("textarea", {
+            value: botConfig[field]||"",
+            onChange: e => setBotConfig(p=>({...p,[field]:e.target.value})),
+            placeholder,
+            rows:3,
+            style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:9,padding:"10px 12px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}
+          })
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", {style:{gridColumn:"span 2"}},
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:12,fontWeight:600,color:T.muted,marginBottom:5}}, "Observações adicionais para o bot"),
+        /*#__PURE__*/React.createElement("textarea", {
+          value: botConfig.observacoes||"",
+          onChange: e => setBotConfig(p=>({...p,observacoes:e.target.value})),
+          placeholder:"Qualquer informação adicional que o bot deve saber: taxas, políticas, informações especiais...",
+          rows:3,
+          style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:9,padding:"10px 12px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}
+        })
+      )
+    ),
+    /*#__PURE__*/React.createElement("div", {style:{
+      marginTop:14,background:"rgba(26,111,168,.08)",borderRadius:10,padding:"12px 16px",fontSize:12,color:T.accent,lineHeight:1.6
+    }},
+      "💡 O bot usará essas informações para responder perguntas dos seus pacientes. Quanto mais completo, melhor o atendimento!"
+    )
+  )), /*#__PURE__*/React.createElement("p", {
     style: {
       color: T.muted,
       fontSize: 12,
