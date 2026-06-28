@@ -383,59 +383,6 @@ div[class="toast"] {
 .btn-save-profile:hover { background: var(--primary-dark); transform: translateY(-1px); }
 </style>
 
-
-<style id="sidebar-always-dark">
-/* Sidebar SEMPRE escuro */
-div[style*="position: fixed"][style*="220px"],
-div[style*="position:fixed"][style*="220px"] {
-  background: #0F1623 !important;
-  color: #E2EEFF !important;
-}
-div[style*="position: fixed"][style*="220px"] button,
-div[style*="position:fixed"][style*="220px"] a,
-div[style*="position:fixed"][style*="220px"] span {
-  color: inherit !important;
-}
-
-/* Modo claro — main content com fundo claro e texto escuro */
-body[data-theme="light"] main,
-body:not([data-dark]) main {
-  background: #F0F2F5 !important;
-}
-
-/* Cards no modo claro — fundo branco, texto escuro */
-body[data-theme="light"] div[style*="borderRadius"][style*="border:1px"],
-body[data-theme="light"] div[style*="border-radius"][style*="padding"] {
-  background: #ffffff !important;
-  color: #111827 !important;
-}
-
-/* Textos no modo claro legíveis */
-body[data-theme="light"] {
-  color: #111827 !important;
-}
-
-/* Topbar no modo claro */
-body[data-theme="light"] div[style*="borderBottom"][style*="display:flex"] {
-  background: #ffffff !important;
-  border-bottom: 1px solid #E5EAF2 !important;
-}
-
-/* Inputs no modo claro */
-body[data-theme="light"] textarea[style*="background"],
-body[data-theme="light"] input[style*="background"],
-body[data-theme="light"] select[style*="background"] {
-  background: #F0F2F5 !important;
-  color: #111827 !important;
-  border-color: #E5EAF2 !important;
-}
-
-/* KPI cards legíveis */
-body[data-theme="light"] div[style*="background:var(--card)"] {
-  background: #ffffff !important;
-}
-</style>
-
 </head>
 <body>
 <div id="root">
@@ -1052,11 +999,14 @@ function App(_ref) {
     setHCount(p => next === 'human' ? p+1 : Math.max(0,p-1));
   }
   const [nd, setNd] = useState({
-    name: "", spec: "", crm: "", days: "", times: "",
-    bot: "", tone: "cordial", preco: "",
-    // Config do bot por médico
-    procedimentos: "", convenios: "", valores_info: "",
-    descontos: "", observacoes_bot: ""
+    name: "",
+    spec: "",
+    crm: "",
+    days: "",
+    times: "",
+    bot: "",
+    tone: "cordial",
+    preco: ""
   });
   const [editDoc, setEditDoc] = useState(null);
   const [cfg, setCfg] = useState({
@@ -1470,7 +1420,7 @@ function App(_ref) {
       fontWeight: 500
     }
   }, "Som")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => { setDark(p => { const next=!p; document.body.setAttribute('data-theme', next?'dark':'light'); return next; }); },
+    onClick: () => setDark(p => !p),
     style: {
       display: "flex",
       alignItems: "center",
@@ -2442,7 +2392,62 @@ function App(_ref) {
       fontWeight: 700,
       margin: 0
     }
-  }, "Médicos"), /*#__PURE__*/React.createElement("p", {
+  }, "Médicos", /*#__PURE__*/React.createElement("div", {
+      style:{marginBottom:20}
+    },
+    /*#__PURE__*/React.createElement("div", {style:{
+      display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16
+    }},
+      /*#__PURE__*/React.createElement("div", null,
+        /*#__PURE__*/React.createElement("div", {style:{fontWeight:800,fontSize:16,color:T.text,marginBottom:2}}, "🤖 Configuração do Bot"),
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:13,color:T.muted}}, "Configure as informações que o bot usará para responder seus pacientes")
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: saveBotConfig,
+        style:{background:T.accent,color:"#fff",border:"none",borderRadius:9,padding:"9px 20px",fontSize:13,fontWeight:700,cursor:"pointer",opacity:savingBot?0.7:1}
+      }, savingBot ? "Salvando..." : "💾 Salvar configurações")
+    ),
+    /*#__PURE__*/React.createElement("div", {style:{
+      display:"grid",gridTemplateColumns:"1fr 1fr",gap:14
+    }},
+      ...[
+        ["especialidades","Especialidades médicas","Ex: Cardiologia, Dermatologia, Clínica Geral"],
+        ["medicos","Médicos da clínica","Ex: Dr. João Silva (Cardiologia), Dra. Ana Lima (Dermatologia)"],
+        ["procedimentos","Procedimentos realizados","Ex: Eletrocardiograma, Ecocardiograma, Holter"],
+        ["convenios","Convênios aceitos","Ex: Unimed, Bradesco Saúde, Amil, Particular"],
+        ["valores","Valores das consultas","Ex: Consulta R$250, Retorno R$150"],
+        ["descontos","Descontos e promoções","Ex: 10% para idosos, pacote família"],
+        ["horarios","Horários de atendimento","Ex: Seg-Sex 8h-18h, Sáb 8h-12h"],
+        ["endereco","Endereço completo","Ex: Rua das Flores, 123 - Centro - BH/MG"],
+      ].map(([field, label, placeholder]) =>
+        /*#__PURE__*/React.createElement("div", {key:field},
+          /*#__PURE__*/React.createElement("div", {style:{fontSize:12,fontWeight:600,color:T.muted,marginBottom:5}}, label),
+          /*#__PURE__*/React.createElement("textarea", {
+            value: botConfig[field]||"",
+            onChange: e => setBotConfig(p=>({...p,[field]:e.target.value})),
+            placeholder,
+            rows:3,
+            style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:9,padding:"10px 12px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}
+          })
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", {style:{gridColumn:"span 2"}},
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:12,fontWeight:600,color:T.muted,marginBottom:5}}, "Observações adicionais para o bot"),
+        /*#__PURE__*/React.createElement("textarea", {
+          value: botConfig.observacoes||"",
+          onChange: e => setBotConfig(p=>({...p,observacoes:e.target.value})),
+          placeholder:"Qualquer informação adicional que o bot deve saber: taxas, políticas, informações especiais...",
+          rows:3,
+          style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:9,padding:"10px 12px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}
+        })
+      )
+    ),
+    /*#__PURE__*/React.createElement("div", {style:{
+      marginTop:14,background:"rgba(26,111,168,.08)",borderRadius:10,padding:"12px 16px",fontSize:12,color:T.accent,lineHeight:1.6
+    }},
+      "💡 O bot usará essas informações para responder perguntas dos seus pacientes. Quanto mais completo, melhor o atendimento!"
+    )
+  )), /*#__PURE__*/React.createElement("p", {
     style: {
       color: T.muted,
       fontSize: 12,
@@ -2538,35 +2543,7 @@ function App(_ref) {
       background: nd.tone === v ? T.accentL : "transparent",
       color: nd.tone === v ? T.accent : T.muted
     }
-  }, l)))), /*#__PURE__*/React.createElement("div", {style:{marginTop:12,paddingTop:12,borderTop:`1px solid ${T.border}`}},
-    /*#__PURE__*/React.createElement("div", {style:{fontSize:12,fontWeight:700,color:T.accent,marginBottom:10}}, "🤖 Configurações do bot deste médico"),
-    /*#__PURE__*/React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-      [
-        ["procedimentos","Procedimentos realizados","Ex: Eletrocardiograma, Ecocardiograma"],
-        ["convenios","Convênios aceitos","Ex: Unimed, Amil, Particular"],
-        ["valores_info","Valores","Ex: Consulta R$250, Retorno R$150"],
-        ["descontos","Descontos","Ex: 10% para idosos"],
-      ].map(([field,label,ph]) => /*#__PURE__*/React.createElement("div", {key:field},
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:11,fontWeight:600,color:T.muted,marginBottom:4}}, label),
-        /*#__PURE__*/React.createElement("textarea", {
-          value: nd[field]||"",
-          onChange: e => setNd(p=>({...p,[field]:e.target.value})),
-          placeholder: ph, rows:2,
-          style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 10px",color:T.text,fontSize:12,fontFamily:"inherit",resize:"none",outline:"none"}
-        })
-      )),
-      /*#__PURE__*/React.createElement("div", {style:{gridColumn:"span 2"}},
-        /*#__PURE__*/React.createElement("div", {style:{fontSize:11,fontWeight:600,color:T.muted,marginBottom:4}}, "Observações adicionais"),
-        /*#__PURE__*/React.createElement("textarea", {
-          value: nd.observacoes_bot||"",
-          onChange: e => setNd(p=>({...p,observacoes_bot:e.target.value})),
-          placeholder:"Informações específicas deste médico para o bot...",
-          rows:2,
-          style:{width:"100%",background:T.subtle,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 10px",color:T.text,fontSize:12,fontFamily:"inherit",resize:"none",outline:"none"}
-        })
-      )
-    )
-  ), /*#__PURE__*/React.createElement("div", {
+  }, l)))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 7
