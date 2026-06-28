@@ -219,9 +219,10 @@ function renderTable(){
       <td>${badge}</td>
       <td>
         <select class="plan-select-inline" onchange="changePlan('${c.email}',this.value)">
-          <option value="starter" ${c.plano==='starter'?'selected':''}>Starter</option>
-          <option value="profissional" ${c.plano==='profissional'?'selected':''}>Profissional</option>
-          <option value="clinica" ${c.plano==='clinica'?'selected':''}>Clínica</option>
+          <option value="starter" ${c.plano==='starter'?'selected':''}>🌱 Starter</option>
+          <option value="profissional" ${c.plano==='profissional'?'selected':''}>⭐ Profissional</option>
+          <option value="clinica" ${c.plano==='clinica'?'selected':''}>🏥 Clínica</option>
+          <option value="premium" ${c.plano==='premium'?'selected':''}>👑 Premium</option>
         </select>
       </td>
       <td><button class="btn-danger" onclick="removeUser('${c.email}')">Remover</button></td>
@@ -262,11 +263,13 @@ async function addUser(){
 
 // ── ALTERAR PLANO ──
 async function changePlan(email, plano){
-  await call('setAccess',{email,plano});
+  var d = await call('setAccess',{email,plano});
+  if(d.error){ toast('❌ Erro: ' + d.error); return; }
   var idx = clients.findIndex(c=>c.email===email);
   if(idx>-1) clients[idx].plano=plano;
   updateStats();
-  toast(`✅ ${email} → ${plano}`);
+  renderTable();
+  toast('✅ ' + email + ' → ' + plano);
 }
 
 // ── REMOVER ──
