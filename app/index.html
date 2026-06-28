@@ -1246,8 +1246,8 @@ function App(_ref) {
     style: {
       width: sideOpen ? 228 : 0,
       minWidth: 0,
-      background: T.card,
-      borderRight: sideOpen ? `1px solid ${T.border}` : "none",
+      background: "#0F1623",
+      borderRight: sideOpen ? "1px solid rgba(255,255,255,.06)" : "none",
       display: "flex",
       flexDirection: "column",
       height: "var(--vh, 100vh)",
@@ -1361,63 +1361,7 @@ function App(_ref) {
       padding: "11px 13px 17px",
       borderTop: `1px solid ${T.border}`
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 6,
-      marginBottom: 8
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setSnd(p => !p),
-    style: {
-      flex: 1,
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      background: T.subtle,
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      padding: "7px 10px",
-      cursor: "pointer"
-    }
-  }, snd ? /*#__PURE__*/React.createElement(I.Vol, {
-    s: 13,
-    c: T.green
-  }) : /*#__PURE__*/React.createElement(I.Mute, {
-    s: 13,
-    c: T.muted
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: snd ? T.green : T.muted,
-      fontWeight: 500
-    }
-  }, "Som")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setDark(p => !p),
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 5,
-      background: dark ? T.accentL : T.subtle,
-      border: `1px solid ${dark ? T.accent : T.border}`,
-      borderRadius: 8,
-      padding: "7px 11px",
-      cursor: "pointer",
-      transition: "all .2s"
-    }
-  }, dark ? /*#__PURE__*/React.createElement(I.Sun, {
-    s: 14,
-    c: T.accent
-  }) : /*#__PURE__*/React.createElement(I.Moon, {
-    s: 14,
-    c: T.muted
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: dark ? T.accent : T.muted,
-      fontWeight: 500
-    }
-  }, dark ? "Claro" : "Escuro"))), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.greenL,
       borderRadius: 10,
@@ -3776,5 +3720,87 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 })();
 </script>
 
+
+<style id="bc-s">
+#bc-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px);font-family:system-ui,sans-serif}
+#bc-modal.open{display:flex}
+#bc-box{background:#fff;border-radius:18px;padding:28px 32px;width:580px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+#bc-box h3{font-size:16px;font-weight:800;color:#111827;margin-bottom:16px}
+.bc-g{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bc-f label{display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.bc-f textarea{width:100%;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:8px;padding:9px 11px;font-size:12px;color:#111827;font-family:inherit;resize:none;outline:none}
+.bc-f textarea:focus{border-color:#1A6FA8;box-shadow:0 0 0 3px rgba(26,111,168,.1)}
+.bc-full{grid-column:span 2}
+.bc-tip{background:#EBF4FB;border-radius:10px;padding:11px 14px;font-size:12px;color:#1A6FA8;margin:14px 0;line-height:1.5}
+.bc-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.bc-cancel{padding:9px 18px;background:transparent;border:1.5px solid #E5E7EB;color:#6B7280;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.bc-save{padding:9px 22px;background:#1A6FA8;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.bc-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(26,111,168,.1);border:1px solid rgba(26,111,168,.3);color:#1A6FA8;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;margin-top:8px}
+.bc-btn:hover{background:#1A6FA8;color:#fff}
+.bc-toast{position:fixed;bottom:24px;right:24px;background:#fff;border:1.5px solid #10B981;border-radius:10px;padding:12px 18px;font-size:13px;color:#065F46;font-weight:700;z-index:99999;font-family:system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.1)}
+</style>
+<div id="bc-modal">
+  <div id="bc-box">
+    <h3>🤖 Config do bot — <span id="bc-nm"></span></h3>
+    <div class="bc-g">
+      <div class="bc-f"><label>Procedimentos</label><textarea id="bc-proc" rows="3" placeholder="Ex: Eletrocardiograma, Holter 24h..."></textarea></div>
+      <div class="bc-f"><label>Convênios aceitos</label><textarea id="bc-conv" rows="3" placeholder="Ex: Unimed, Amil, Particular..."></textarea></div>
+      <div class="bc-f"><label>Valores das consultas</label><textarea id="bc-val" rows="2" placeholder="Ex: Consulta R$250, Retorno R$150..."></textarea></div>
+      <div class="bc-f"><label>Descontos</label><textarea id="bc-desc" rows="2" placeholder="Ex: 10% para idosos..."></textarea></div>
+      <div class="bc-f"><label>Horários</label><textarea id="bc-hor" rows="2" placeholder="Ex: Seg-Sex 8h-18h..."></textarea></div>
+      <div class="bc-f"><label>Agendamento</label><textarea id="bc-ag" rows="2" placeholder="Ex: Via WhatsApp com 24h antecedência..."></textarea></div>
+      <div class="bc-f bc-full"><label>Preparo e documentos</label><textarea id="bc-prep" rows="2" placeholder="Ex: Trazer exames anteriores, jejum..."></textarea></div>
+      <div class="bc-f bc-full"><label>Observações adicionais</label><textarea id="bc-obs" rows="2" placeholder="Estacionamento, acessibilidade..."></textarea></div>
+    </div>
+    <div class="bc-tip">💡 O bot usa essas informações junto com a base de conhecimento médica para responder seus pacientes.</div>
+    <div class="bc-acts">
+      <button class="bc-cancel" onclick="document.getElementById('bc-modal').classList.remove('open')">Cancelar</button>
+      <button class="bc-save" onclick="bcSave()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+<script id="bc-js">
+(function(){
+  var cur={id:null},cache={};
+  document.getElementById('bc-modal').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+  window.bcOpen=function(id,name){
+    cur.id=id;
+    document.getElementById('bc-nm').textContent=name;
+    var c=cache[id]||{};
+    ['proc','conv','val','desc','hor','ag','prep','obs'].forEach(function(k){document.getElementById('bc-'+k).value=c[k]||'';});
+    fetch('/api/fb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'getBotConfig',payload:{docId:id}})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.config){cache[id]=d.config;['proc','conv','val','desc','hor','ag','prep','obs'].forEach(function(k){document.getElementById('bc-'+k).value=d.config[k]||'';});}
+    }).catch(function(){});
+    document.getElementById('bc-modal').classList.add('open');
+  };
+  window.bcSave=function(){
+    var cfg={};
+    ['proc','conv','val','desc','hor','ag','prep','obs'].forEach(function(k){cfg[k]=document.getElementById('bc-'+k).value.trim();});
+    cache[cur.id]=cfg;
+    fetch('/api/fb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'saveBotConfig',payload:{docId:cur.id,config:cfg}})}).catch(function(){});
+    document.getElementById('bc-modal').classList.remove('open');
+    var t=document.createElement('div');t.className='bc-toast';t.textContent='✅ Config salva!';document.body.appendChild(t);setTimeout(function(){t.remove();},3000);
+  };
+  function inject(){
+    document.querySelectorAll('div').forEach(function(div){
+      if(div.querySelector('.bc-btn'))return;
+      var s=div.getAttribute('style')||'';
+      if(!s.includes('borderRadius:12')&&!s.includes('border-radius:12'))return;
+      if(!div.textContent.includes('CRM'))return;
+      if(div.children.length>10)return;
+      var ne=div.querySelector('[style*="fontWeight:700"],[style*="font-weight:700"]');
+      if(!ne||ne.textContent.trim().length<2)return;
+      var nm=ne.textContent.trim();
+      var id='doc_'+nm.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+      var b=document.createElement('button');b.className='bc-btn';b.innerHTML='⚙️ Config do bot';
+      b.onclick=function(e){e.stopPropagation();bcOpen(id,nm);};
+      div.appendChild(b);
+    });
+  }
+  var n=0,iv=setInterval(function(){inject();if(++n>30)clearInterval(iv);},600);
+  new MutationObserver(inject).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
 </body>
 </html>
