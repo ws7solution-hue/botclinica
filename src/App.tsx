@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import LoginScreen from './components/LoginScreen';
-import { fbListConversas, fbGetMsgs, sendReply, fbGetClinicConfig } from './firebase';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import DashboardOverview from './components/DashboardOverview';
@@ -10,6 +8,7 @@ import DoctorsPanel from './components/DoctorsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import ProfileModal from './components/ProfileModal';
+import LoginScreen from './components/LoginScreen';
 
 import { 
   SidebarTab, 
@@ -27,30 +26,11 @@ import {
   INITIAL_SYSTEM_LOGS, 
   INITIAL_BOT_SETTINGS 
 } from './data';
+import { fbListConversas, fbGetPlan, fbLogin } from './firebase';
 
 import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, CalendarCheck } from 'lucide-react';
 
 export default function App() {
-  // ── AUTENTICAÇÃO ──
-  const savedEmail = localStorage.getItem('bc_email');
-  const savedPlan = localStorage.getItem('bc_plan');
-  const [isLoggedIn, setIsLoggedIn] = useState(!!savedEmail);
-  const [userEmail, setUserEmail] = useState(savedEmail || '');
-  const [userPlan, setUserPlan] = useState(savedPlan || 'starter');
-
-  function handleLogin(email: string, plan: string) {
-    setUserEmail(email);
-    setUserPlan(plan);
-    setIsLoggedIn(true);
-  }
-
-  function handleLogout() {
-    localStorage.removeItem('bc_email');
-    localStorage.removeItem('bc_plan');
-    setIsLoggedIn(false);
-    setUserEmail('');
-  }
-
   const [activeTab, setActiveTab] = useState<SidebarTab>('overview');
   
   // Real-time State containers
@@ -60,34 +40,6 @@ export default function App() {
   const [systemLogs, setSystemLogs] = useState<SystemLogs[]>(INITIAL_SYSTEM_LOGS);
   const [botSettings, setBotSettings] = useState(INITIAL_BOT_SETTINGS);
   const [whatsappConnected, setWhatsappConnected] = useState(true);
-
-  // ── POLLING FIREBASE (conversas reais) ──
-  const loadConversas = useCallback(async () => {
-    try {
-      const convs = await fbListConversas();
-      if (convs && convs.length > 0) {
-        setConversations(convs.map((c: {id:string;name:string;from:string;lastMsg:string;lastTime:string;status:string;unread:string}) => ({
-          id: c.id,
-          patientName: c.name || c.from,
-          patientPhone: c.from,
-          status: c.status === 'human' ? 'human_active' : c.status === 'bot' ? 'bot' : 'resolved',
-          lastMessage: c.lastMsg || '',
-          lastMessageTime: c.lastTime ? new Date(c.lastTime).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : '',
-          unreadCount: parseInt(c.unread || '0'),
-          avatarColor: '#1A6FA8',
-          category: 'WhatsApp',
-          messages: [],
-        })));
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    loadConversas();
-    const interval = setInterval(loadConversas, 5000);
-    return () => clearInterval(interval);
-  }, [isLoggedIn, loadConversas]);
   
   // Clinic specialties list managed in settings and utilized in clinical body
   const [specialties, setSpecialties] = useState<string[]>([
@@ -128,6 +80,58 @@ export default function App() {
     };
   });
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  // Session Authentication status
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('atendia_logged_in') === 'true';
+  });
+
+  const handleLoginSuccess = (profile: UserProfile) => {
+    setUserProfile(profile);
+    setIsLoggedIn(true);
+    localStorage.setItem('atendia_logged_in', 'true');
+    localStorage.setItem('atendia_user_profile', JSON.stringify(profile));
+    addSystemLog('success', `Bem-vindo de volta, ${profile.accountType === 'clinic' ? (profile.clinicName || profile.name) : (profile.doctorName || profile.name)}! Login efetuado.`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('atendia_logged_in');
+    localStorage.removeItem('atendia_user_profile');
+    setIsLoggedIn(false);
+  };
+
+  // ── Polling de conversas reais do Firebase ──
+  const loadConversas = useCallback(async () => {
+    try {
+      const convs = await fbListConversas();
+      if (convs && convs.length > 0) {
+        setConversations(prev => {
+          const firebaseConvs = convs.map((c: {id:string;name:string;from:string;lastMsg:string;lastTime:string;status:string;unread:string}) => ({
+            id: c.id,
+            patientName: c.name || c.from || 'Paciente',
+            patientPhone: c.from || '',
+            status: (c.status === 'human' ? 'human_active' : c.status === 'bot' ? 'bot' : 'resolved') as 'bot' | 'human_needed' | 'human_active' | 'resolved',
+            lastMessage: c.lastMsg || '',
+            lastMessageTime: c.lastTime ? new Date(c.lastTime).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : '',
+            unreadCount: parseInt(c.unread || '0'),
+            avatarColor: '#1A6FA8',
+            category: 'WhatsApp',
+            messages: [],
+          }));
+          return firebaseConvs;
+        });
+      }
+    } catch (e) {
+      // silently fail — usa dados mock
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    loadConversas();
+    const interval = setInterval(loadConversas, 5000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, loadConversas]);
 
   // Save profile to localStorage whenever it changes
   React.useEffect(() => {
@@ -442,6 +446,10 @@ export default function App() {
   // Count unread chats for the sidebar badge
   const unreadChatsCount = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
+  if (!isLoggedIn) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#F0F2F5] text-slate-700 antialiased font-sans">
       
@@ -453,9 +461,11 @@ export default function App() {
         whatsappConnected={whatsappConnected}
         userProfile={userProfile}
         onEditProfile={() => setProfileModalOpen(true)}
-        onLogout={handleLogout}
-        userEmail={userEmail}
-        userPlan={userPlan}
+        onLogout={() => {
+          setIsLoggedIn(false);
+          localStorage.removeItem('atendia_logged_in');
+          addSystemLog('info', 'Sessão encerrada com sucesso.');
+        }}
       />
 
       {/* 2. Main content block */}

@@ -22,8 +22,6 @@ interface SidebarProps {
   userProfile: UserProfile;
   onEditProfile: () => void;
   onLogout?: () => void;
-  userEmail?: string;
-  userPlan?: string;
 }
 
 export default function Sidebar({ 
@@ -33,7 +31,7 @@ export default function Sidebar({
   whatsappConnected,
   userProfile,
   onEditProfile,
-  onLogout,
+  onLogout
 }: SidebarProps) {
   const menuItems = [
     { id: 'overview' as SidebarTab, label: 'Visão Geral', icon: LayoutDashboard },
@@ -111,44 +109,46 @@ export default function Sidebar({
 
       {/* Sidebar Footer User Profile */}
       <div className="p-4 border-t border-slate-800/80 bg-slate-950/20 flex flex-col gap-3">
-        <button
-          onClick={onEditProfile}
-          className="w-full flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-800/40 text-left transition-all cursor-pointer group relative overflow-hidden focus:outline-hidden"
-          title="Clique para editar seu perfil"
-        >
-          <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden border-2 border-slate-800 group-hover:border-[#1A6FA8] transition-all shrink-0 relative">
-            <img 
-              src={userProfile.avatarUrl} 
-              alt={userProfile.name}
-              className="w-full h-full object-cover group-hover:opacity-80 transition-all"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Edit2 className="w-3 h-3 text-white" />
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate leading-tight font-sans group-hover:text-blue-300 transition-colors">
-              {userProfile.accountType === 'clinic' ? (userProfile.clinicName || userProfile.name) : (userProfile.doctorName || userProfile.name)}
-            </p>
-            <p className="text-[11px] text-slate-500 truncate font-sans">
-              {userProfile.accountType === 'clinic' ? userProfile.role : `${userProfile.specialty || 'Médico'} • CRM ${userProfile.crm || 'N/A'}`}
-            </p>
-          </div>
-        </button>
-
-        {/* Botão de sair */}
-        {onLogout && (
+        <div className="flex items-center justify-between gap-1">
           <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-950/30 transition-colors text-xs font-medium mt-1"
+            onClick={onEditProfile}
+            className="flex-1 flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-800/40 text-left transition-all cursor-pointer group relative overflow-hidden focus:outline-hidden"
+            title="Clique para editar seu perfil"
           >
-            <LogOut size={14} />
-            Sair da conta
+            <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden border-2 border-slate-800 group-hover:border-[#1A6FA8] transition-all shrink-0 relative">
+              <img 
+                src={userProfile.avatarUrl} 
+                alt={userProfile.name}
+                className="w-full h-full object-cover group-hover:opacity-80 transition-all"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Edit2 className="w-3 h-3 text-white" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate leading-tight font-sans group-hover:text-blue-300 transition-colors">
+                {userProfile.accountType === 'clinic' ? (userProfile.clinicName || userProfile.name) : (userProfile.doctorName || userProfile.name)}
+              </p>
+              <p className="text-[11px] text-slate-500 truncate font-sans">
+                {userProfile.accountType === 'clinic' ? userProfile.role : `${userProfile.specialty || 'Médico'} • CRM ${userProfile.crm || 'N/A'}`}
+              </p>
+            </div>
           </button>
-        )}
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer focus:outline-hidden shrink-0"
+              title="Sair do Sistema"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
         {/* System Micro Credits (Humble, clean, professional) */}
-        <div className="text-[10px] text-slate-600 flex items-center justify-between px-1 mt-1">
+        <div className="text-[10px] text-slate-600 flex items-center justify-between px-1">
           <span className="font-mono">v2.4.0-prod</span>
           <span className="flex items-center gap-0.5 font-sans">
             <CircleDot className="w-2.5 h-2.5 text-emerald-500" /> Ativo
