@@ -191,6 +191,7 @@ function updateStats(){
   document.getElementById('s-starter').textContent = clients.filter(c=>c.plano==='starter').length;
   document.getElementById('s-prof').textContent = clients.filter(c=>c.plano==='profissional').length;
   document.getElementById('s-clin').textContent = clients.filter(c=>c.plano==='clinica').length;
+  if(document.getElementById('s-prem')) document.getElementById('s-prem').textContent = clients.filter(c=>c.plano==='premium').length;
 }
 
 function renderTable(){
@@ -207,6 +208,10 @@ function renderTable(){
       ? '<span class="badge-plan bp-clinica">🏥 Clínica</span>'
       : c.plano==='profissional'
       ? '<span class="badge-plan bp-profissional">⭐ Profissional</span>'
+      : c.plano==='clinica'
+      ? '<span class="badge-plan bp-clinica">🏥 Clínica</span>'
+      : c.plano==='premium'
+      ? '<span class="badge-plan bp-premium">👑 Premium</span>'
       : '<span class="badge-plan bp-starter">🌱 Starter</span>';
 
     return `<tr>
