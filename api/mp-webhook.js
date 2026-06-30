@@ -137,27 +137,27 @@ module.exports = async (req, res) => {
     }
 
     // Dados do pagador
-    const email = payment.payer?.email;
+    let email = payment.payer?.email;
     const phone = payment.payer?.phone?.number || payment.payer?.phone?.area_code + payment.payer?.phone?.number;
 
-    if (!email) {
-      console.log("Sem email no pagamento:", paymentId);
-      return res.status(200).json({ ok: true, msg: "Sem email" });
-    }
-
-    // Determinar o plano pelo título do pagamento ou valor
+    // Ler o plano + email do external_reference (criado por mp-create-preference.js)
     let plano = "starter";
-    const desc = (payment.description || "").toLowerCase();
-    if (desc.includes("premium"))      plano = "premium";
-    else if (desc.includes("clinica")) plano = "clinica";
-    else if (desc.includes("profissional")) plano = "profissional";
-    else {
-      // Por valor
+    try {
+      const ref = JSON.parse(payment.external_reference || "{}");
+      if (ref.plano) plano = ref.plano;
+      if (ref.email) email = ref.email; // prioriza o email passado na preferência
+    } catch {
+      // Fallback: determinar pelo valor caso external_reference não exista (links antigos)
       const valor = payment.transaction_amount;
       if (valor >= 1400) plano = "premium";
       else if (valor >= 900) plano = "clinica";
       else if (valor >= 550) plano = "profissional";
       else plano = "starter";
+    }
+
+    if (!email) {
+      console.log("Sem email no pagamento:", paymentId);
+      return res.status(200).json({ ok: true, msg: "Sem email" });
     }
 
     console.log(`Criando acesso: ${email} → ${plano}`);

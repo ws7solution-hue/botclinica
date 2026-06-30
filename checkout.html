@@ -154,7 +154,7 @@ footer a{color:var(--blue)}
         <li>Notificações em tempo real</li>
         <li>Suporte por e-mail</li>
       </ul>
-      <a href="https://mpago.la/2nie3Qn" target="_blank" class="btn btn-outline">Começar agora</a>
+      <button onclick="startCheckout('starter')" class="btn btn-outline">Começar agora</button>
     </div>
 
     <!-- PROFISSIONAL (destaque) -->
@@ -175,7 +175,7 @@ footer a{color:var(--blue)}
         <li>Relatórios e métricas</li>
         <li>Suporte prioritário</li>
       </ul>
-      <a href="https://mpago.la/2tFxdmw" target="_blank" class="btn btn-primary">Começar agora</a>
+      <button onclick="startCheckout('profissional')" class="btn btn-primary">Começar agora</button>
     </div>
 
     <!-- CLÍNICA -->
@@ -195,7 +195,7 @@ footer a{color:var(--blue)}
         <li>Suporte WhatsApp</li>
         <li>Onboarding presencial</li>
       </ul>
-      <a href="https://mpago.la/1qHaMTD" target="_blank" class="btn btn-outline">Começar agora</a>
+      <button onclick="startCheckout('clinica')" class="btn btn-outline">Começar agora</button>
     </div>
 
     <!-- PREMIUM -->
@@ -216,7 +216,7 @@ footer a{color:var(--blue)}
         <li>Relatórios avançados com IA</li>
         <li>Suporte prioritário 24h</li>
       </ul>
-      <a href="https://mpago.la/1gG6G2h" target="_blank" class="btn" style="background:linear-gradient(135deg,#F59E0B,#EF4444);color:#000;font-weight:800;border:none">Assinar Premium →</a>
+      <button onclick="startCheckout('premium')" class="btn" style="background:linear-gradient(135deg,#F59E0B,#EF4444);color:#000;font-weight:800;border:none">Assinar Premium →</button>
     </div>
 
   </div>
@@ -251,6 +251,78 @@ footer a{color:var(--blue)}
 
 <script>
 // checkout limpo
+</script>
+<!-- MODAL DE IDENTIFICAÇÃO -->
+<div id="checkout-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+  <div style="background:#fff;border-radius:20px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <h3 style="font-size:18px;font-weight:800;color:#0F172A;margin-bottom:6px">Quase lá! 🚀</h3>
+    <p style="font-size:13px;color:#64748B;margin-bottom:20px">Informe seus dados para finalizar a assinatura do plano <strong id="modal-plan-name" style="color:#1A6FA8"></strong>.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input id="checkout-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none"/>
+      <input id="checkout-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none"/>
+      <input id="checkout-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none"/>
+    </div>
+    <p id="checkout-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="closeCheckoutModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;font-weight:700;font-size:13px;cursor:pointer">Cancelar</button>
+      <button id="checkout-submit-btn" onclick="submitCheckout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:#1A6FA8;color:#fff;font-weight:800;font-size:13px;cursor:pointer">Ir para pagamento →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentCheckoutPlan = null;
+  const PLAN_LABELS = { starter: 'Starter', profissional: 'Profissional', clinica: 'Clínica', premium: 'Premium' };
+
+  function startCheckout(plano) {
+    currentCheckoutPlan = plano;
+    document.getElementById('modal-plan-name').textContent = PLAN_LABELS[plano] || plano;
+    document.getElementById('checkout-error').style.display = 'none';
+    document.getElementById('checkout-modal').style.display = 'flex';
+  }
+
+  function closeCheckoutModal() {
+    document.getElementById('checkout-modal').style.display = 'none';
+  }
+
+  async function submitCheckout() {
+    const clinicName = document.getElementById('checkout-clinic').value.trim();
+    const adminName = document.getElementById('checkout-admin').value.trim();
+    const email = document.getElementById('checkout-email').value.trim();
+    const errEl = document.getElementById('checkout-error');
+    const btn = document.getElementById('checkout-submit-btn');
+
+    if (!email || !email.includes('@')) {
+      errEl.textContent = 'Informe um email válido.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.textContent = 'Processando...';
+    btn.disabled = true;
+
+    try {
+      const r = await fetch('/api/mp-create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plano: currentCheckoutPlan, email, clinicName, adminName }),
+      });
+      const data = await r.json();
+      if (data.ok && data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        errEl.textContent = data.error || 'Erro ao iniciar pagamento. Tente novamente.';
+        errEl.style.display = 'block';
+        btn.textContent = 'Ir para pagamento →';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      errEl.textContent = 'Erro de conexão. Tente novamente.';
+      errEl.style.display = 'block';
+      btn.textContent = 'Ir para pagamento →';
+      btn.disabled = false;
+    }
+  }
 </script>
 </body>
 </html>
