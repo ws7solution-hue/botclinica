@@ -65,7 +65,7 @@ export default function App() {
     setRawConversations(prev => {
       const next = typeof update === 'function' ? (update as Function)(prev) : update;
       const userEmail = localStorage.getItem('atendia_email') || '';
-      if (userEmail !== DEMO_EMAIL && isLoggedIn) {
+      if (userEmail && userEmail !== DEMO_EMAIL && isLoggedIn) {
         const clinicId = userEmail.toLowerCase().replace(/[@.]/g, '_');
         const prevMap = new Map<string, Conversation>(prev.map(c => [c.id, c]));
         const nextMap = new Map<string, Conversation>(next.map(c => [c.id, c]));
@@ -85,7 +85,7 @@ export default function App() {
     setRawAppointments(prev => {
       const next = typeof update === 'function' ? (update as Function)(prev) : update;
       const userEmail = localStorage.getItem('atendia_email') || '';
-      if (userEmail !== DEMO_EMAIL && isLoggedIn) {
+      if (userEmail && userEmail !== DEMO_EMAIL && isLoggedIn) {
         const clinicId = userEmail.toLowerCase().replace(/[@.]/g, '_');
         const prevMap = new Map<string, Appointment>(prev.map(a => [a.id, a]));
         const nextMap = new Map<string, Appointment>(next.map(a => [a.id, a]));
@@ -105,7 +105,7 @@ export default function App() {
     setRawDoctors(prev => {
       const next = typeof update === 'function' ? (update as Function)(prev) : update;
       const userEmail = localStorage.getItem('atendia_email') || '';
-      if (userEmail !== DEMO_EMAIL && isLoggedIn) {
+      if (userEmail && userEmail !== DEMO_EMAIL && isLoggedIn) {
         const clinicId = userEmail.toLowerCase().replace(/[@.]/g, '_');
         const prevMap = new Map<string, Doctor>(prev.map(d => [d.id, d]));
         const nextMap = new Map<string, Doctor>(next.map(d => [d.id, d]));
@@ -187,7 +187,9 @@ export default function App() {
   });
 
   const handleLoginSuccess = (profile: UserProfile) => {
-    const email = (profile.email || '').trim().toLowerCase();
+    // Nunca sobrescreve um e-mail já salvo com vazio — se profile.email vier
+    // ausente por algum motivo, mantém o que já está no localStorage.
+    const email = (profile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
     localStorage.setItem('atendia_email', email);
     localStorage.setItem('atendia_logged_in', 'true');
     setUserProfile({ ...profile, email });
