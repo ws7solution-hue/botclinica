@@ -64,9 +64,9 @@ module.exports = async (req, res) => {
       auto_return: "approved",
       payment_methods: {
         excluded_payment_types: [
-          { id: "ticket" },        // boleto
-          { id: "atm" },           // caixa eletrônico / débito específico
-          { id: "bank_transfer" },
+          { id: "ticket" },      // remove boleto
+          { id: "debit_card" },  // remove cartões de débito (ex: Débito Virtual CAIXA)
+          // NÃO excluir "bank_transfer" — é o tipo do PIX no Brasil
         ],
         installments: 1,
       },
