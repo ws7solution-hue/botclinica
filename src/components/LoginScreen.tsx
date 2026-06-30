@@ -88,6 +88,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         name: email.split('@')[0],
         role: planLabels[plan] || 'Starter',
         avatarUrl: '',
+        email: email,
       });
     } catch (err) {
       setError('Erro de conexão. Verifique sua internet e tente novamente.');
