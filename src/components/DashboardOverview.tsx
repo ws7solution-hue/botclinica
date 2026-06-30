@@ -14,7 +14,7 @@ import {
   Sparkles,
   RefreshCw
 } from 'lucide-react';
-import { Conversation, Appointment, SystemLogs, SidebarTab } from '../types';
+import { Conversation, Appointment, SystemLogs, SidebarTab, AtendiaPlan } from '../types';
 import { AtendimentosHojeModal, AwaitingHumanModal } from './DashboardModals';
 
 interface DashboardOverviewProps {
@@ -29,6 +29,7 @@ interface DashboardOverviewProps {
   setSelectedChatId: (id: string | null) => void;
   onClearLogs: () => void;
   setQuickAddOpen?: (open: boolean) => void;
+  currentPlan: AtendiaPlan;
 }
 
 export default function DashboardOverview({
@@ -42,17 +43,20 @@ export default function DashboardOverview({
   setActiveTab,
   setSelectedChatId,
   onClearLogs,
-  setQuickAddOpen
+  setQuickAddOpen,
+  currentPlan
 }: DashboardOverviewProps) {
   // Modal open states
   const [isTodayModalOpen, setIsTodayModalOpen] = useState(false);
   const [isAwaitingModalOpen, setIsAwaitingModalOpen] = useState(false);
   
-  // Dynamic metrics calculations (100% baseadas em dados reais)
-  const totalConversations = conversations.length;
-  const resolvedByBotCount = conversations.filter(c => c.status === 'resolved' || c.status === 'bot').length;
+  // Dynamic metrics calculations
+  const isDemo = (localStorage.getItem('atendia_email') || '').trim().toLowerCase() === 'contato@botclinica.com.br';
+
+  const totalConversations = conversations.length + (isDemo ? 18 : 0); // Base baseline (only for demo) + current list length
+  const resolvedByBotCount = conversations.filter(c => c.status === 'resolved').length + (isDemo ? 12 : 0);
   const awaitingHumanCount = conversations.filter(c => c.status === 'human_needed').length;
-  const remindersSentCount = appointments.filter(a => a.reminderSent).length;
+  const remindersSentCount = appointments.filter(a => a.reminderSent).length + (isDemo ? 38 : 0);
 
   // Percentage resolution rate
   const resolutionRate = totalConversations > 0 ? Math.round((resolvedByBotCount / totalConversations) * 100) : 0;
@@ -86,6 +90,11 @@ export default function DashboardOverview({
             <span className="text-2xl font-extrabold text-slate-800 tracking-tight font-sans">
               {totalConversations}
             </span>
+            {totalConversations > 0 && (
+              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                {isDemo ? '+14% vs ontem' : 'Ativo'}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-sans">
             Fluxo ativo nas últimas 24 horas
@@ -106,9 +115,11 @@ export default function DashboardOverview({
             <span className="text-2xl font-extrabold text-slate-800 tracking-tight font-sans">
               {resolvedByBotCount}
             </span>
-            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              {resolutionRate}% taxa
-            </span>
+            {totalConversations > 0 && (
+              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                {resolutionRate}% taxa
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-sans">
             Sem intervenção de secretárias
@@ -161,9 +172,11 @@ export default function DashboardOverview({
             <span className="text-2xl font-extrabold text-slate-800 tracking-tight font-sans">
               {remindersSentCount}
             </span>
-            <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
-              96% confirmado
-            </span>
+            {remindersSentCount > 0 && (
+              <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                {isDemo ? '96% confirmado' : 'Confirmado'}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-sans">
             Confirmação automática de agenda
@@ -217,7 +230,17 @@ export default function DashboardOverview({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto">
-                {!whatsappConnected ? (
+                {currentPlan === 'starter' && !whatsappConnected ? (
+                  <button 
+                    onClick={() => {
+                      alert("No plano Starter, a conexão do WhatsApp é configurada manualmente pela nossa equipe técnica de onboarding. Por favor, entre em contato com nosso suporte para ativar sua linha.");
+                    }}
+                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Configuração Manual (Contatar Equipe)</span>
+                  </button>
+                ) : !whatsappConnected ? (
                   <button 
                     onClick={onToggleWhatsapp}
                     className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
@@ -238,12 +261,37 @@ export default function DashboardOverview({
 
             {/* If disconnected, show warning details */}
             {!whatsappConnected && (
-              <div className="mt-4 p-3 bg-red-50 text-red-700 text-xs rounded-lg flex items-start gap-2 border border-red-100 font-sans">
-                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-semibold">Ação requerida:</span> O bot de inteligência artificial de agendamento não está ativo. reconecte a sessão do WhatsApp Web ou configure as credenciais da API Cloud para reativar o chatbot AtendIA.
+              currentPlan === 'starter' ? (
+                <div className="mt-4 p-4 bg-amber-50 text-amber-900 text-xs rounded-lg flex items-start gap-3 border border-amber-200 font-sans">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold block text-amber-950">Conexão via Configuração Manual (Plano Starter)</span>
+                    <p className="text-amber-800">
+                      Como usuário do plano <strong className="font-bold">Starter</strong>, sua integração ao WhatsApp requer configuração manual realizada pela nossa equipe de onboarding.
+                    </p>
+                    <p className="mt-1">
+                      Para solicitar a ativação imediata do seu número ou agendar uma chamada, fale diretamente com nosso time técnico.
+                    </p>
+                    <div className="mt-2.5">
+                      <a 
+                        href="https://botclinica.com.br/checkout" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="px-3 py-1.5 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer inline-block shadow-xs"
+                      >
+                        Contatar nossa Equipe
+                      </a>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mt-4 p-3 bg-red-50 text-red-700 text-xs rounded-lg flex items-start gap-2 border border-red-100 font-sans">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Ação requerida:</span> O bot de inteligência artificial de agendamento não está ativo. Reconecte a sessão do WhatsApp Web ou configure as credenciais da API Cloud para reativar o chatbot AtendIA.
+                  </div>
+                </div>
+              )
             )}
           </div>
 
@@ -403,7 +451,11 @@ export default function DashboardOverview({
               Dica de Otimização
             </h5>
             <p className="font-sans leading-relaxed">
-              O chatbot AtendIA resolveu <strong className="font-semibold text-sky-950">64% das solicitações</strong> de hoje automaticamente. Você pode cadastrar mais horários para Dra. Sandra para suprir a alta demanda de ginecologia.
+              {isDemo ? (
+                <>O chatbot AtendIA resolveu <strong className="font-semibold text-sky-950">64% das solicitações</strong> de hoje automaticamente. Você pode cadastrar mais horários para Dra. Sandra para suprir a alta demanda de ginecologia.</>
+              ) : (
+                <>O chatbot AtendIA está <strong className="font-semibold text-sky-950">ativo e pronto</strong> para automatizar sua clínica. Conforme novos pacientes entrarem em contato pelo WhatsApp, a IA os guiará e preencherá as estatísticas automaticamente!</>
+              )}
             </p>
           </div>
 

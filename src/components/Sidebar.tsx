@@ -12,7 +12,7 @@ import {
   Edit2,
   LogOut
 } from 'lucide-react';
-import { SidebarTab, UserProfile } from '../types';
+import { SidebarTab, UserProfile, AtendiaPlan } from '../types';
 
 interface SidebarProps {
   activeTab: SidebarTab;
@@ -22,6 +22,7 @@ interface SidebarProps {
   userProfile: UserProfile;
   onEditProfile: () => void;
   onLogout?: () => void;
+  currentPlan: AtendiaPlan;
 }
 
 export default function Sidebar({ 
@@ -31,13 +32,15 @@ export default function Sidebar({
   whatsappConnected,
   userProfile,
   onEditProfile,
-  onLogout
+  onLogout,
+  currentPlan
 }: SidebarProps) {
   const menuItems = [
     { id: 'overview' as SidebarTab, label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'chats' as SidebarTab, label: 'Conversas', icon: MessageSquare, badge: unreadChats },
     { id: 'calendar' as SidebarTab, label: 'Agenda', icon: Calendar },
     { id: 'doctors' as SidebarTab, label: 'Médicos', icon: Users },
+    { id: 'prontuario' as SidebarTab, label: 'Prontuário', icon: Activity },
     { id: 'reports' as SidebarTab, label: 'Relatórios', icon: BarChart3 },
     { id: 'settings' as SidebarTab, label: 'Configurações', icon: Settings },
   ];
@@ -62,8 +65,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Connection Quick Badge */}
-      <div className="px-5 py-3 border-b border-slate-800/50 bg-slate-900/40">
+      {/* Connection Quick Badge & Plan Badge */}
+      <div className="px-5 py-3 border-b border-slate-800/50 bg-slate-900/40 space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-400 font-sans">Canal WhatsApp</span>
           <div className="flex items-center gap-1.5 font-medium">
@@ -73,30 +76,20 @@ export default function Sidebar({
             </span>
           </div>
         </div>
-      </div>
-
-      {/* Plan Badge */}
-      <div className="px-4 py-2 border-b border-slate-800">
-        {userPlan === 'starter' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-            ⭐ Starter
+        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/40">
+          <span className="text-slate-400 font-sans">Plano Atual</span>
+          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+            currentPlan === 'starter' ? 'bg-slate-800 text-slate-300' :
+            currentPlan === 'profissional' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' :
+            currentPlan === 'clinica' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20' :
+            'bg-amber-500/15 text-amber-400 border border-amber-500/20 animate-pulse'
+          }`}>
+            {currentPlan === 'starter' ? '🌱 Starter' :
+             currentPlan === 'profissional' ? '⭐ Profissional' :
+             currentPlan === 'clinica' ? '🏥 Clínica' :
+             '👑 Premium'}
           </span>
-        )}
-        {userPlan === 'profissional' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-            🚀 Profissional
-          </span>
-        )}
-        {userPlan === 'clinica' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-            🏥 Clínica
-          </span>
-        )}
-        {userPlan === 'premium' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            👑 Premium
-          </span>
-        )}
+        </div>
       </div>
 
       {/* Navigation Menu */}

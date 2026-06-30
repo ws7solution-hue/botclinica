@@ -18,6 +18,125 @@ import {
 } from 'lucide-react';
 import { Conversation, Message, Doctor } from '../types';
 
+// React class ErrorBoundary to prevent media message parsing or rendering errors from crashing the page
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  public state: { hasError: boolean } = { hasError: false };
+  public props!: { children: React.ReactNode };
+
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-2.5 rounded-lg bg-red-50 border border-red-100 text-red-805 text-xs font-sans flex items-center gap-1.5">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <span>Erro ao carregar esta mensagem (formato de mídia ou texto inválido).</span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Helper to render message content based on type (text, image, audio, document)
+const renderMessageContent = (msg: Message) => {
+  const msgType = msg.type || 'text';
+  
+  // Guard: Ensure text is safely stringified or set to empty if it's an object or null/undefined
+  let displayText = '';
+  if (msg.text !== undefined && msg.text !== null) {
+    if (typeof msg.text === 'string') {
+      displayText = msg.text;
+    } else if (typeof msg.text === 'object') {
+      displayText = (msg.text as any).caption || (msg.text as any).text || JSON.stringify(msg.text);
+    } else {
+      displayText = String(msg.text);
+    }
+  }
+
+  switch (msgType) {
+    case 'image':
+      return (
+        <div className="space-y-1.5 max-w-full">
+          {msg.mediaUrl ? (
+            <img 
+              src={msg.mediaUrl} 
+              alt={displayText || "Imagem recebida"} 
+              referrerPolicy="no-referrer"
+              className="max-w-full max-h-[220px] rounded-lg object-cover border border-slate-200/60 shadow-xs"
+              onError={(e) => {
+                // Fallback image URL
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=200&auto=format&fit=crop';
+              }}
+            />
+          ) : (
+            <div className="flex items-center gap-2 text-slate-400 bg-slate-100 p-2.5 rounded-lg border border-dashed border-slate-300">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="text-[11px]">Imagem indisponível</span>
+            </div>
+          )}
+          {displayText && <p className="text-[11.5px] mt-1 leading-relaxed">{displayText}</p>}
+        </div>
+      );
+    case 'audio':
+      return (
+        <div className="space-y-1.5 min-w-[200px] max-w-full">
+          {msg.mediaUrl ? (
+            <audio controls src={msg.mediaUrl} className="w-full max-h-9 mt-1 focus:outline-hidden">
+              Seu navegador não suporta áudio.
+            </audio>
+          ) : (
+            <div className="flex items-center gap-2 text-slate-400 bg-slate-100 p-2.5 rounded-lg border border-dashed border-slate-300">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="text-[11px]">Áudio indisponível</span>
+            </div>
+          )}
+          {displayText && <p className="text-[11px] opacity-90 mt-1 leading-relaxed">{displayText}</p>}
+        </div>
+      );
+    case 'document':
+      return (
+        <div className="space-y-1.5 max-w-full">
+          {msg.mediaUrl ? (
+            <a 
+              href={msg.mediaUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors text-blue-600 font-semibold"
+            >
+              <FileText className="w-5 h-5 text-blue-500 shrink-0" />
+              <span className="underline truncate max-w-[160px] text-xs">
+                {displayText || 'Visualizar Documento'}
+              </span>
+            </a>
+          ) : (
+            <div className="flex items-center gap-2 text-slate-400 bg-slate-100 p-2.5 rounded-lg border border-dashed border-slate-300">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="text-[11px]">Documento indisponível</span>
+            </div>
+          )}
+          {displayText && msg.mediaUrl && <p className="text-[11px] leading-relaxed mt-1">{displayText}</p>}
+        </div>
+      );
+    case 'text':
+    default:
+      return <span className="block leading-relaxed">{displayText}</span>;
+  }
+};
+
 interface ChatPanelProps {
   conversations: Conversation[];
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
@@ -449,7 +568,9 @@ export default function ChatPanel({
                       ? 'bg-blue-600 text-white rounded-tr-none' 
                       : 'bg-emerald-600 text-white rounded-tr-none'
                   }`}>
-                    {msg.text}
+                    <ErrorBoundary>
+                      {renderMessageContent(msg)}
+                    </ErrorBoundary>
                   </div>
 
                   {/* Timestamp */}

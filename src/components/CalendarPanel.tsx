@@ -12,9 +12,12 @@ import {
   Stethoscope,
   Send,
   X,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
-import { Appointment, Doctor } from '../types';
+import { Appointment, Doctor, AtendiaPlan } from '../types';
+import LockOverlay from './LockOverlay';
+import { fbCancelAppointment, fbMarkReminderSent } from '../firebase';
 
 interface CalendarPanelProps {
   appointments: Appointment[];
@@ -22,6 +25,7 @@ interface CalendarPanelProps {
   doctors: Doctor[];
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
   setQuickAddOpen: (open: boolean) => void;
+  currentPlan: AtendiaPlan;
 }
 
 export default function CalendarPanel({
@@ -29,45 +33,85 @@ export default function CalendarPanel({
   setAppointments,
   doctors,
   onAddSystemLog,
-  setQuickAddOpen
+  setQuickAddOpen,
+  currentPlan
 }: CalendarPanelProps) {
+  if (currentPlan === 'starter') {
+    return (
+      <div className="relative h-[calc(100vh-60px)] min-h-[500px]">
+        <LockOverlay requiredPlan="profissional" featureName="Agenda & Consultas" />
+      </div>
+    );
+  }
+
   const [selectedDoctorFilter, setSelectedDoctorFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [updatingApptId, setUpdatingApptId] = useState<string | null>(null);
+
+  const clinicId = localStorage.getItem('atendia_email')?.toLowerCase().replace(/[@.]/g, '_') || '';
 
   // Toggle Reminder Status to simulate resending
-  const handleTriggerReminder = (apptId: string) => {
-    setAppointments(prev => prev.map(a => {
-      if (a.id === apptId) {
-        return {
-          ...a,
-          reminderSent: true,
-          reminderStatus: 'sent'
-        };
+  const handleTriggerReminder = async (apptId: string) => {
+    setUpdatingApptId(apptId);
+    try {
+      // 1. Update in backend
+      await fbMarkReminderSent(apptId, clinicId);
+      
+      // 2. Update local state
+      setAppointments(prev => prev.map(a => {
+        if (a.id === apptId) {
+          return {
+            ...a,
+            reminderSent: true,
+            reminderStatus: 'sent'
+          };
+        }
+        return a;
+      }));
+      
+      const appt = appointments.find(a => a.id === apptId);
+      if (appt) {
+        onAddSystemLog('success', `Disparado lembrete manual via WhatsApp para ${appt.patientName}.`);
+        // TODO: notificar paciente via WhatsApp sobre envio de lembrete
       }
-      return a;
-    }));
-    const appt = appointments.find(a => a.id === apptId);
-    if (appt) {
-      onAddSystemLog('info', `Disparado lembrete manual via WhatsApp para ${appt.patientName}.`);
+    } catch (err: any) {
+      console.error(err);
+      onAddSystemLog('error', `Falha ao registrar envio de lembrete: ${err.message}`);
+    } finally {
+      setUpdatingApptId(null);
     }
   };
 
   // Toggle booking status
-  const handleCancelAppointment = (apptId: string) => {
-    setAppointments(prev => prev.map(a => {
-      if (a.id === apptId) {
-        return {
-          ...a,
-          status: 'canceled',
-          reminderStatus: 'canceled_by_patient'
-        };
+  const handleCancelAppointment = async (apptId: string) => {
+    setUpdatingApptId(apptId);
+    try {
+      // 1. Update in backend
+      await fbCancelAppointment(apptId, clinicId);
+
+      // 2. Update local state
+      setAppointments(prev => prev.map(a => {
+        if (a.id === apptId) {
+          return {
+            ...a,
+            status: 'canceled',
+            reminderStatus: 'canceled_by_patient'
+          };
+        }
+        return a;
+      }));
+      
+      const appt = appointments.find(a => a.id === apptId);
+      if (appt) {
+        onAddSystemLog('warning', `Consulta de ${appt.patientName} cancelada e vaga liberada.`);
+        // TODO: notificar paciente via WhatsApp sobre cancelamento
       }
-      return a;
-    }));
-    const appt = appointments.find(a => a.id === apptId);
-    if (appt) {
-      onAddSystemLog('warning', `Consulta de ${appt.patientName} cancelada e vaga liberada.`);
+    } catch (err: any) {
+      console.error(err);
+      onAddSystemLog('error', `Falha ao cancelar consulta: ${err.message}`);
+    } finally {
+      setUpdatingApptId(null);
     }
   };
 
@@ -225,18 +269,32 @@ export default function CalendarPanel({
                       {appt.status !== 'canceled' && (
                         <>
                           <button
+                            disabled={updatingApptId !== null}
                             onClick={() => handleTriggerReminder(appt.id)}
-                            className="p-1.5 hover:bg-blue-50 text-[#1A6FA8] hover:text-[#135480] rounded-lg border border-slate-200 hover:border-blue-200 transition-all cursor-pointer"
+                            className={`p-1.5 hover:bg-blue-50 text-[#1A6FA8] hover:text-[#135480] rounded-lg border border-slate-200 hover:border-blue-200 transition-all cursor-pointer flex items-center justify-center ${
+                              updatingApptId !== null ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                             title="Disparar lembrete via WhatsApp"
                           >
-                            <Send className="w-3.5 h-3.5" />
+                            {updatingApptId === appt.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1A6FA8]" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
                           </button>
                           <button
+                            disabled={updatingApptId !== null}
                             onClick={() => handleCancelAppointment(appt.id)}
-                            className="p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all cursor-pointer"
+                            className={`p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all cursor-pointer flex items-center justify-center ${
+                              updatingApptId !== null ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                             title="Cancelar consulta"
                           >
-                            <XCircle className="w-3.5 h-3.5" />
+                            {updatingApptId === appt.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-red-500" />
+                            ) : (
+                              <XCircle className="w-3.5 h-3.5" />
+                            )}
                           </button>
                         </>
                       )}

@@ -15,9 +15,10 @@ import {
   ShieldCheck,
   Stethoscope,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
-import { Doctor, SidebarTab } from '../types';
+import { Doctor, SidebarTab, AtendiaPlan } from '../types';
 
 interface Rule {
   trigger: string;
@@ -41,6 +42,7 @@ interface SettingsProps {
   setSpecialties: React.Dispatch<React.SetStateAction<string[]>>;
   doctors: Doctor[];
   setActiveTab: (tab: SidebarTab) => void;
+  currentPlan: AtendiaPlan;
 }
 
 export default function SettingsPanel({ 
@@ -50,7 +52,8 @@ export default function SettingsPanel({
   specialties,
   setSpecialties,
   doctors,
-  setActiveTab
+  setActiveTab,
+  currentPlan
 }: SettingsProps) {
   // Local form states
   const [clinicName, setClinicName] = useState(botSettings.clinicName);
@@ -60,6 +63,10 @@ export default function SettingsPanel({
   const [allowDirectDoctorScheduling, setAllowDirectDoctorScheduling] = useState(botSettings.allowDirectDoctorScheduling);
   const [enableAutoReminders, setEnableAutoReminders] = useState(botSettings.enableAutoReminders);
   const [daysBeforeAppointmentForReminder, setDaysBeforeAppointmentForReminder] = useState(botSettings.daysBeforeAppointmentForReminder);
+  
+  // Premium specific states
+  const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(currentPlan === 'premium');
+  const [enableDelayAlerts, setEnableDelayAlerts] = useState(currentPlan === 'premium');
   
   // Custom Keyword Rules states
   const [rules, setRules] = useState<Rule[]>(botSettings.rulesList);
@@ -253,7 +260,7 @@ export default function SettingsPanel({
             </div>
 
             {/* Toggles features */}
-            <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+            <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
               
               <div className="flex items-center justify-between">
                 <div>
@@ -281,6 +288,68 @@ export default function SettingsPanel({
                   onChange={(e) => setEnableAutoReminders(e.target.checked)}
                   className="w-4 h-4 text-[#1A6FA8] focus:ring-0 cursor-pointer"
                 />
+              </div>
+
+              {/* PREMIUM: Reagendamento Automático via WhatsApp */}
+              <div className="flex items-center justify-between border-t border-slate-200/60 pt-3 relative">
+                <div className="flex-1 pr-6">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-slate-700 font-sans">Reagendamento automático via WhatsApp</h4>
+                    <span className="text-[8px] bg-amber-100 text-amber-700 border border-amber-200 font-bold px-1.5 py-0.2 rounded-sm uppercase tracking-wider font-mono">Premium</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-sans">Caso o paciente desmarque, o bot oferece automaticamente novos horários livres no WhatsApp.</p>
+                </div>
+                {currentPlan !== 'premium' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alert("A funcionalidade de Reagendamento Automático está disponível apenas no plano Premium. Faça o upgrade de sua assinatura para habilitar.");
+                    }}
+                    className="p-1 text-amber-600 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
+                    title="Apenas no plano Premium"
+                  >
+                    <Lock className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <input
+                    id="toggle-rescheduling"
+                    type="checkbox"
+                    checked={enableAutoRescheduling}
+                    onChange={(e) => setEnableAutoRescheduling(e.target.checked)}
+                    className="w-4 h-4 text-[#1A6FA8] focus:ring-0 cursor-pointer"
+                  />
+                )}
+              </div>
+
+              {/* PREMIUM: Alertas de Atraso de Médicos */}
+              <div className="flex items-center justify-between border-t border-slate-200/60 pt-3 relative">
+                <div className="flex-1 pr-6">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-slate-700 font-sans">Alertas automáticos de atrasos de médicos</h4>
+                    <span className="text-[8px] bg-amber-100 text-amber-700 border border-amber-200 font-bold px-1.5 py-0.2 rounded-sm uppercase tracking-wider font-mono">Premium</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-sans">Se o médico atrasar, o bot envia de forma proativa um aviso ao paciente pelo WhatsApp, reduzindo ansiedade.</p>
+                </div>
+                {currentPlan !== 'premium' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alert("Os Alertas de Atraso de Médicos estão disponíveis apenas no plano Premium. Faça o upgrade de sua assinatura para habilitar.");
+                    }}
+                    className="p-1 text-amber-600 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
+                    title="Apenas no plano Premium"
+                  >
+                    <Lock className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <input
+                    id="toggle-delay-alerts"
+                    type="checkbox"
+                    checked={enableDelayAlerts}
+                    onChange={(e) => setEnableDelayAlerts(e.target.checked)}
+                    className="w-4 h-4 text-[#1A6FA8] focus:ring-0 cursor-pointer"
+                  />
+                )}
               </div>
 
             </div>
