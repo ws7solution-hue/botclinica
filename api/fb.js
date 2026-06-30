@@ -486,6 +486,112 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── AGENDAMENTOS: cancelar (PATCH parcial, preserva demais campos) ──
+    if (action === "cancelAppointment") {
+      const { clinicId, appointmentId } = payload;
+      if (!appointmentId) return res.status(400).json({ error: "appointmentId obrigatório" });
+      const col = clinicId ? `appointments_${emailToKey(clinicId)}` : "appointments";
+      const mask = "updateMask.fieldPaths=status&updateMask.fieldPaths=reminderStatus";
+      const r = await fsReq(`${col}/${appointmentId}?${mask}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields({ status: "canceled", reminderStatus: "canceled_by_patient" }) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      // TODO: notificar paciente via WhatsApp sobre o cancelamento (conectar com webhook/VPS aqui)
+      return res.status(200).json({ success: true });
+    }
+
+    // ── AGENDAMENTOS: marcar lembrete como enviado (PATCH parcial) ──
+    if (action === "markReminderSent") {
+      const { clinicId, appointmentId } = payload;
+      if (!appointmentId) return res.status(400).json({ error: "appointmentId obrigatório" });
+      const col = clinicId ? `appointments_${emailToKey(clinicId)}` : "appointments";
+      const mask = "updateMask.fieldPaths=reminderSent&updateMask.fieldPaths=reminderStatus";
+      const r = await fsReq(`${col}/${appointmentId}?${mask}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields({ reminderSent: true, reminderStatus: "sent" }) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      // TODO: disparar o envio real do lembrete via WhatsApp (conectar com webhook/VPS aqui)
+      return res.status(200).json({ success: true });
+    }
+
+    // ── PRONTUÁRIO: listar entradas de um paciente ────────
+    if (action === "listProntuario") {
+      const { clinicId, patientId } = payload;
+      if (!patientId) return res.status(400).json({ error: "patientId obrigatório" });
+      const col = `prontuario_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const docs = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        return {
+          id: doc.name.split("/").pop(),
+          patientId: g("patientId"),
+          date: g("date"), doctorName: g("doctorName"), specialty: g("specialty"),
+          complaint: g("complaint"), conduct: g("conduct"),
+          prescription: g("prescription"), attachments: g("attachments"),
+          timestamp: parseFloat(f.timestamp?.doubleValue || f.timestamp?.integerValue || "0"),
+        };
+      }).filter(entry => entry.patientId === patientId)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      return res.status(200).json(docs);
+    }
+
+    // ── PRONTUÁRIO: salvar nova entrada (sempre cria, nunca sobrescreve) ──
+    if (action === "saveProntuarioEntry") {
+      const { clinicId, patientId, entry } = payload;
+      if (!patientId || !entry) return res.status(400).json({ error: "patientId e entry obrigatórios" });
+      const timestamp = Date.now();
+      const entryId = `${patientId}_${timestamp}`;
+      const col = `prontuario_${emailToKey(clinicId || "")}`;
+      const fullEntry = { ...entry, id: entryId, patientId, timestamp };
+      const r = await fsReq(`${col}/${entryId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields(fullEntry) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json(fullEntry);
+    }
+
+    // ── PRONTUÁRIO: ficha fixa do paciente (ler) ──────────
+    if (action === "getPatientProfile") {
+      const { clinicId, patientId } = payload;
+      if (!patientId) return res.status(400).json({ error: "patientId obrigatório" });
+      const col = `pacientes_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(`${col}/${patientId}`);
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json(null);
+      const f = d.fields;
+      const g = k => f[k]?.stringValue || "";
+      return res.status(200).json({
+        id: patientId, name: g("name"), phone: g("phone"), birthDate: g("birthDate"),
+        gender: g("gender"), address: g("address"), allergies: g("allergies"),
+        comorbidities: g("comorbidities"), continuousMeds: g("continuousMeds"),
+        prevSurgeries: g("prevSurgeries"),
+      });
+    }
+
+    // ── PRONTUÁRIO: ficha fixa do paciente (salvar/editar) ──
+    if (action === "savePatientProfile") {
+      const { clinicId, patientId, profile } = payload;
+      if (!patientId || !profile) return res.status(400).json({ error: "patientId e profile obrigatórios" });
+      const col = `pacientes_${emailToKey(clinicId || "")}`;
+      const fullProfile = { ...profile, id: patientId, patientId };
+      const r = await fsReq(`${col}/${patientId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields(fullProfile) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json(fullProfile);
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
