@@ -26,9 +26,10 @@ function toFsFields(obj) {
   const f = {};
   Object.keys(obj).forEach(k => {
     const v = obj[k];
+    if (v === undefined || v === null) return;
     if (typeof v === "string")       f[k] = { stringValue: v };
     else if (typeof v === "boolean") f[k] = { booleanValue: v };
-    else if (typeof v === "number")  f[k] = { integerValue: String(v) };
+    else if (typeof v === "number")  f[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
     else if (Array.isArray(v))       f[k] = { arrayValue: { values: v.map(i => ({ stringValue: String(i) })) } };
   });
   return f;

@@ -26,6 +26,7 @@ import {
   Upload
 } from 'lucide-react';
 import { Doctor } from '../types';
+import { fbSaveDoctor, fbDeleteDoctor } from '../firebase';
 
 interface DoctorsPanelProps {
   doctors: Doctor[];
@@ -33,6 +34,7 @@ interface DoctorsPanelProps {
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
   specialties: string[];
   setActiveTab: (tab: any) => void;
+  clinicId?: string;
 }
 
 const DAYS_OF_WEEK = [
@@ -49,7 +51,8 @@ export default function DoctorsPanel({
   setDoctors, 
   onAddSystemLog,
   specialties,
-  setActiveTab
+  setActiveTab,
+  clinicId
 }: DoctorsPanelProps) {
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -155,17 +158,25 @@ export default function DoctorsPanel({
 
   // Toggle active/inactive status
   const handleToggleActive = (docId: string, name: string, currentStatus: boolean) => {
+    const nextStatus = !currentStatus;
+    let updatedDoc: Doctor | null = null;
     setDoctors(prev => prev.map(doc => {
       if (doc.id === docId) {
-        const nextStatus = !currentStatus;
         onAddSystemLog(
           nextStatus ? 'success' : 'warning', 
           `Dr(a). ${doc.name} foi ${nextStatus ? 'ativado(a)' : 'desativado(a)'} no sistema AtendIA.`
         );
-        return { ...doc, isActive: nextStatus };
+        updatedDoc = { ...doc, isActive: nextStatus };
+        return updatedDoc;
       }
       return doc;
     }));
+    // saveDoctor sobrescreve o documento inteiro (sem updateMask), por isso enviamos o objeto completo
+    if (updatedDoc) {
+      fbSaveDoctor(updatedDoc, clinicId).catch(() => {
+        onAddSystemLog('error', `Falha ao sincronizar status de ${name} com o servidor.`);
+      });
+    }
   };
 
   // Open Form modal for creation
@@ -239,34 +250,32 @@ export default function DoctorsPanel({
 
     if (editingDoctor) {
       // Update Doctor
-      setDoctors(prev => prev.map(doc => {
-        if (doc.id === editingDoctor.id) {
-          const updated = {
-            ...doc,
-            name: formName,
-            specialty: formSpecialty,
-            crm: formCrm,
-            avatarUrl: formAvatarUrl,
-            attendanceDays: formAttendanceDays,
-            startTime: formStartTime,
-            endTime: formEndTime,
-            schedules: schedulesString,
-            consultationFee: Number(formConsultationFee),
-            isActive: formIsActive,
-            procedures: formProcedures,
-            insurancePlans: formInsurancePlans,
-            exams: formExams,
-            discounts: formDiscounts,
-            schedulingPolicy: formSchedulingPolicy,
-            preparationInstructions: formPreparationInstructions,
-            additionalNotes: formAdditionalNotes,
-            botName: formBotName,
-            botTone: formBotTone
-          };
-          return updated;
-        }
-        return doc;
-      }));
+      const updated: Doctor = {
+        ...editingDoctor,
+        name: formName,
+        specialty: formSpecialty,
+        crm: formCrm,
+        avatarUrl: formAvatarUrl,
+        attendanceDays: formAttendanceDays,
+        startTime: formStartTime,
+        endTime: formEndTime,
+        schedules: schedulesString,
+        consultationFee: Number(formConsultationFee),
+        isActive: formIsActive,
+        procedures: formProcedures,
+        insurancePlans: formInsurancePlans,
+        exams: formExams,
+        discounts: formDiscounts,
+        schedulingPolicy: formSchedulingPolicy,
+        preparationInstructions: formPreparationInstructions,
+        additionalNotes: formAdditionalNotes,
+        botName: formBotName,
+        botTone: formBotTone
+      };
+      setDoctors(prev => prev.map(doc => doc.id === editingDoctor.id ? updated : doc));
+      fbSaveDoctor(updated, clinicId).catch(() => {
+        onAddSystemLog('error', `Falha ao salvar Dr(a). ${formName} no servidor. As alterações podem se perder ao recarregar a página.`);
+      });
       onAddSystemLog('success', `Informações e bot de atendimento do(a) Dr(a). ${formName} foram atualizados.`);
     } else {
       // Create Doctor
@@ -295,6 +304,9 @@ export default function DoctorsPanel({
         botTone: formBotTone
       };
       setDoctors(prev => [...prev, newDoctor]);
+      fbSaveDoctor(newDoctor, clinicId).catch(() => {
+        onAddSystemLog('error', `Falha ao salvar Dr(a). ${formName} no servidor. O cadastro pode se perder ao recarregar a página.`);
+      });
       onAddSystemLog('success', `Novo médico Dr(a). ${formName} cadastrado com sucesso e sincronizado ao AtendIA.`);
     }
 
@@ -305,9 +317,14 @@ export default function DoctorsPanel({
   // Handle Delete Doctor
   const handleDeleteConfirm = () => {
     if (doctorToDelete) {
-      setDoctors(prev => prev.filter(doc => doc.id !== doctorToDelete.id));
-      onAddSystemLog('error', `Dr(a). ${doctorToDelete.name} foi removido(a) do sistema.`);
+      const idToDelete = doctorToDelete.id;
+      const deletedName = doctorToDelete.name;
+      setDoctors(prev => prev.filter(doc => doc.id !== idToDelete));
+      onAddSystemLog('error', `Dr(a). ${deletedName} foi removido(a) do sistema.`);
       setDoctorToDelete(null);
+      fbDeleteDoctor(idToDelete, clinicId).catch(() => {
+        onAddSystemLog('error', `Falha ao remover Dr(a). ${deletedName} do servidor. Ele(a) pode reaparecer ao recarregar a página.`);
+      });
     }
   };
 

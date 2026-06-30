@@ -48,14 +48,14 @@ export default function DashboardOverview({
   const [isTodayModalOpen, setIsTodayModalOpen] = useState(false);
   const [isAwaitingModalOpen, setIsAwaitingModalOpen] = useState(false);
   
-  // Dynamic metrics calculations
-  const totalConversations = conversations.length + 18; // Base baseline + current list length
-  const resolvedByBotCount = conversations.filter(c => c.status === 'resolved').length + 12;
+  // Dynamic metrics calculations (100% baseadas em dados reais)
+  const totalConversations = conversations.length;
+  const resolvedByBotCount = conversations.filter(c => c.status === 'resolved' || c.status === 'bot').length;
   const awaitingHumanCount = conversations.filter(c => c.status === 'human_needed').length;
-  const remindersSentCount = appointments.filter(a => a.reminderSent).length + 38;
+  const remindersSentCount = appointments.filter(a => a.reminderSent).length;
 
   // Percentage resolution rate
-  const resolutionRate = Math.round((resolvedByBotCount / totalConversations) * 100);
+  const resolutionRate = totalConversations > 0 ? Math.round((resolvedByBotCount / totalConversations) * 100) : 0;
 
   const viewChat = (id: string) => {
     setSelectedChatId(id);
@@ -85,9 +85,6 @@ export default function DashboardOverview({
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-2xl font-extrabold text-slate-800 tracking-tight font-sans">
               {totalConversations}
-            </span>
-            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              +14% vs ontem
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-sans">

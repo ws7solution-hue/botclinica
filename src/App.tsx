@@ -555,11 +555,12 @@ export default function App() {
               onAddSystemLog={addSystemLog}
               specialties={specialties}
               setActiveTab={setActiveTab}
+              clinicId={userEmail}
             />
           )}
 
           {activeTab === 'reports' && (
-            <ReportsPanel />
+            <ReportsPanel conversations={conversations} appointments={appointments} doctors={doctors} />
           )}
 
           {activeTab === 'settings' && (
