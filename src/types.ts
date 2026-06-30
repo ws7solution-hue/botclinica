@@ -7,6 +7,8 @@ export interface Message {
   sender: 'patient' | 'bot' | 'human';
   text: string;
   timestamp: string; // ISO or HH:MM
+  type?: 'text' | 'image' | 'audio' | 'document'; // default 'text'
+  mediaUrl?: string;   // used when type !== 'text'
 }
 
 export interface Conversation {
@@ -75,13 +77,42 @@ export interface UserProfile {
   doctorName?: string;
   specialty?: string;
   crm?: string;
+  email?: string;
 }
 
-export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports';
+export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario';
+
+export type AtendiaPlan = 'starter' | 'profissional' | 'clinica' | 'premium';
 
 export interface SystemLogs {
   id: string;
   type: 'info' | 'success' | 'warning' | 'error';
   message: string;
   timestamp: string;
+}
+
+export interface PatientProfile {
+  id?: string; // patientId (phone normalized)
+  name: string;
+  phone: string;
+  birthDate?: string;
+  gender?: string;
+  address?: string;
+  allergies?: string;
+  comorbidities?: string;
+  continuousMeds?: string;
+  prevSurgeries?: string;
+}
+
+export interface ProntuarioEntry {
+  id: string; // patientId_timestamp
+  patientId: string;
+  date: string; // e.g., "12/05/2026"
+  doctorName: string;
+  specialty: string;
+  complaint: string; // queixa/motivo da consulta
+  conduct: string; // conduta/observações
+  prescription?: string; // prescrição (se houver)
+  attachments?: string; // anexos (URL/texto)
+  timestamp?: number;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import DashboardOverview from './components/DashboardOverview';
@@ -7,6 +7,7 @@ import CalendarPanel from './components/CalendarPanel';
 import DoctorsPanel from './components/DoctorsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ReportsPanel from './components/ReportsPanel';
+import ProntuarioPanel from './components/ProntuarioPanel';
 import ProfileModal from './components/ProfileModal';
 import LoginScreen from './components/LoginScreen';
 
@@ -16,7 +17,8 @@ import {
   Appointment, 
   Doctor, 
   SystemLogs,
-  UserProfile
+  UserProfile,
+  AtendiaPlan
 } from './types';
 
 import { 
@@ -26,25 +28,118 @@ import {
   INITIAL_SYSTEM_LOGS, 
   INITIAL_BOT_SETTINGS 
 } from './data';
-import { fbListConversas, fbGetPlan, fbLogin, fbListDoctors, fbListAppointments } from './firebase';
+
+import { 
+  fbListDoctors, 
+  fbSaveDoctor, 
+  fbDeleteDoctor, 
+  fbListAppointments, 
+  fbSaveAppointment, 
+  fbListConversations, 
+  fbSaveConversation 
+} from './firebase';
 
 import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, CalendarCheck } from 'lucide-react';
 
-// Conta usada para demonstrações de venda — única que começa com dados de exemplo
-const DEMO_EMAIL = 'contato@botclinica.com.br';
+export const DEMO_EMAIL = 'contato@botclinica.com.br';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<SidebarTab>('overview');
+  
+  // Real-time State containers
+  const [conversations, setRawConversations] = useState<Conversation[]>(() => {
+    const email = localStorage.getItem('atendia_email') || '';
+    return email === DEMO_EMAIL ? INITIAL_CONVERSATIONS : [];
+  });
+  const [appointments, setRawAppointments] = useState<Appointment[]>(() => {
+    const email = localStorage.getItem('atendia_email') || '';
+    return email === DEMO_EMAIL ? INITIAL_APPOINTMENTS : [];
+  });
+  const [doctors, setRawDoctors] = useState<Doctor[]>(() => {
+    const email = localStorage.getItem('atendia_email') || '';
+    return email === DEMO_EMAIL ? INITIAL_DOCTORS : [];
+  });
 
-  const isDemoAccount = () => (localStorage.getItem('atendia_email') || '') === DEMO_EMAIL;
+  // State Wrappers for automatic Firestore persistence (transparently intercepts all calls)
+  const setConversations = (update: React.SetStateAction<Conversation[]>) => {
+    setRawConversations(prev => {
+      const next = typeof update === 'function' ? (update as Function)(prev) : update;
+      const userEmail = localStorage.getItem('atendia_email') || '';
+      if (userEmail !== DEMO_EMAIL && isLoggedIn) {
+        const clinicId = userEmail.toLowerCase().replace(/[@.]/g, '_');
+        const prevMap = new Map<string, Conversation>(prev.map(c => [c.id, c]));
+        const nextMap = new Map<string, Conversation>(next.map(c => [c.id, c]));
 
-  // Real-time State containers — contas reais começam vazias; só a demo vem pré-populada
-  const [conversations, setConversations] = useState<Conversation[]>(() => isDemoAccount() ? INITIAL_CONVERSATIONS : []);
-  const [appointments, setAppointments] = useState<Appointment[]>(() => isDemoAccount() ? INITIAL_APPOINTMENTS : []);
-  const [doctors, setDoctors] = useState<Doctor[]>(() => isDemoAccount() ? INITIAL_DOCTORS : []);
+        for (const [id, conv] of nextMap.entries()) {
+          const prevConv = prevMap.get(id);
+          if (!prevConv || JSON.stringify(prevConv) !== JSON.stringify(conv)) {
+            fbSaveConversation(clinicId, conv).catch(e => console.error("Error saving conversation:", e));
+          }
+        }
+      }
+      return next;
+    });
+  };
+
+  const setAppointments = (update: React.SetStateAction<Appointment[]>) => {
+    setRawAppointments(prev => {
+      const next = typeof update === 'function' ? (update as Function)(prev) : update;
+      const userEmail = localStorage.getItem('atendia_email') || '';
+      if (userEmail !== DEMO_EMAIL && isLoggedIn) {
+        const clinicId = userEmail.toLowerCase().replace(/[@.]/g, '_');
+        const prevMap = new Map<string, Appointment>(prev.map(a => [a.id, a]));
+        const nextMap = new Map<string, Appointment>(next.map(a => [a.id, a]));
+
+        for (const [id, appt] of nextMap.entries()) {
+          const prevAppt = prevMap.get(id);
+          if (!prevAppt || JSON.stringify(prevAppt) !== JSON.stringify(appt)) {
+            fbSaveAppointment(clinicId, appt).catch(e => console.error("Error saving appointment:", e));
+          }
+        }
+      }
+      return next;
+    });
+  };
+
+  const setDoctors = (update: React.SetStateAction<Doctor[]>) => {
+    setRawDoctors(prev => {
+      const next = typeof update === 'function' ? (update as Function)(prev) : update;
+      const userEmail = localStorage.getItem('atendia_email') || '';
+      if (userEmail !== DEMO_EMAIL && isLoggedIn) {
+        const clinicId = userEmail.toLowerCase().replace(/[@.]/g, '_');
+        const prevMap = new Map<string, Doctor>(prev.map(d => [d.id, d]));
+        const nextMap = new Map<string, Doctor>(next.map(d => [d.id, d]));
+
+        // Deletions
+        for (const id of prevMap.keys()) {
+          if (!nextMap.has(id)) {
+            fbDeleteDoctor(clinicId, id).catch(e => console.error("Error deleting doctor:", e));
+          }
+        }
+        // Additions/updates
+        for (const [id, doc] of nextMap.entries()) {
+          const prevDoc = prevMap.get(id);
+          if (!prevDoc || JSON.stringify(prevDoc) !== JSON.stringify(doc)) {
+            fbSaveDoctor(clinicId, doc).catch(e => console.error("Error saving doctor:", e));
+          }
+        }
+      }
+      return next;
+    });
+  };
   const [systemLogs, setSystemLogs] = useState<SystemLogs[]>(INITIAL_SYSTEM_LOGS);
   const [botSettings, setBotSettings] = useState(INITIAL_BOT_SETTINGS);
   const [whatsappConnected, setWhatsappConnected] = useState(true);
+  
+  // User Subscription Plan state (persisted in localStorage)
+  const [currentPlan, setCurrentPlan] = useState<AtendiaPlan>(() => {
+    const saved = localStorage.getItem('atendia_plan');
+    if (saved && ['starter', 'profissional', 'clinica', 'premium'].includes(saved)) {
+      return saved as AtendiaPlan;
+    }
+    localStorage.setItem('atendia_plan', 'starter');
+    return 'starter';
+  });
   
   // Clinic specialties list managed in settings and utilized in clinical body
   const [specialties, setSpecialties] = useState<string[]>([
@@ -90,93 +185,120 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('atendia_logged_in') === 'true';
   });
-  const [userPlan, setUserPlan] = useState<string>(() => {
-    return localStorage.getItem('atendia_plan') || 'starter';
-  });
-  const [userEmail, setUserEmail] = useState<string>(() => {
-    return localStorage.getItem('atendia_email') || '';
-  });
 
   const handleLoginSuccess = (profile: UserProfile) => {
-    setUserProfile(profile);
-    setIsLoggedIn(true);
-    const plan = localStorage.getItem('atendia_plan') || 'starter';
-    const email = localStorage.getItem('atendia_email') || '';
-    setUserPlan(plan);
-    setUserEmail(email);
-    if (email === DEMO_EMAIL) {
-      setDoctors(prev => prev.length > 0 ? prev : INITIAL_DOCTORS);
-      setConversations(prev => prev.length > 0 ? prev : INITIAL_CONVERSATIONS);
-      setAppointments(prev => prev.length > 0 ? prev : INITIAL_APPOINTMENTS);
-    }
+    const email = (profile.email || '').trim().toLowerCase();
+    localStorage.setItem('atendia_email', email);
     localStorage.setItem('atendia_logged_in', 'true');
-    localStorage.setItem('atendia_user_profile', JSON.stringify(profile));
-    addSystemLog('success', `Bem-vindo de volta! Plano: ${plan}.`);
-  };
+    setUserProfile({ ...profile, email });
+    setIsLoggedIn(true);
 
-  const handleLogout = () => {
-    localStorage.removeItem('atendia_logged_in');
-    localStorage.removeItem('atendia_user_profile');
-    localStorage.removeItem('atendia_email');
-    setIsLoggedIn(false);
-    setDoctors([]);
-    setConversations([]);
-    setAppointments([]);
-  };
-
-  // ── Polling de conversas reais do Firebase ──
-  const loadConversas = useCallback(async () => {
-    try {
-      const convs = await fbListConversas();
-      if (convs && convs.length > 0) {
-        setConversations(prev => {
-          const firebaseConvs = convs.map((c: {id:string;name:string;from:string;lastMsg:string;lastTime:string;status:string;unread:string}) => ({
-            id: c.id,
-            patientName: c.name || c.from || 'Paciente',
-            patientPhone: c.from || '',
-            status: (c.status === 'human' ? 'human_active' : c.status === 'bot' ? 'bot' : 'resolved') as 'bot' | 'human_needed' | 'human_active' | 'resolved',
-            lastMessage: c.lastMsg || '',
-            lastMessageTime: c.lastTime ? new Date(c.lastTime).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : '',
-            unreadCount: parseInt(c.unread || '0'),
-            avatarColor: '#1A6FA8',
-            category: 'WhatsApp',
-            messages: [],
-          }));
-          return firebaseConvs;
-        });
-      }
-    } catch (e) {
-      // silently fail — usa dados mock
+    // LoginScreen já salvou o plano real (vindo do Firestore via fbLogin) em localStorage('atendia_plan').
+    // Sincronizamos o estado currentPlan com isso agora, já que o useState inicial só roda 1x no mount do App.
+    const savedPlan = localStorage.getItem('atendia_plan');
+    if (savedPlan && ['starter', 'profissional', 'clinica', 'premium'].includes(savedPlan)) {
+      setCurrentPlan(savedPlan as AtendiaPlan);
     }
-  }, []);
 
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    loadConversas();
-    const interval = setInterval(loadConversas, 5000);
-    return () => clearInterval(interval);
-  }, [isLoggedIn, loadConversas]);
+    if (email === DEMO_EMAIL) {
+      setConversations(prev => prev.length === 0 ? INITIAL_CONVERSATIONS : prev);
+      setAppointments(prev => prev.length === 0 ? INITIAL_APPOINTMENTS : prev);
+      setDoctors(prev => prev.length === 0 ? INITIAL_DOCTORS : prev);
+    } else {
+      setConversations([]);
+      setAppointments([]);
+      setDoctors([]);
+    }
 
-  // ── Carregar médicos do Firebase ──
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    fbListDoctors(userEmail).then(docs => {
-      if (docs && docs.length > 0) setDoctors(docs);
-    }).catch(() => {});
-  }, [isLoggedIn, userEmail]);
-
-  // ── Carregar agenda do Firebase ──
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    fbListAppointments(userEmail).then(apts => {
-      if (apts && apts.length > 0) setAppointments(apts);
-    }).catch(() => {});
-  }, [isLoggedIn, userEmail]);
+    addSystemLog('success', `Bem-vindo de volta, ${profile.accountType === 'clinic' ? (profile.clinicName || profile.name) : (profile.doctorName || profile.name)}! Login efetuado.`);
+  };
 
   // Save profile to localStorage whenever it changes
   React.useEffect(() => {
     localStorage.setItem('atendia_user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
+
+  // Synchronize Firestore Data for non-demo users
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+
+    const clinicId = email.replace(/[@.]/g, '_');
+    let isMounted = true;
+
+    addSystemLog('info', 'Sincronizando médicos cadastrados com o Firestore...');
+    fbListDoctors(clinicId)
+      .then((docsList) => {
+        if (isMounted) {
+          setRawDoctors(docsList || []);
+          addSystemLog('success', `Médicos sincronizados: ${docsList.length} encontrados.`);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching doctors:", err);
+        addSystemLog('error', `Erro na sincronização de médicos: ${err.message}. Mantendo dados locais.`);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, userProfile.email]);
+
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+
+    const clinicId = email.replace(/[@.]/g, '_');
+    let isMounted = true;
+
+    addSystemLog('info', 'Sincronizando agendamentos com o Firestore...');
+    fbListAppointments(clinicId)
+      .then((apptsList) => {
+        if (isMounted) {
+          setRawAppointments(apptsList || []);
+          addSystemLog('success', `Agendamentos sincronizados: ${apptsList.length} encontrados.`);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching appointments:", err);
+        addSystemLog('error', `Erro na sincronização de agendamentos: ${err.message}. Mantendo dados locais.`);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, userProfile.email]);
+
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+
+    const clinicId = email.replace(/[@.]/g, '_');
+    let isMounted = true;
+
+    addSystemLog('info', 'Sincronizando conversas com o Firestore...');
+    fbListConversations(clinicId)
+      .then((convsList) => {
+        if (isMounted) {
+          setRawConversations(convsList || []);
+          addSystemLog('success', `Conversas sincronizadas: ${convsList.length} encontradas.`);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching conversations:", err);
+        addSystemLog('error', `Erro na sincronização de conversas: ${err.message}. Mantendo dados locais.`);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, userProfile.email]);
 
   // Global Appointment Modal states
   const [modalPatientName, setModalPatientName] = useState('');
@@ -501,10 +623,14 @@ export default function App() {
         whatsappConnected={whatsappConnected}
         userProfile={userProfile}
         onEditProfile={() => setProfileModalOpen(true)}
-        userPlan={userPlan}
+        currentPlan={currentPlan}
         onLogout={() => {
           setIsLoggedIn(false);
           localStorage.removeItem('atendia_logged_in');
+          localStorage.removeItem('atendia_email');
+          setDoctors([]);
+          setAppointments([]);
+          setConversations([]);
           addSystemLog('info', 'Sessão encerrada com sucesso.');
         }}
       />
@@ -519,7 +645,9 @@ export default function App() {
           onToggleWhatsapp={handleToggleWhatsapp}
           onSimulateIncomingChat={handleSimulateIncomingChat}
           onOpenQuickAppointment={handleOpenQuickAppointment}
-          systemLogsCount={systemLogs.filter(l => l.type === 'warning' || l.type === 'error').length}
+          systemLogsCount={systemLogs.length}
+          systemLogs={systemLogs}
+          onClearLogs={handleClearLogs}
         />
 
         {/* Dynamic Inner Tab View */}
@@ -537,6 +665,7 @@ export default function App() {
               setSelectedChatId={setSelectedChatId}
               onClearLogs={handleClearLogs}
               setQuickAddOpen={setQuickAddOpen}
+              currentPlan={currentPlan}
             />
           )}
 
@@ -559,6 +688,7 @@ export default function App() {
               doctors={doctors}
               onAddSystemLog={addSystemLog}
               setQuickAddOpen={setQuickAddOpen}
+              currentPlan={currentPlan}
             />
           )}
 
@@ -569,12 +699,27 @@ export default function App() {
               onAddSystemLog={addSystemLog}
               specialties={specialties}
               setActiveTab={setActiveTab}
-              clinicId={userEmail}
+              currentPlan={currentPlan}
             />
           )}
 
           {activeTab === 'reports' && (
-            <ReportsPanel conversations={conversations} appointments={appointments} doctors={doctors} />
+            <ReportsPanel 
+              currentPlan={currentPlan} 
+              conversations={conversations}
+              appointments={appointments}
+              doctors={doctors}
+            />
+          )}
+
+          {activeTab === 'prontuario' && (
+            <ProntuarioPanel 
+              clinicId={localStorage.getItem('atendia_email')?.toLowerCase().replace(/[@.]/g, '_') || ''}
+              conversations={conversations}
+              doctors={doctors}
+              currentPlan={currentPlan}
+              onAddSystemLog={addSystemLog}
+            />
           )}
 
           {activeTab === 'settings' && (
@@ -586,6 +731,7 @@ export default function App() {
               setSpecialties={setSpecialties}
               doctors={doctors}
               setActiveTab={setActiveTab}
+              currentPlan={currentPlan}
             />
           )}
         </main>
