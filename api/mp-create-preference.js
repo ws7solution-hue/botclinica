@@ -62,6 +62,14 @@ module.exports = async (req, res) => {
         pending: "https://botclinica.com.br/checkout?status=pending",
       },
       auto_return: "approved",
+      payment_methods: {
+        excluded_payment_types: [
+          { id: "ticket" },        // boleto
+          { id: "atm" },           // caixa eletrônico / débito específico
+          { id: "bank_transfer" },
+        ],
+        installments: 1,
+      },
     };
 
     const r = await fetch("https://api.mercadopago.com/checkout/preferences", {
