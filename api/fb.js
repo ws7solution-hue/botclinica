@@ -241,7 +241,10 @@ module.exports = async (req, res) => {
 
     // ── CONVERSAS: listar ────────────────────────────────────
     if (action === "listConversas") {
-      const r = await fetch(`${FS}/conversas?key=${API_KEY}`);
+      const { clinicId } = payload || {};
+      const key = clinicId ? emailToKey(clinicId) : null;
+      const collection = key ? `conversas_${key}` : "conversas";
+      const r = await fetch(`${FS}/${collection}?key=${API_KEY}`);
       const d = await r.json();
       const docs = d.documents || [];
       const convs = docs.map(doc => {
@@ -259,8 +262,10 @@ module.exports = async (req, res) => {
 
     // ── CONVERSAS: mensagens de uma conversa ─────────────────
     if (action === "getMsgs") {
-      const { convId } = payload;
-      const r = await fetch(`${FS}/conversas/${convId}/msgs?key=${API_KEY}`);
+      const { convId, clinicId } = payload;
+      const key = clinicId ? emailToKey(clinicId) : null;
+      const collection = key ? `conversas_${key}` : "conversas";
+      const r = await fetch(`${FS}/${collection}/${convId}/msgs?key=${API_KEY}`);
       const d = await r.json();
       const docs = d.documents || [];
       const msgs = docs.map(doc => {
@@ -273,8 +278,10 @@ module.exports = async (req, res) => {
 
     // ── CONVERSAS: marcar como lido ──────────────────────────
     if (action === "markRead") {
-      const { convId } = payload;
-      await fetch(`${FS}/conversas/${convId}?key=${API_KEY}`, {
+      const { convId, clinicId } = payload;
+      const key = clinicId ? emailToKey(clinicId) : null;
+      const collection = key ? `conversas_${key}` : "conversas";
+      await fetch(`${FS}/${collection}/${convId}?key=${API_KEY}`, {
         method: "PATCH",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({fields:{unread:{stringValue:"0"}}})
@@ -284,8 +291,10 @@ module.exports = async (req, res) => {
 
     // ── CONVERSAS: atualizar status (bot/human) ──────────────
     if (action === "setConvStatus") {
-      const { convId, status } = payload;
-      await fetch(`${FS}/conversas/${convId}?key=${API_KEY}`, {
+      const { convId, status, clinicId } = payload;
+      const key = clinicId ? emailToKey(clinicId) : null;
+      const collection = key ? `conversas_${key}` : "conversas";
+      await fetch(`${FS}/${collection}/${convId}?key=${API_KEY}`, {
         method: "PATCH",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({fields:{status:{stringValue:status}}})

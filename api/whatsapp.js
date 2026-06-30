@@ -9,7 +9,37 @@ const KB            = require('../knowledge_base');
 
 const sessions = {};
 
-// ── BUSCAR CONFIG DA CLÍNICA NO FIREBASE ──
+function emailToKey(email){return email.toLowerCase().replace(/[@.]/g,'_');}
+
+// ── DESCOBRIR QUAL CLIENTE É DONO DESSE NÚMERO ──
+const DEMO_EMAIL = "contato@botclinica.com.br";
+async function getClinicEmailByPhoneId(phoneNumberId) {
+  try {
+    const r = await fetch(`${FS}/phone_number_mapping/${phoneNumberId}?key=${API_KEY_FS}`);
+    const d = await r.json();
+    if (d.error || !d.fields) return DEMO_EMAIL;
+    return d.fields?.email?.stringValue || DEMO_EMAIL;
+  } catch { return DEMO_EMAIL; }
+}
+
+// ── BUSCAR MÉDICOS CADASTRADOS NO APP (doctors_{clinicKey}) ──
+async function getDoctorsForClinic(clinicKey) {
+  try {
+    const r = await fetch(`${FS}/doctors_${clinicKey}?key=${API_KEY_FS}`);
+    const d = await r.json();
+    return (d.documents || []).map(doc => {
+      const f = doc.fields || {};
+      const g = k => f[k]?.stringValue || "";
+      return {
+        name: g("name"), specialty: g("specialty"),
+        consultationFee: f.consultationFee?.doubleValue || f.consultationFee?.integerValue || "",
+        insurancePlans: g("insurancePlans"), exams: g("exams"),
+        schedulingPolicy: g("schedulingPolicy"), preparationInstructions: g("preparationInstructions"),
+        active: f.isActive?.booleanValue !== false,
+      };
+    }).filter(d => d.active && d.name);
+  } catch { return []; }
+}
 async function getClinicConfig(phoneId) {
   try {
     const r = await fetch(`${FS}/clinic_config/${phoneId}?key=${API_KEY_FS}`);
@@ -120,9 +150,9 @@ Você NÃO pode:
 }
 
 // ── SALVAR MENSAGEM NO FIREBASE ──
-async function saveMsg(convId, msg) {
+async function saveMsg(collection, convId, msg) {
   const docId = Date.now() + '_' + Math.random().toString(36).slice(2,7);
-  await fetch(`${FS}/conversas/${convId}/msgs/${docId}?key=${API_KEY_FS}`, {
+  await fetch(`${FS}/${collection}/${convId}/msgs/${docId}?key=${API_KEY_FS}`, {
     method: "PATCH",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({fields:{
@@ -133,17 +163,17 @@ async function saveMsg(convId, msg) {
   }).catch(()=>{});
 }
 
-async function updateConv(convId, data) {
+async function updateConv(collection, convId, data) {
   const fields = {};
   Object.keys(data).forEach(k => { fields[k] = {stringValue: String(data[k])}; });
-  await fetch(`${FS}/conversas/${convId}?key=${API_KEY_FS}`, {
+  await fetch(`${FS}/${collection}/${convId}?key=${API_KEY_FS}`, {
     method: "PATCH", headers: {"Content-Type":"application/json"},
     body: JSON.stringify({fields})
   }).catch(()=>{});
 }
 
-async function sendWA(to, text) {
-  await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+async function sendWA(to, text, phoneId) {
+  await fetch(`https://graph.facebook.com/v18.0/${phoneId || PHONE_ID}/messages`, {
     method: "POST",
     headers: {"Content-Type":"application/json","Authorization":`Bearer ${WA_TOKEN}`},
     body: JSON.stringify({messaging_product:"whatsapp",to,type:"text",text:{body:text}})
@@ -164,6 +194,7 @@ module.exports = async (req, res) => {
       const value   = req.body?.entry?.[0]?.changes?.[0]?.value;
       const msg     = value?.messages?.[0];
       const contact = value?.contacts?.[0];
+      const incomingPhoneId = value?.metadata?.phone_number_id || PHONE_ID;
       if (!msg || msg.type !== "text") return;
 
       const from   = msg.from;
@@ -172,14 +203,27 @@ module.exports = async (req, res) => {
       const convId = from.replace(/\D/g,'');
       const time   = new Date().toISOString();
 
-      console.log(`[WA] ${name}: ${text}`);
+      // ── Descobrir qual cliente é dono desse número ──
+      const clinicEmail = await getClinicEmailByPhoneId(incomingPhoneId);
+      const clinicKey = emailToKey(clinicEmail);
+      const collection = `conversas_${clinicKey}`;
+
+      console.log(`[WA] ${name}: ${text} | cliente: ${clinicEmail}`);
 
       // Salvar mensagem do paciente
-      await saveMsg(convId, {text, from:"patient"});
-      await updateConv(convId, {from, name, lastMsg:text, lastTime:time, status:"bot", unread:"1"});
+      await saveMsg(collection, convId, {text, from:"patient"});
+      await updateConv(collection, convId, {from, name, lastMsg:text, lastTime:time, status:"bot", unread:"1"});
 
-      // Buscar config da clínica
-      const config = await getClinicConfig(PHONE_ID);
+      // Buscar médicos cadastrados pelo cliente no app
+      const doctors = await getDoctorsForClinic(clinicKey);
+
+      // Buscar config da clínica (legado) + montar contexto com médicos reais
+      const config = await getClinicConfig(incomingPhoneId);
+      if (doctors.length > 0) {
+        config.medicos = doctors.map(d => `${d.name} (${d.specialty})${d.consultationFee ? ' - R$ '+d.consultationFee : ''}`).join('; ');
+        config.convenios = doctors.map(d => d.insurancePlans).filter(Boolean).join('; ') || config.convenios;
+        config.observacoes = doctors.map(d => d.preparationInstructions).filter(Boolean).join(' ') || config.observacoes;
+      }
 
       // Histórico
       if (!sessions[from]) sessions[from] = [];
@@ -198,9 +242,9 @@ module.exports = async (req, res) => {
       sessions[from].push({role:"assistant", content:reply});
 
       // Salvar resposta e enviar
-      await saveMsg(convId, {text:reply, from:"bot"});
-      await updateConv(convId, {lastMsg:reply, lastTime:new Date().toISOString()});
-      await sendWA(from, reply);
+      await saveMsg(collection, convId, {text:reply, from:"bot"});
+      await updateConv(collection, convId, {lastMsg:reply, lastTime:new Date().toISOString()});
+      await sendWA(from, reply, incomingPhoneId);
 
     } catch(e) { console.error("Webhook error:", e.message); }
   }
