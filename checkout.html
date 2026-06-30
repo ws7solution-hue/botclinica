@@ -53,6 +53,8 @@ nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop
 .plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:14px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border)}
 .plan-features li:last-child{border-bottom:none}
 .plan-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;margin-top:2px}
+.plan-features.premium-features li{color:#E2E8F0;border-bottom:1px solid rgba(255,255,255,.08)}
+.plan-features.premium-features li::before{color:#F59E0B}
 .plan-features li.no{color:var(--muted)}
 .plan-features li.no::before{content:'–';color:var(--border)}
 
@@ -206,7 +208,7 @@ footer a{color:var(--blue)}
         <span class="period">/mês</span>
       </div>
       <div class="plan-desc" style="color:#94A3B8">Automatização total com prontuário digital e remarcação automática</div>
-      <ul class="plan-features" style="color:#CBD5E1">
+      <ul class="plan-features premium-features">
         <li>Tudo do plano Clínica</li>
         <li>Prontuário eletrônico</li>
         <li>Remarcação automática</li>
