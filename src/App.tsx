@@ -26,17 +26,22 @@ import {
   INITIAL_SYSTEM_LOGS, 
   INITIAL_BOT_SETTINGS 
 } from './data';
-import { fbListConversas, fbGetPlan, fbLogin } from './firebase';
+import { fbListConversas, fbGetPlan, fbLogin, fbListDoctors, fbListAppointments } from './firebase';
 
 import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, CalendarCheck } from 'lucide-react';
 
+// Conta usada para demonstrações de venda — única que começa com dados de exemplo
+const DEMO_EMAIL = 'contato@botclinica.com.br';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<SidebarTab>('overview');
-  
-  // Real-time State containers
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
-  const [doctors, setDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+
+  const isDemoAccount = () => (localStorage.getItem('atendia_email') || '') === DEMO_EMAIL;
+
+  // Real-time State containers — contas reais começam vazias; só a demo vem pré-populada
+  const [conversations, setConversations] = useState<Conversation[]>(() => isDemoAccount() ? INITIAL_CONVERSATIONS : []);
+  const [appointments, setAppointments] = useState<Appointment[]>(() => isDemoAccount() ? INITIAL_APPOINTMENTS : []);
+  const [doctors, setDoctors] = useState<Doctor[]>(() => isDemoAccount() ? INITIAL_DOCTORS : []);
   const [systemLogs, setSystemLogs] = useState<SystemLogs[]>(INITIAL_SYSTEM_LOGS);
   const [botSettings, setBotSettings] = useState(INITIAL_BOT_SETTINGS);
   const [whatsappConnected, setWhatsappConnected] = useState(true);
@@ -99,6 +104,11 @@ export default function App() {
     const email = localStorage.getItem('atendia_email') || '';
     setUserPlan(plan);
     setUserEmail(email);
+    if (email === DEMO_EMAIL) {
+      setDoctors(prev => prev.length > 0 ? prev : INITIAL_DOCTORS);
+      setConversations(prev => prev.length > 0 ? prev : INITIAL_CONVERSATIONS);
+      setAppointments(prev => prev.length > 0 ? prev : INITIAL_APPOINTMENTS);
+    }
     localStorage.setItem('atendia_logged_in', 'true');
     localStorage.setItem('atendia_user_profile', JSON.stringify(profile));
     addSystemLog('success', `Bem-vindo de volta! Plano: ${plan}.`);
@@ -107,7 +117,11 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('atendia_logged_in');
     localStorage.removeItem('atendia_user_profile');
+    localStorage.removeItem('atendia_email');
     setIsLoggedIn(false);
+    setDoctors([]);
+    setConversations([]);
+    setAppointments([]);
   };
 
   // ── Polling de conversas reais do Firebase ──
