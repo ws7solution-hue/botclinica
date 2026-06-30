@@ -22,17 +22,40 @@ async function fsReq(path, opts = {}, token = null) {
   return fetch(url, { ...opts, headers: { ...hdrs, ...(opts.headers || {}) } });
 }
 
+function toFsValue(v) {
+  if (v === undefined || v === null) return { nullValue: null };
+  if (typeof v === "string")  return { stringValue: v };
+  if (typeof v === "boolean") return { booleanValue: v };
+  if (typeof v === "number")  return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (Array.isArray(v))       return { arrayValue: { values: v.map(toFsValue) } };
+  if (typeof v === "object")  return { mapValue: { fields: toFsFields(v) } };
+  return { stringValue: String(v) };
+}
+
 function toFsFields(obj) {
   const f = {};
   Object.keys(obj).forEach(k => {
     const v = obj[k];
     if (v === undefined || v === null) return;
-    if (typeof v === "string")       f[k] = { stringValue: v };
-    else if (typeof v === "boolean") f[k] = { booleanValue: v };
-    else if (typeof v === "number")  f[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-    else if (Array.isArray(v))       f[k] = { arrayValue: { values: v.map(i => ({ stringValue: String(i) })) } };
+    f[k] = toFsValue(v);
   });
   return f;
+}
+
+function parseFirestoreValue(valObj) {
+  if (!valObj) return null;
+  if ("stringValue" in valObj)  return valObj.stringValue;
+  if ("booleanValue" in valObj) return valObj.booleanValue;
+  if ("doubleValue" in valObj)  return Number(valObj.doubleValue);
+  if ("integerValue" in valObj) return Number(valObj.integerValue);
+  if ("arrayValue" in valObj)   return (valObj.arrayValue.values || []).map(parseFirestoreValue);
+  if ("mapValue" in valObj) {
+    const out = {};
+    const fields = valObj.mapValue.fields || {};
+    Object.keys(fields).forEach(k => { out[k] = parseFirestoreValue(fields[k]); });
+    return out;
+  }
+  return null;
 }
 
 function emailToKey(email) {
@@ -397,9 +420,11 @@ module.exports = async (req, res) => {
         }) }),
       });
       const d = await r.json();
-      // Salvar arrays separadamente
+      // Salvar arrays separadamente (com updateMask — sem isso, o PATCH sobrescreve
+      // o documento inteiro e apaga nome/especialidade/CRM salvos na chamada acima)
       if (doctor.attendanceDays) {
-        await fsReq(`${col}/${doctor.id}`, {
+        const mask = "updateMask.fieldPaths=attendanceDays&updateMask.fieldPaths=schedules";
+        await fsReq(`${col}/${doctor.id}?${mask}`, {
           method: "PATCH",
           body: JSON.stringify({ fields: {
             attendanceDays: { arrayValue: { values: doctor.attendanceDays.map(v => ({ stringValue: v })) } },
@@ -590,6 +615,46 @@ module.exports = async (req, res) => {
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
       return res.status(200).json(fullProfile);
+    }
+
+    // ── CONVERSAS POR CLÍNICA (multi-tenant — isolado, ainda sem o webhook
+    // real escrevendo aqui até o Embedded Signup ser concluído) ──
+    if (action === "listConversations") {
+      const { clinicId } = payload;
+      const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const docs = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        const arr = k => (f[k]?.arrayValue?.values || []).map(v => parseFirestoreValue(v));
+        return {
+          id: doc.name.split("/").pop(),
+          patientName: g("patientName"), patientPhone: g("patientPhone"),
+          status: g("status") || "bot",
+          lastMessage: g("lastMessage"), lastMessageTime: g("lastMessageTime"),
+          unreadCount: parseInt(f.unreadCount?.integerValue || f.unreadCount?.doubleValue || "0"),
+          avatarColor: g("avatarColor") || "bg-slate-500",
+          category: g("category") || "WhatsApp",
+          assignedDoctorId: g("assignedDoctorId") || undefined,
+          messages: arr("messages"),
+        };
+      });
+      return res.status(200).json(docs);
+    }
+
+    if (action === "saveConversation") {
+      const { clinicId, conversation } = payload;
+      if (!conversation?.id) return res.status(400).json({ error: "ID obrigatório" });
+      const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
+      const r = await fsReq(`${col}/${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields(conversation) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json(conversation);
     }
 
     return res.status(400).json({ error: "Unknown action: " + action });
