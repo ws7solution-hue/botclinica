@@ -89,6 +89,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         role: planLabels[plan] || 'Starter',
         avatarUrl: '',
         email: email,
+        idToken: result.idToken || '',
+        firstAccess: result.firstAccess === true,
       });
     } catch (err) {
       setError('Erro de conexão. Verifique sua internet e tente novamente.');

@@ -19,6 +19,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Doctor, SidebarTab, AtendiaPlan } from '../types';
+import WhatsAppConnect from './WhatsAppConnect';
 
 interface Rule {
   trigger: string;
@@ -43,6 +44,7 @@ interface SettingsProps {
   doctors: Doctor[];
   setActiveTab: (tab: SidebarTab) => void;
   currentPlan: AtendiaPlan;
+  clinicId?: string;
 }
 
 export default function SettingsPanel({ 
@@ -53,7 +55,8 @@ export default function SettingsPanel({
   setSpecialties,
   doctors,
   setActiveTab,
-  currentPlan
+  currentPlan,
+  clinicId
 }: SettingsProps) {
   // Local form states
   const [clinicName, setClinicName] = useState(botSettings.clinicName);
@@ -200,6 +203,17 @@ export default function SettingsPanel({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* WhatsApp Embedded Signup */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-2">
+                Conexão WhatsApp Business
+              </label>
+              <WhatsAppConnect
+                clinicId={clinicId || ''}
+                onAddSystemLog={onAddSystemLog}
+              />
             </div>
 
             {/* AI Welcome Message Textarea */}
