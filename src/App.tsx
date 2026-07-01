@@ -284,21 +284,27 @@ export default function App() {
     const clinicId = email.replace(/[@.]/g, '_');
     let isMounted = true;
 
+    const fetchConversations = () => {
+      fbListConversations(clinicId)
+        .then((convsList) => {
+          if (isMounted) {
+            setRawConversations(convsList || []);
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching conversations:", err);
+          addSystemLog('error', `Erro na sincronização de conversas: ${err.message}. Mantendo dados locais.`);
+        });
+    };
+
     addSystemLog('info', 'Sincronizando conversas com o Firestore...');
-    fbListConversations(clinicId)
-      .then((convsList) => {
-        if (isMounted) {
-          setRawConversations(convsList || []);
-          addSystemLog('success', `Conversas sincronizadas: ${convsList.length} encontradas.`);
-        }
-      })
-      .catch((err) => {
-        console.error("Error fetching conversations:", err);
-        addSystemLog('error', `Erro na sincronização de conversas: ${err.message}. Mantendo dados locais.`);
-      });
+    fetchConversations();
+    // Polling a cada 5 segundos pra mostrar mensagens novas em tempo real
+    const interval = setInterval(fetchConversations, 5000);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, [isLoggedIn, userProfile.email]);
 

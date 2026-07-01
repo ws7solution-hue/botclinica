@@ -20,6 +20,11 @@ export async function fbGetPlan(email: string) {
   return post('getPlan', { email });
 }
 
+/** Envia e-mail de redefinição de senha via Firebase Auth (link real, sem senha provisória). */
+export async function fbSendPasswordReset(email: string) {
+  return post('reset', { requestType: 'PASSWORD_RESET', email });
+}
+
 // ── CONVERSAS (mecanismo legado, usado pelo webhook real do WhatsApp na VPS) ──
 // Mantido enquanto o número é único e compartilhado (antes do Embedded Signup por clínica).
 export async function fbListConversas() {
