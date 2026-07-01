@@ -8,6 +8,7 @@ import DoctorsPanel from './components/DoctorsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import ProntuarioPanel from './components/ProntuarioPanel';
+import FirstAccessModal from './components/FirstAccessModal';
 import ProfileModal from './components/ProfileModal';
 import LoginScreen from './components/LoginScreen';
 
@@ -185,10 +186,10 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('atendia_logged_in') === 'true';
   });
+  const [showFirstAccess, setShowFirstAccess] = useState(false);
+  const [firstAccessIdToken, setFirstAccessIdToken] = useState('');
 
   const handleLoginSuccess = (profile: UserProfile) => {
-    // Nunca sobrescreve um e-mail já salvo com vazio — se profile.email vier
-    // ausente por algum motivo, mantém o que já está no localStorage.
     const email = (profile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
     localStorage.setItem('atendia_email', email);
     localStorage.setItem('atendia_logged_in', 'true');
@@ -213,6 +214,12 @@ export default function App() {
     }
 
     addSystemLog('success', `Bem-vindo de volta, ${profile.accountType === 'clinic' ? (profile.clinicName || profile.name) : (profile.doctorName || profile.name)}! Login efetuado.`);
+
+    // Primeiro acesso — abre modal pra definir senha própria
+    if (profile.firstAccess && profile.idToken) {
+      setFirstAccessIdToken(profile.idToken);
+      setShowFirstAccess(true);
+    }
   };
 
   // Save profile to localStorage whenever it changes
@@ -740,9 +747,19 @@ export default function App() {
               doctors={doctors}
               setActiveTab={setActiveTab}
               currentPlan={currentPlan}
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
             />
           )}
         </main>
+
+        {/* Modal de Primeiro Acesso */}
+        {showFirstAccess && (
+          <FirstAccessModal
+            email={userProfile.email || localStorage.getItem('atendia_email') || ''}
+            idToken={firstAccessIdToken}
+            onComplete={() => setShowFirstAccess(false)}
+          />
+        )}
 
         {/* 3. Real-time Simulated Incoming message toast notifier */}
         {simulationAlert?.show && (

@@ -70,14 +70,16 @@ export interface Appointment {
 
 export interface UserProfile {
   accountType: 'clinic' | 'individual';
-  name: string; // fallback or responsible person name
-  role: string; // fallback or role/specialty
+  name: string;
+  role: string;
   avatarUrl: string;
   clinicName?: string;
   doctorName?: string;
   specialty?: string;
   crm?: string;
   email?: string;
+  idToken?: string;
+  firstAccess?: boolean;
 }
 
 export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario';

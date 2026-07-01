@@ -159,7 +159,27 @@ export async function fbSavePatientProfile(clinicId: string, patientId: string, 
   return post('savePatientProfile', { clinicId: clinicId || '', patientId, profile });
 }
 
-// ── ENVIO MANUAL DE MENSAGEM (humano respondendo pelo painel) ──
+/** Troca a senha do usuário autenticado via Firebase Auth. */
+export async function fbChangePassword(idToken: string, newPassword: string) {
+  return post('changePassword', { idToken, newPassword });
+}
+
+/** Marca o primeiro acesso como concluído (após o cliente definir a própria senha). */
+export async function fbSetFirstAccessDone(clinicId: string, token?: string) {
+  return post('setFirstAccessDone', { clinicId, token });
+}
+
+/** Salva as credenciais WhatsApp da clínica (vindas do Embedded Signup). */
+export async function fbSaveWhatsAppCredentials(clinicId: string, creds: {
+  phoneNumberId: string; accessToken: string; wabaId: string; phoneNumber: string;
+}, token?: string) {
+  return post('saveWhatsAppCredentials', { clinicId, ...creds, token });
+}
+
+/** Busca as credenciais WhatsApp da clínica. */
+export async function fbGetWhatsAppCredentials(clinicId: string) {
+  return post('getWhatsAppCredentials', { clinicId });
+}
 // Ainda não conectado à API oficial do WhatsApp — aguardando aprovação da Meta
 // (ver Embedded Signup, pendência registrada nas conversas anteriores).
 export async function sendReply(to: string, text: string, convId: string) {
