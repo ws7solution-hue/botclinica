@@ -364,7 +364,8 @@ module.exports = async (req, res) => {
       const planR = await fsReq(`acessos_autorizados/${emailToKey(email)}`);
       const planD = await planR.json();
       const plano = planD.fields?.plano?.stringValue || "starter";
-      return res.status(200).json({ ok: true, email, plano, idToken: d.idToken });
+      const firstAccess = planD.fields?.firstAccess?.booleanValue !== false; // true se campo não existe ou for true
+      return res.status(200).json({ ok: true, email, plano, idToken: d.idToken, firstAccess });
     }
 
     // ── GET PLAN ──────────────────────────────────────────
@@ -655,6 +656,60 @@ module.exports = async (req, res) => {
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
       return res.status(200).json(conversation);
+    }
+
+    // ── TROCAR SENHA (Firebase Auth) ─────────────────────
+    if (action === "changePassword") {
+      const { idToken, newPassword } = payload;
+      const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:update?key=${API_KEY}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, password: newPassword, returnSecureToken: true }),
+      });
+      return res.status(200).json(await r.json());
+    }
+
+    // ── PRIMEIRO ACESSO: marcar como concluído ───────────
+    if (action === "setFirstAccessDone") {
+      const { clinicId, token } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const key = emailToKey(clinicId);
+      const r = await fsReq(`acessos_autorizados/${key}?updateMask.fieldPaths=firstAccess`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: { firstAccess: { booleanValue: false } } }),
+      }, token);
+      return res.status(200).json(await r.json());
+    }
+
+    // ── WHATSAPP CREDENTIALS: salvar por clínica ─────────
+    if (action === "saveWhatsAppCredentials") {
+      const { clinicId, phoneNumberId, accessToken, wabaId, phoneNumber, token } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const col = `clinic_settings_${emailToKey(clinicId)}`;
+      const r = await fsReq(`${col}/whatsapp`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields({ phoneNumberId, accessToken, wabaId, phoneNumber, connectedAt: new Date().toISOString() }) }),
+      }, token);
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ success: true });
+    }
+
+    // ── WHATSAPP CREDENTIALS: buscar por clínica ─────────
+    if (action === "getWhatsAppCredentials") {
+      const { clinicId } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const col = `clinic_settings_${emailToKey(clinicId)}`;
+      const r = await fsReq(`${col}/whatsapp`);
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json(null);
+      const f = d.fields;
+      return res.status(200).json({
+        phoneNumberId: f.phoneNumberId?.stringValue || "",
+        accessToken: f.accessToken?.stringValue || "",
+        wabaId: f.wabaId?.stringValue || "",
+        phoneNumber: f.phoneNumber?.stringValue || "",
+        connectedAt: f.connectedAt?.stringValue || "",
+      });
     }
 
     return res.status(400).json({ error: "Unknown action: " + action });
