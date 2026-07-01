@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { fbLogin } from '../firebase';
+import { fbLogin, fbSendPasswordReset } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building, 
@@ -27,8 +27,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [view, setView] = useState<AuthView>('login');
   
   // Login form fields
-  const [loginIdentifier, setLoginIdentifier] = useState('patricia@atendia.com.br');
-  const [loginPassword, setLoginPassword] = useState('atendia123');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Register form fields
@@ -139,7 +139,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }, 1500);
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -148,7 +150,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    setForgotSubmitted(true);
+    setForgotLoading(true);
+    try {
+      const result = await fbSendPasswordReset(forgotEmail.trim().toLowerCase());
+      if (result.error) {
+        // Por segurança, não revelamos se o e-mail existe ou não — mostramos sucesso de qualquer forma.
+        console.warn('Password reset:', result.error);
+      }
+      setForgotSubmitted(true);
+    } catch (err) {
+      setError('Erro de conexão. Verifique sua internet e tente novamente.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   return (
@@ -262,16 +276,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
                 <div className="pt-4 mt-4 border-t border-slate-800 text-center">
                   <span className="text-xs text-slate-500">Não tem conta ainda? </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError('');
-                      setView('register');
-                    }}
+                  <a
+                    href="/checkout"
                     className="text-xs font-bold text-blue-400 hover:text-blue-300 focus:outline-hidden"
                   >
-                    Cadastre-se
-                  </button>
+                    Conheça os planos
+                  </a>
                 </div>
               </form>
             </motion.div>
@@ -456,9 +466,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold rounded-lg text-xs shadow-md transition-colors cursor-pointer mt-4"
+                    disabled={forgotLoading}
+                    className="w-full py-2.5 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold rounded-lg text-xs shadow-md transition-colors cursor-pointer mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Enviar Link de Recuperação
+                    {forgotLoading ? 'Enviando...' : 'Enviar Link de Recuperação'}
                   </button>
 
                   <div className="pt-2 text-center">
