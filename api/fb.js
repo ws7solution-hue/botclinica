@@ -673,13 +673,14 @@ module.exports = async (req, res) => {
       const { clinicId } = payload;
       if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
       const key = emailToKey(clinicId);
-      // Usa API key pública (sem Bearer token) — as regras do Firestore permitem
-      // escrita em acessos_autorizados sem autenticação (allow write: if true)
-      const r = await fsReq(`acessos_autorizados/${key}?updateMask.fieldPaths=firstAccess`, {
+      const url = `${FS}/acessos_autorizados/${key}?key=${API_KEY}&updateMask.fieldPaths=firstAccess`;
+      const r = await fetch(url, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: { firstAccess: { booleanValue: false } } }),
       });
       const d = await r.json();
+      console.log("setFirstAccessDone result:", JSON.stringify(d).slice(0, 200));
       if (d.error) console.error("setFirstAccessDone erro:", d.error.message);
       return res.status(200).json({ ok: !d.error });
     }
