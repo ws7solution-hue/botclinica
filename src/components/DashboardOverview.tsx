@@ -185,117 +185,11 @@ export default function DashboardOverview({
 
       </div>
 
-      {/* Main Grid Content (WhatsApp Status + System status + Recent Conversations) */}
+      {/* Main Grid Content (System status + Recent Conversations) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left 2 Columns: WhatsApp status & Recent Chats */}
+        {/* Left 2 Columns: Recent Chats */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* WhatsApp Connection Status Card */}
-          <div 
-            id="whatsapp-status-card"
-            className={`p-6 rounded-xl border shadow-xs transition-all ${
-              whatsappConnected 
-                ? 'bg-white border-emerald-100' 
-                : 'bg-white border-red-100'
-            }`}
-          >
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className={`p-3.5 rounded-xl ${whatsappConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                  <Smartphone className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 font-sans">
-                    Integração WhatsApp Business Cloud API
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1 font-sans">
-                    {whatsappConnected 
-                      ? 'Número cadastrado +55 (11) 98765-4321 está conectado e emitindo webhooks.'
-                      : 'O serviço de mensageria está desconectado. Pacientes não receberão respostas do chatbot.'}
-                  </p>
-                  
-                  {whatsappConnected && (
-                    <div className="flex items-center gap-3 mt-3 text-xs">
-                      <span className="text-slate-500 flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Provedor: Oficial API
-                      </span>
-                      <span className="text-slate-300">|</span>
-                      <span className="text-slate-500">Latência: ~340ms</span>
-                      <span className="text-slate-300">|</span>
-                      <span className="text-emerald-600 font-semibold">Sinal Forte</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto">
-                {currentPlan === 'starter' && !whatsappConnected ? (
-                  <button 
-                    onClick={() => {
-                      alert("No plano Starter, a conexão do WhatsApp é configurada manualmente pela nossa equipe técnica de onboarding. Por favor, entre em contato com nosso suporte para ativar sua linha.");
-                    }}
-                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    <span>Configuração Manual (Contatar Equipe)</span>
-                  </button>
-                ) : !whatsappConnected ? (
-                  <button 
-                    onClick={onToggleWhatsapp}
-                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    <span>Conectar via QR Code</span>
-                  </button>
-                ) : (
-                  <button 
-                    onClick={onToggleWhatsapp}
-                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 border border-red-200 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-                  >
-                    Desconectar Linha
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* If disconnected, show warning details */}
-            {!whatsappConnected && (
-              currentPlan === 'starter' ? (
-                <div className="mt-4 p-4 bg-amber-50 text-amber-900 text-xs rounded-lg flex items-start gap-3 border border-amber-200 font-sans">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <span className="font-bold block text-amber-950">Conexão via Configuração Manual (Plano Starter)</span>
-                    <p className="text-amber-800">
-                      Como usuário do plano <strong className="font-bold">Starter</strong>, sua integração ao WhatsApp requer configuração manual realizada pela nossa equipe de onboarding.
-                    </p>
-                    <p className="mt-1">
-                      Para solicitar a ativação imediata do seu número ou agendar uma chamada, fale diretamente com nosso time técnico.
-                    </p>
-                    <div className="mt-2.5">
-                      <a 
-                        href="https://botclinica.com.br/checkout" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="px-3 py-1.5 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer inline-block shadow-xs"
-                      >
-                        Contatar nossa Equipe
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 p-3 bg-red-50 text-red-700 text-xs rounded-lg flex items-start gap-2 border border-red-100 font-sans">
-                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold">Ação requerida:</span> O bot de inteligência artificial de agendamento não está ativo. Reconecte a sessão do WhatsApp Web ou configure as credenciais da API Cloud para reativar o chatbot AtendIA.
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-
-          {/* Recent Conversations List */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>

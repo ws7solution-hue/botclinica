@@ -341,15 +341,53 @@ export default function CalendarPanel({
             </div>
           </div>
 
-          {/* Quick Tip / Clinic Advice */}
+          {/* Alerta de Absenteísmo Real */}
           <div className="bg-[#0F1623] text-slate-300 p-5 rounded-xl shadow-xs border border-slate-850">
-            <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2 font-sans flex items-center gap-1.5">
+            <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-3 font-sans flex items-center gap-1.5">
               <AlertCircle className="w-4 h-4 text-amber-500" />
-              Alerta de Absenteísmo
+              Índice de Absenteísmo
             </h5>
-            <p className="text-xs leading-relaxed font-sans text-slate-400">
-              O AtendIA reduziu o não-comparecimento à clínica em <strong className="text-white">42%</strong> disparando lembretes automáticos com botões de confirmação rápida de 24h a 48h antes da consulta!
-            </p>
+            {(() => {
+              const total = appointments.length;
+              const cancelados = appointments.filter(a => a.status === 'canceled').length;
+              const confirmados = appointments.filter(a => a.status === 'confirmed').length;
+              const comLembrete = appointments.filter(a => a.reminderSent).length;
+              const taxaAbsent = total > 0 ? Math.round((cancelados / total) * 100) : 0;
+              const taxaConfirm = total > 0 ? Math.round((confirmados / total) * 100) : 0;
+              const cobertura = total > 0 ? Math.round((comLembrete / total) * 100) : 0;
+
+              if (total === 0) return (
+                <p className="text-xs text-slate-400 font-sans">Nenhum agendamento registrado ainda. Os dados de absenteísmo aparecerão aqui conforme sua agenda for preenchida.</p>
+              );
+
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className={`text-lg font-bold ${taxaAbsent > 20 ? 'text-red-400' : taxaAbsent > 10 ? 'text-amber-400' : 'text-emerald-400'}`}>{taxaAbsent}%</div>
+                      <div className="text-[10px] text-slate-500 font-sans mt-0.5">Taxa de falta</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-emerald-400">{taxaConfirm}%</div>
+                      <div className="text-[10px] text-slate-500 font-sans mt-0.5">Confirmados</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-blue-400">{cobertura}%</div>
+                      <div className="text-[10px] text-slate-500 font-sans mt-0.5">Com lembrete</div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-sans">
+                    {total} agendamento{total !== 1 ? 's' : ''} no total · {cancelados} cancelado{cancelados !== 1 ? 's' : ''} · {comLembrete} lembrete{comLembrete !== 1 ? 's' : ''} enviado{comLembrete !== 1 ? 's' : ''}
+                  </p>
+                  {taxaAbsent > 20 && (
+                    <div className="flex items-center gap-2 bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2">
+                      <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                      <p className="text-[11px] text-red-400 font-sans">Taxa de faltas alta. Ative lembretes automáticos para reduzir cancelamentos.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
         </div>

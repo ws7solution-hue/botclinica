@@ -404,7 +404,128 @@ export default function ReportsPanel({
           </div>
 
           <div className={`pt-4 border-t border-slate-800/80 mt-4 ${currentPlan !== 'premium' ? 'filter blur-sm opacity-30 select-none' : ''}`}>
-            <button disabled={currentPlan !== 'premium'} className="w-full py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:cursor-not-allowed">
+            <button 
+              disabled={currentPlan !== 'premium'}
+              onClick={() => {
+                if (currentPlan !== 'premium') return;
+                // Gera relatório real em HTML e abre janela de impressão
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+                const totalConvs = conversations.length;
+                const resolved = conversations.filter(c => c.status === 'resolved').length;
+                const totalAppts = appointments.length;
+                const confirmed = appointments.filter(a => a.status === 'confirmed').length;
+                const cancelled = appointments.filter(a => a.status === 'canceled').length;
+                const reminderSent = appointments.filter(a => a.reminderSent).length;
+                const taxaAbsent = totalAppts > 0 ? Math.round((cancelled / totalAppts) * 100) : 0;
+                const taxaResolv = totalConvs > 0 ? Math.round((resolved / totalConvs) * 100) : 0;
+
+                const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatório AtendIA — ${dateStr}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#fff;padding:40px;font-size:13px}
+  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1A6FA8;padding-bottom:20px;margin-bottom:32px}
+  .logo{font-size:24px;font-weight:900;color:#1A6FA8}
+  .logo span{color:#0f172a}
+  .date{font-size:12px;color:#64748b;text-align:right}
+  .title{font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px}
+  h2{font-size:14px;font-weight:700;color:#1A6FA8;margin:28px 0 14px;padding-bottom:6px;border-bottom:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:.5px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+  .kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center}
+  .kpi-val{font-size:28px;font-weight:900;color:#1A6FA8}
+  .kpi-label{font-size:11px;color:#64748b;margin-top:4px}
+  table{width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px}
+  th{background:#f1f5f9;text-align:left;padding:9px 12px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e2e8f0}
+  td{padding:9px 12px;border-bottom:1px solid #f1f5f9}
+  tr:last-child td{border-bottom:none}
+  .badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+  .badge-green{background:#dcfce7;color:#16a34a}
+  .badge-red{background:#fee2e2;color:#dc2626}
+  .badge-blue{background:#dbeafe;color:#1A6FA8}
+  .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;color:#94a3b8;font-size:11px}
+  @media print{body{padding:20px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="logo">Atend<span>IA</span></div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px">by BotClínica</div>
+    <div class="title" style="margin-top:12px">Relatório de Desempenho</div>
+  </div>
+  <div class="date">
+    <div style="font-weight:700;font-size:14px">${dateStr}</div>
+    <div>Gerado automaticamente pelo AtendIA</div>
+    <div style="margin-top:4px">Plano: <strong>Premium</strong></div>
+  </div>
+</div>
+
+<h2>Visão Geral</h2>
+<div class="grid">
+  <div class="kpi"><div class="kpi-val">${totalConvs}</div><div class="kpi-label">Total de atendimentos</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#16a34a">${taxaResolv}%</div><div class="kpi-label">Resolvidos pelo bot</div></div>
+  <div class="kpi"><div class="kpi-val">${totalAppts}</div><div class="kpi-label">Agendamentos</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:${taxaAbsent > 20 ? '#dc2626' : '#16a34a'}">${taxaAbsent}%</div><div class="kpi-label">Taxa de absenteísmo</div></div>
+</div>
+
+<h2>Agendamentos</h2>
+<div class="grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpi"><div class="kpi-val" style="color:#16a34a">${confirmed}</div><div class="kpi-label">Confirmados</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#dc2626">${cancelled}</div><div class="kpi-label">Cancelados</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#1A6FA8">${reminderSent}</div><div class="kpi-label">Lembretes enviados</div></div>
+</div>
+
+${appointments.length > 0 ? `
+<table>
+  <thead><tr><th>Paciente</th><th>Médico</th><th>Data</th><th>Horário</th><th>Status</th></tr></thead>
+  <tbody>
+    ${appointments.slice(0, 20).map(a => `
+    <tr>
+      <td>${a.patientName || '—'}</td>
+      <td>${a.doctorName || '—'}</td>
+      <td>${a.date ? new Date(a.date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+      <td>${a.time || '—'}</td>
+      <td><span class="badge ${a.status === 'confirmed' ? 'badge-green' : a.status === 'canceled' ? 'badge-red' : 'badge-blue'}">${a.status === 'confirmed' ? 'Confirmado' : a.status === 'canceled' ? 'Cancelado' : 'Pendente'}</span></td>
+    </tr>`).join('')}
+  </tbody>
+</table>
+${appointments.length > 20 ? `<p style="font-size:11px;color:#94a3b8;margin-bottom:24px">Exibindo 20 de ${appointments.length} agendamentos.</p>` : ''}` : '<p style="color:#94a3b8;font-size:12px;margin-bottom:24px">Nenhum agendamento registrado.</p>'}
+
+<h2>Médicos Cadastrados</h2>
+${doctors.length > 0 ? `
+<table>
+  <thead><tr><th>Nome</th><th>Especialidade</th><th>CRM</th><th>Avaliação</th></tr></thead>
+  <tbody>
+    ${doctors.map(d => `
+    <tr>
+      <td><strong>${d.name}</strong></td>
+      <td>${d.specialty || '—'}</td>
+      <td>${d.crm || '—'}</td>
+      <td>${d.rating ? `⭐ ${d.rating}` : '—'}</td>
+    </tr>`).join('')}
+  </tbody>
+</table>` : '<p style="color:#94a3b8;font-size:12px;margin-bottom:24px">Nenhum médico cadastrado.</p>'}
+
+<div class="footer">
+  <div>AtendIA by BotClínica · botclinica.com.br</div>
+  <div>Relatório gerado em ${now.toLocaleString('pt-BR')}</div>
+</div>
+</body>
+</html>`;
+
+                const win = window.open('', '_blank');
+                if (win) {
+                  win.document.write(html);
+                  win.document.close();
+                  setTimeout(() => win.print(), 500);
+                }
+              }}
+              className="w-full py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               <span>Exportar PDF Relatório</span>
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
