@@ -670,14 +670,18 @@ module.exports = async (req, res) => {
 
     // ── PRIMEIRO ACESSO: marcar como concluído ───────────
     if (action === "setFirstAccessDone") {
-      const { clinicId, token } = payload;
+      const { clinicId } = payload;
       if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
       const key = emailToKey(clinicId);
+      // Usa API key pública (sem Bearer token) — as regras do Firestore permitem
+      // escrita em acessos_autorizados sem autenticação (allow write: if true)
       const r = await fsReq(`acessos_autorizados/${key}?updateMask.fieldPaths=firstAccess`, {
         method: "PATCH",
         body: JSON.stringify({ fields: { firstAccess: { booleanValue: false } } }),
-      }, token);
-      return res.status(200).json(await r.json());
+      });
+      const d = await r.json();
+      if (d.error) console.error("setFirstAccessDone erro:", d.error.message);
+      return res.status(200).json({ ok: !d.error });
     }
 
     // ── WHATSAPP CREDENTIALS: salvar por clínica ─────────
