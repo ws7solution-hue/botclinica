@@ -51,18 +51,19 @@ async function createFirebaseUser(email, password) {
   return r.json();
 }
 
-// Salvar plano no Firestore
+// Salvar plano no Firestore — inclui firstAccess: true para exibir o modal de criação de senha
 async function savePlan(email, plano) {
   const key = emailToKey(email);
   await fsReq(`acessos_autorizados/${key}`, {
     method: "PATCH",
     body: JSON.stringify({
       fields: {
-        email:     { stringValue: email.toLowerCase() },
-        plano:     { stringValue: plano },
-        senha:     { stringValue: "BotClinica@2026" },
-        createdAt: { stringValue: new Date().toISOString() },
-        source:    { stringValue: "mercadopago_webhook" },
+        email:       { stringValue: email.toLowerCase() },
+        plano:       { stringValue: plano },
+        senha:       { stringValue: "BotClinica@2026" },
+        firstAccess: { booleanValue: true },
+        createdAt:   { stringValue: new Date().toISOString() },
+        source:      { stringValue: "mercadopago_webhook" },
       }
     }),
   });
@@ -80,13 +81,12 @@ async function sendWhatsApp(phone, email, plano) {
   const msg = `🎉 *Bem-vindo ao BotClínica!*\n\n` +
     `Sua assinatura do plano *${planNames[plano] || plano}* foi confirmada!\n\n` +
     `*Seus dados de acesso:*\n` +
-    `📧 Email: ${email}\n` +
-    `🔑 Senha: BotClinica@2026\n\n` +
+    `📧 E-mail: ${email}\n` +
+    `🔑 Senha temporária: BotClinica@2026\n\n` +
     `👉 Acesse agora: https://botclinica.com.br/app\n\n` +
-    `Na primeira entrada, altere sua senha nas configurações.\n\n` +
+    `Na primeira entrada, você será solicitado a criar sua senha pessoal. É rápido!\n\n` +
     `Dúvidas? Estamos aqui! 🤖`;
 
-  // Formatar número (remover caracteres não numéricos)
   const cleanPhone = phone.replace(/\D/g, '');
 
   await fetch(`https://graph.facebook.com/v18.0/${WA_PHONE_ID}/messages`, {
@@ -145,7 +145,7 @@ module.exports = async (req, res) => {
     try {
       const ref = JSON.parse(payment.external_reference || "{}");
       if (ref.plano) plano = ref.plano;
-      if (ref.email) email = ref.email; // prioriza o email passado na preferência
+      if (ref.email) email = ref.email;
     } catch {
       // Fallback: determinar pelo valor caso external_reference não exista (links antigos)
       const valor = payment.transaction_amount;
@@ -168,7 +168,7 @@ module.exports = async (req, res) => {
       console.log("Erro Auth:", authResult.error.message);
     }
 
-    // 2. Salvar plano no Firestore
+    // 2. Salvar plano no Firestore (com firstAccess: true)
     await savePlan(email, plano);
 
     // 3. Notificar via WhatsApp
