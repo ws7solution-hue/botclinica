@@ -216,7 +216,8 @@ export default function App() {
     addSystemLog('success', `Bem-vindo de volta, ${profile.accountType === 'clinic' ? (profile.clinicName || profile.name) : (profile.doctorName || profile.name)}! Login efetuado.`);
 
     // Primeiro acesso — abre modal pra definir senha própria
-    if (profile.firstAccess && profile.idToken) {
+    // Só mostra se o servidor confirmou firstAccess: true (não depende só do profile local)
+    if (profile.firstAccess === true && profile.idToken) {
       setFirstAccessIdToken(profile.idToken);
       setShowFirstAccess(true);
     }
