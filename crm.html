@@ -695,9 +695,16 @@ function renderTicketChat(ticket){
     </div>
     <div class="support-messages" id="chat-msgs">
       ${msgs.map(m=>`
-        <div>
-          <div class="msg ${m.role==='agent'?'msg-agent':'msg-client'}">${m.text}</div>
-          <div class="msg-time" style="text-align:${m.role==='agent'?'right':'left'}">${fmtDateTime(m.at)}</div>
+        <div style="display:flex;flex-direction:column;align-items:${m.role==='agent'?'flex-end':'flex-start'}">
+          <div style="
+            max-width:70%;padding:10px 14px;font-size:13px;line-height:1.5;border-radius:14px;
+            ${m.role==='agent'
+              ? 'background:var(--accent);color:#fff;border-bottom-right-radius:3px;'
+              : 'background:var(--card2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px;'}
+          ">${m.text}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px;padding:0 2px">
+            ${m.role==='agent'?'Você (Suporte)':'👤 '+(ticket.clinicName||ticket.email)} · ${fmtDateTime(m.at)}
+          </div>
         </div>`).join('')}
       ${msgs.length===0?'<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">Aguardando mensagem do cliente...</div>':''}
     </div>
