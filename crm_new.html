@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BotClínica CRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07101C;--card:#0D1828;--card2:#111F30;--border:#1E3048;
+  --accent:#1A6FA8;--accent2:#135A8C;
+  --green:#00D4A0;--green-l:rgba(0,212,160,.12);
+  --red:#E03E3E;--red-l:rgba(224,62,62,.12);
+  --yellow:#F59E0B;--yellow-l:rgba(245,158,11,.12);
+  --purple:#C084FC;--purple-l:rgba(192,132,252,.12);
+  --blue-l:rgba(26,111,168,.12);
+  --text:#E2EEFF;--muted:#8AAAC8;--subtle:#111F30;
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+a{text-decoration:none;color:inherit}
+
+/* LOGIN */
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:44px 40px;width:360px;text-align:center}
+.login-icon{font-size:44px;margin-bottom:16px}
+.login-box h1{font-size:22px;font-weight:800;margin-bottom:4px}
+.login-box p{color:var(--muted);font-size:13px;margin-bottom:28px}
+.inp{width:100%;background:var(--subtle);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;font-family:inherit}
+.inp:focus{border-color:var(--accent)}
+.login-err{color:#f87171;font-size:12px;margin-top:6px;min-height:18px}
+
+/* LAYOUT */
+#app{display:none;min-height:100vh}
+.sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--green));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sidebar-logo-text{font-weight:800;font-size:15px}
+.sidebar-logo-sub{font-size:10px;color:var(--muted)}
+.sidebar-section{padding:14px 12px 6px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.nav-btn{width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-radius:10px;text-align:left;font-size:13px;font-weight:500;transition:.15s;margin-bottom:2px;position:relative}
+.nav-btn:hover{background:var(--subtle);color:var(--text)}
+.nav-btn.active{background:var(--blue-l);color:var(--accent);font-weight:700}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto}
+.sidebar-bottom{margin-top:auto;padding:14px 12px;border-top:1px solid var(--border)}
+.logout-btn{width:100%;display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;border-radius:10px;font-size:13px;transition:.15s}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+.main{margin-left:220px;min-height:100vh;padding:28px}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.page-title{font-size:22px;font-weight:800}
+.page-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.badge{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px}
+.badge-green{background:var(--green-l);color:var(--green)}
+.badge-yellow{background:var(--yellow-l);color:var(--yellow)}
+.badge-red{background:var(--red-l);color:var(--red)}
+.badge-blue{background:var(--blue-l);color:var(--accent)}
+
+/* CARDS */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:600}
+.kpi-val{font-size:32px;font-weight:800;line-height:1}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.kpi-green .kpi-val{color:var(--green)}
+.kpi-red .kpi-val{color:var(--red)}
+.kpi-blue .kpi-val{color:var(--accent)}
+.kpi-yellow .kpi-val{color:var(--yellow)}
+.card-title{font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:13px 14px;font-size:13px;border-bottom:1px solid rgba(30,48,72,.5)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(26,111,168,.04)}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover{border-color:var(--accent);color:var(--text)}
+.btn-danger{background:transparent;border:1px solid var(--border);color:var(--red)}
+.btn-danger:hover{background:var(--red-l)}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:7px}
+.btn-green{background:var(--green);color:#07101C}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:12px;color:var(--muted);font-weight:600}
+.form-input{background:var(--subtle);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;font-family:inherit;width:100%}
+.form-input:focus{border-color:var(--accent)}
+.form-select{background:var(--subtle);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;font-family:inherit;width:100%;cursor:pointer}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:17px;font-weight:800;margin-bottom:20px}
+
+/* PLAN BADGES */
+.plan-starter{background:rgba(96,165,250,.12);color:#60A5FA;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.plan-profissional{background:var(--green-l);color:var(--green);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.plan-clinica{background:var(--purple-l);color:var(--purple);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.plan-premium{background:rgba(245,158,11,.15);color:var(--yellow);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-ativo{background:var(--green-l);color:var(--green);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-vencendo{background:var(--yellow-l);color:var(--yellow);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-vencido{background:var(--red-l);color:var(--red);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-cancelado{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+
+/* CONFIG */
+.config-section{margin-bottom:28px}
+.config-section h3{font-size:14px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.config-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.config-item{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px}
+.config-item label{font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:8px}
+.config-input{width:100%;background:var(--subtle);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:14px;font-weight:700;outline:none;font-family:inherit}
+.config-input:focus{border-color:var(--accent)}
+
+/* ALERTS */
+.alert{border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;font-size:13px}
+.alert-yellow{background:var(--yellow-l);border:1px solid rgba(245,158,11,.3);color:var(--yellow)}
+.alert-red{background:var(--red-l);border:1px solid rgba(224,62,62,.3);color:var(--red)}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:20px 0}
+
+/* PLAN BREAKDOWN */
+.plan-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.plan-row:last-child{border-bottom:none}
+.plan-revenue{font-size:16px;font-weight:800;color:var(--green)}
+
+/* LOADING */
+.loading{text-align:center;padding:30px;color:var(--muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--green);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--green);font-weight:600;z-index:9999;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* CHART */
+.chart-wrap{position:relative;height:220px}
+
+/* PROGRESS */
+.progress{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-bar{height:100%;border-radius:3px;transition:width .5s ease}
+
+/* SUPORTE / CHAT */
+.support-layout{display:grid;grid-template-columns:300px 1fr;gap:0;height:calc(100vh - 140px);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.support-list{background:var(--card);border-right:1px solid var(--border);overflow-y:auto}
+.support-list-header{padding:16px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+.support-item{padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:.15s}
+.support-item:hover{background:var(--card2)}
+.support-item.active{background:var(--blue-l);border-left:3px solid var(--accent)}
+.support-item-name{font-weight:700;font-size:13px;margin-bottom:2px}
+.support-item-preview{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.support-item-meta{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.support-chat{display:flex;flex-direction:column;background:var(--bg)}
+.support-chat-header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:space-between}
+.support-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:70%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5}
+.msg-client{background:var(--card);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px}
+.msg-agent{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.msg-time{font-size:10px;color:var(--muted);margin-top:3px}
+.support-input{padding:16px;border-top:1px solid var(--border);background:var(--card);display:flex;gap:10px}
+.support-input input{flex:1;background:var(--subtle);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
+.support-input input:focus{border-color:var(--accent)}
+.priority-aberto{background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700}
+.priority-andamento{background:var(--yellow-l);color:var(--yellow);padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700}
+.priority-resolvido{background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700}
+.empty-chat{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .sidebar{width:60px}
+  .sidebar-logo-text,.sidebar-logo-sub,.nav-btn span,.sidebar-section{display:none}
+  .main{margin-left:60px}
+  .grid-4{grid-template-columns:1fr 1fr}
+  .grid-3{grid-template-columns:1fr}
+  .config-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <div class="login-icon">📊</div>
+    <h1>BotClínica CRM</h1>
+    <p>Painel de gestão interno — acesso restrito</p>
+    <input class="inp" type="password" id="pwd" placeholder="Senha de acesso" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="btn btn-primary" style="width:100%;padding:13px;font-size:15px;border-radius:10px" onclick="doLogin()">Entrar</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🤖</div>
+      <div>
+        <div class="sidebar-logo-text">BotClínica</div>
+        <div class="sidebar-logo-sub">CRM Interno</div>
+      </div>
+    </div>
+    <div style="padding:12px;flex:1">
+      <div class="sidebar-section">Principal</div>
+      <button class="nav-btn active" onclick="goTo('dashboard')"><span class="nav-icon">📊</span><span>Dashboard</span></button>
+      <button class="nav-btn" onclick="goTo('clientes')"><span class="nav-icon">👥</span><span>Clientes</span></button>
+      <button class="nav-btn" onclick="goTo('suporte')" id="nav-suporte"><span class="nav-icon">💬</span><span>Suporte</span><span class="nav-badge" id="badge-suporte" style="display:none">0</span></button>
+      <div class="sidebar-section" style="margin-top:12px">Análise</div>
+      <button class="nav-btn" onclick="goTo('financeiro')"><span class="nav-icon">💰</span><span>Financeiro</span></button>
+      <button class="nav-btn" onclick="goTo('alertas')"><span class="nav-icon">🔔</span><span>Alertas</span></button>
+      <div class="sidebar-section" style="margin-top:12px">Config</div>
+      <button class="nav-btn" onclick="goTo('config')"><span class="nav-icon">⚙️</span><span>Configurações</span></button>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="logout-btn" onclick="doLogout()">→ <span>Sair</span></button>
+    </div>
+  </div>
+
+  <div class="main" id="main-content">
+    <div class="loading"><div class="spinner"></div>Carregando...</div>
+  </div>
+</div>
+
+<!-- MODAL CLIENTE -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <h2 id="modal-title">Adicionar cliente</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nome da clínica</label>
+        <input class="form-input" id="f-nome" placeholder="Ex: Clínica São Lucas"/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input class="form-input" id="f-email" placeholder="contato@clinica.com.br"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Plano</label>
+        <select class="form-select" id="f-plano">
+          <option value="starter">🌱 Starter — R$397/mês</option>
+          <option value="profissional">⭐ Profissional — R$597/mês</option>
+          <option value="clinica">🏥 Clínica — R$997/mês</option>
+          <option value="premium">👑 Premium — R$1.497/mês</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-select" id="f-status">
+          <option value="ativo">✅ Ativo</option>
+          <option value="vencendo">⚠️ Vencendo</option>
+          <option value="vencido">❌ Vencido</option>
+          <option value="cancelado">🚫 Cancelado</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Data de início</label>
+        <input class="form-input" id="f-inicio" type="date"/>
+      </div>
+      <div class="form-group">
+        <label>Próximo vencimento</label>
+        <input class="form-input" id="f-venc" type="date"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Telefone (opcional)</label>
+        <input class="form-input" id="f-tel" placeholder="+55 31 9 0000-0000"/>
+      </div>
+      <div class="form-group">
+        <label>Cidade (opcional)</label>
+        <input class="form-input" id="f-cidade" placeholder="Belo Horizonte, MG"/>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Observações internas</label>
+      <input class="form-input" id="f-obs" placeholder="Notas internas..."/>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCliente()" id="save-btn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CRM_PWD = "botclinica2026";
+const PROXY = "/api/fb";
+let clientes = [];
+let tickets = [];
+let activeTicket = null;
+let supportInterval = null;
+let config = {
+  precos: {starter:397, profissional:597, clinica:997, premium:1497},
+  custos: {vps:0, anthropic_por_cliente:0, email:11.99, meta:0, outros:0}
+};
+let editId = null;
+let chartInstances = {};
+let currentPage = 'dashboard';
+
+// AUTH
+function doLogin(){
+  const pwd = document.getElementById('pwd').value;
+  if(pwd === CRM_PWD){
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    loadAll();
+  } else {
+    document.getElementById('login-err').textContent='Senha incorreta.';
+    document.getElementById('pwd').value='';
+  }
+}
+function doLogout(){
+  document.getElementById('login').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('pwd').value='';
+  if(supportInterval) clearInterval(supportInterval);
+}
+document.getElementById('pwd').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+// API
+async function api(action, payload){
+  const r = await fetch(PROXY, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload})});
+  return r.json();
+}
+
+// LOAD
+async function loadAll(){
+  await Promise.all([loadClientes(), loadConfig(), loadTickets()]);
+  goTo(currentPage);
+  // Poll tickets a cada 10s
+  if(supportInterval) clearInterval(supportInterval);
+  supportInterval = setInterval(async()=>{
+    await loadTickets();
+    updateSupportBadge();
+    if(currentPage === 'suporte') refreshSupportList();
+  }, 10000);
+}
+
+async function loadClientes(){
+  // Puxar clientes reais do Firebase (acessos_autorizados)
+  const d = await api('crmListClientes', {});
+  const crmClientes = d.clientes || [];
+
+  // Puxar também do acessos_autorizados diretamente
+  const d2 = await api('listClients', {});
+  const fbClientes = d2.clients || [];
+
+  // Merge: prioriza dados do CRM, completa com Firebase
+  const map = {};
+  fbClientes.forEach(fc => {
+    const key = (fc.email||'').replace(/[@.]/g,'_');
+    map[key] = {
+      id: key,
+      email: fc.email||'',
+      nome: fc.clinicName || fc.email?.split('@')[0] || '',
+      plano: fc.plano || 'starter',
+      status: 'ativo',
+      inicio: fc.createdAt ? fc.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+      vencimento: calcVencimento(fc.createdAt),
+      source: 'firebase',
+    };
+  });
+  crmClientes.forEach(cc => {
+    map[cc.id] = { ...map[cc.id], ...cc, source: 'crm' };
+  });
+  clientes = Object.values(map);
+}
+
+function calcVencimento(createdAt){
+  if(!createdAt) return nextMonth();
+  const d = new Date(createdAt);
+  d.setMonth(d.getMonth()+1);
+  return d.toISOString().split('T')[0];
+}
+
+async function loadConfig(){
+  const d = await api('crmGetConfig', {});
+  if(d.config) config = {...config, ...d.config};
+}
+
+async function loadTickets(){
+  const d = await api('listSupportTickets', {});
+  tickets = d.tickets || [];
+  updateSupportBadge();
+}
+
+function updateSupportBadge(){
+  const abertos = tickets.filter(t=>t.status==='aberto').length;
+  const badge = document.getElementById('badge-suporte');
+  if(badge){
+    badge.style.display = abertos > 0 ? 'inline-block' : 'none';
+    badge.textContent = abertos;
+  }
+}
+
+// NAV
+function goTo(page){
+  currentPage = page;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const map = {dashboard:0,clientes:1,suporte:2,financeiro:3,alertas:4,config:5};
+  const btns = document.querySelectorAll('.nav-btn');
+  if(map[page]!==undefined && btns[map[page]]) btns[map[page]].classList.add('active');
+  Object.values(chartInstances).forEach(c=>{ try{c.destroy();}catch(e){} });
+  chartInstances = {};
+  const renders = {dashboard:renderDashboard, clientes:renderClientes, suporte:renderSuporte, financeiro:renderFinanceiro, alertas:renderAlertas, config:renderConfig};
+  if(renders[page]) renders[page]();
+}
+
+// HELPERS
+function fmtBRL(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(s){ if(!s) return '—'; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('pt-BR'); }
+function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function daysDiff(dateStr){ if(!dateStr) return null; const d=new Date(dateStr+'T12:00:00'); return Math.ceil((d-new Date())/86400000); }
+function monthsActive(startStr){ if(!startStr) return 0; const d=new Date(startStr+'T12:00:00'); const now=new Date(); return Math.floor((now-d)/2592000000); }
+function planLabel(p){ return {starter:'🌱 Starter',profissional:'⭐ Profissional',clinica:'🏥 Clínica',premium:'👑 Premium'}[p]||p; }
+function planClass(p){ return 'plan-'+(p||'starter'); }
+function statusClass(s){ return 'status-'+(s||'ativo'); }
+function statusLabel(s){ return {ativo:'Ativo',vencendo:'Vencendo',vencido:'Vencido',cancelado:'Cancelado'}[s]||s; }
+function precoPlano(p){ return config.precos[p]||0; }
+function ativos(){ return clientes.filter(c=>c.status==='ativo'||c.status==='vencendo'); }
+function mrr(){ return ativos().reduce((s,c)=>s+precoPlano(c.plano),0); }
+function custoTotal(n){ const c=config.custos; return (parseFloat(c.vps)||0)+(parseFloat(c.email)||0)+(parseFloat(c.outros)||0)+((parseFloat(c.anthropic_por_cliente)||0)*n)+((parseFloat(c.meta)||0)*n); }
+function lucroLiq(){ return mrr()-custoTotal(ativos().length); }
+function keyId(email){ return email.replace(/[@.]/g,'_'); }
+function nextMonth(){ const d=new Date(); d.setMonth(d.getMonth()+1); return d.toISOString().split('T')[0]; }
+function fmtVenc(dateStr){
+  const d=daysDiff(dateStr);
+  if(d===null) return '—';
+  if(d<0) return `<span style="color:var(--red)">${fmtDate(dateStr)} (vencido)</span>`;
+  if(d<=7) return `<span style="color:var(--yellow)">${fmtDate(dateStr)} (${d}d)</span>`;
+  return fmtDate(dateStr);
+}
+function calcBreakeven(){
+  const fixo=(parseFloat(config.custos.vps)||0)+(parseFloat(config.custos.email)||0)+(parseFloat(config.custos.outros)||0);
+  const ticket=config.precos.starter||397;
+  const custoVar=(parseFloat(config.custos.anthropic_por_cliente)||0)+(parseFloat(config.custos.meta)||0);
+  const margVar=ticket-custoVar;
+  if(margVar<=0) return '∞';
+  return Math.ceil(fixo/margVar);
+}
+
+// DASHBOARD
+function renderDashboard(){
+  const ativ=ativos();
+  const totalMRR=mrr();
+  const totalCusto=custoTotal(ativ.length);
+  const lucro=lucroLiq();
+  const margem=totalMRR>0?Math.round(lucro/totalMRR*100):0;
+  const byPlan={starter:0,profissional:0,clinica:0,premium:0};
+  ativ.forEach(c=>byPlan[c.plano]=(byPlan[c.plano]||0)+1);
+  const vencendo=clientes.filter(c=>{ const d=daysDiff(c.vencimento); return d!==null&&d<=7&&d>=0; }).length;
+  const arr=Math.round(totalMRR*12);
+  const abertos=tickets.filter(t=>t.status==='aberto').length;
+
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar">
+    <div><div class="page-title">Dashboard</div><div class="page-sub">Visão geral do BotClínica — atualizado agora</div></div>
+    <div class="topbar-right">
+      ${abertos>0?`<span class="badge badge-red" style="cursor:pointer" onclick="goTo('suporte')">💬 ${abertos} chamado${abertos!==1?'s':''} aberto${abertos!==1?'s':''}</span>`:''}
+      ${vencendo>0?`<span class="badge badge-yellow">⚠️ ${vencendo} vencendo</span>`:''}
+      <span class="badge badge-green">● ${ativ.length} ativos</span>
+    </div>
+  </div>
+
+  <div class="grid-4">
+    <div class="card kpi-green"><div class="kpi-label">MRR</div><div class="kpi-val">${fmtBRL(totalMRR)}</div><div class="kpi-sub">Receita mensal recorrente</div></div>
+    <div class="card ${lucro>=0?'kpi-green':'kpi-red'}"><div class="kpi-label">Lucro líquido</div><div class="kpi-val">${fmtBRL(lucro)}</div><div class="kpi-sub">Margem: ${margem}%</div></div>
+    <div class="card kpi-blue"><div class="kpi-label">ARR</div><div class="kpi-val">${fmtBRL(arr)}</div><div class="kpi-sub">Receita anual projetada</div></div>
+    <div class="card"><div class="kpi-label">Clientes ativos</div><div class="kpi-val" style="color:var(--text)">${ativ.length}</div><div class="kpi-sub">Total: ${clientes.length} cadastrados</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Distribuição por plano</div>
+      ${['starter','profissional','clinica','premium'].map(p=>{
+        const n=byPlan[p]||0;
+        const pct=ativ.length>0?Math.round(n/ativ.length*100):0;
+        const colors={starter:'#60A5FA',profissional:'#00D4A0',clinica:'#C084FC',premium:'#F59E0B'};
+        return `<div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span class="${planClass(p)}">${planLabel(p)}</span>
+            <span style="font-size:12px;color:var(--muted)">${n} cliente${n!==1?'s':''} · ${fmtBRL(precoPlano(p))}/mês</span>
+          </div>
+          <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${colors[p]}"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="card">
+      <div class="card-title">Receita por plano</div>
+      <div class="chart-wrap"><canvas id="chart-plans"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="kpi-label">Custos mensais</div>
+      <div class="kpi-val kpi-red" style="font-size:24px">${fmtBRL(totalCusto)}</div>
+      <div class="divider"></div>
+      ${Object.entries({'VPS':config.custos.vps,'Email':config.custos.email,'Anthropic×clientes':(config.custos.anthropic_por_cliente||0)*ativ.length,'Meta×clientes':(config.custos.meta||0)*ativ.length,'Outros':config.custos.outros}).map(([k,v])=>v>0?`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">${k}</span><span>${fmtBRL(v)}</span></div>`:'').join('')}
+    </div>
+    <div class="card">
+      <div class="kpi-label">Ticket médio</div>
+      <div class="kpi-val" style="font-size:24px;color:var(--accent)">${ativ.length>0?fmtBRL(totalMRR/ativ.length):'R$ 0'}</div>
+      <div class="kpi-sub">por cliente ativo/mês</div>
+      <div class="divider"></div>
+      <div class="kpi-label">Breakeven</div>
+      <div style="font-size:20px;font-weight:800;color:var(--yellow)">${calcBreakeven()} cliente${calcBreakeven()!=='∞'&&calcBreakeven()!==1?'s':''}</div>
+    </div>
+    <div class="card">
+      <div class="kpi-label">Suporte</div>
+      <div class="kpi-val" style="font-size:24px;color:${abertos>0?'var(--red)':'var(--green)'}">${abertos}</div>
+      <div class="kpi-sub">chamado${abertos!==1?'s':''} aberto${abertos!==1?'s':''}</div>
+      <div class="divider"></div>
+      <div class="kpi-label">Total de chamados</div>
+      <div style="font-size:20px;font-weight:800">${tickets.length}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Clientes recentes <button class="btn btn-primary btn-sm" onclick="goTo('clientes')">Ver todos →</button></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Clínica</th><th>Plano</th><th>Status</th><th>Início</th><th>Vencimento</th><th>LTV</th></tr></thead>
+        <tbody>
+          ${clientes.slice(0,5).map(c=>`<tr>
+            <td><strong>${c.nome||c.email}</strong><br><span style="font-size:11px;color:var(--muted)">${c.email}</span></td>
+            <td><span class="${planClass(c.plano)}">${planLabel(c.plano)}</span></td>
+            <td><span class="${statusClass(c.status)}">${statusLabel(c.status)}</span></td>
+            <td>${fmtDate(c.inicio)}</td>
+            <td>${fmtVenc(c.vencimento)}</td>
+            <td style="color:var(--green)">${fmtBRL(monthsActive(c.inicio)*precoPlano(c.plano))}</td>
+          </tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum cliente ainda.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+
+  setTimeout(()=>{
+    const ctx=document.getElementById('chart-plans');
+    if(!ctx) return;
+    const labels=['Starter','Profissional','Clínica','Premium'];
+    const vals=[byPlan.starter*precoPlano('starter'),byPlan.profissional*precoPlano('profissional'),byPlan.clinica*precoPlano('clinica'),byPlan.premium*precoPlano('premium')];
+    chartInstances.plans=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:['#60A5FA','#00D4A0','#C084FC','#F59E0B'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8AAAC8',font:{size:12}}}}}});
+  },100);
+}
+
+// CLIENTES
+function renderClientes(){
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar">
+    <div><div class="page-title">Clientes</div><div class="page-sub">${clientes.length} cliente${clientes.length!==1?'s':''} cadastrado${clientes.length!==1?'s':''}</div></div>
+    <div class="topbar-right">
+      <button class="btn btn-outline" onclick="loadClientes().then(renderClientes)">🔄 Sincronizar</button>
+      <button class="btn btn-primary" onclick="openModal()">+ Adicionar</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Clínica / Email</th><th>Plano</th><th>Status</th><th>Cliente há</th><th>Início</th><th>Vencimento</th><th>LTV</th><th>Médicos</th><th>Ações</th></tr></thead>
+        <tbody>${renderClienteRows()}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderClienteRows(){
+  if(!clientes.length) return `<tr><td colspan="9" class="empty">Nenhum cliente cadastrado. <button class="btn btn-primary btn-sm" onclick="openModal()">Adicionar primeiro →</button></td></tr>`;
+  return clientes.map(c=>{
+    const meses=monthsActive(c.inicio);
+    const ltv=meses*precoPlano(c.plano);
+    return `<tr>
+      <td><strong>${c.nome||'—'}</strong><br><span style="font-size:11px;color:var(--muted)">${c.email}</span>${c.cidade?`<br><span style="font-size:11px;color:var(--muted)">${c.cidade}</span>`:''}</td>
+      <td><span class="${planClass(c.plano)}">${planLabel(c.plano)}</span></td>
+      <td><span class="${statusClass(c.status)}">${statusLabel(c.status)}</span></td>
+      <td>${meses>0?`${meses} mes${meses!==1?'es':''}`:'< 1 mês'}</td>
+      <td>${fmtDate(c.inicio)}</td>
+      <td>${fmtVenc(c.vencimento)}</td>
+      <td style="color:var(--green);font-weight:700">${fmtBRL(ltv)}</td>
+      <td style="color:var(--muted);font-size:12px" id="mdcount-${c.id}">—</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="openModal('${c.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}','${c.nome||c.email}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// SUPORTE
+function renderSuporte(){
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar">
+    <div><div class="page-title">Suporte</div><div class="page-sub">Chamados dos clientes em tempo real</div></div>
+    <div class="topbar-right">
+      <span class="badge badge-red">${tickets.filter(t=>t.status==='aberto').length} abertos</span>
+      <span class="badge badge-yellow">${tickets.filter(t=>t.status==='andamento').length} em andamento</span>
+      <span class="badge badge-green">${tickets.filter(t=>t.status==='resolvido').length} resolvidos</span>
+    </div>
+  </div>
+  <div class="support-layout">
+    <div class="support-list">
+      <div class="support-list-header">
+        Chamados
+        <select onchange="filterTickets(this.value)" style="background:var(--subtle);border:1px solid var(--border);color:var(--text);font-size:11px;padding:4px 8px;border-radius:6px;outline:none">
+          <option value="all">Todos</option>
+          <option value="aberto">Abertos</option>
+          <option value="andamento">Em andamento</option>
+          <option value="resolvido">Resolvidos</option>
+        </select>
+      </div>
+      <div id="ticket-list">
+        ${renderTicketList(tickets)}
+      </div>
+    </div>
+    <div class="support-chat" id="support-chat-area">
+      <div class="empty-chat">👈 Selecione um chamado para responder</div>
+    </div>
+  </div>`;
+}
+
+function filterTickets(status){
+  const filtered = status==='all' ? tickets : tickets.filter(t=>t.status===status);
+  document.getElementById('ticket-list').innerHTML = renderTicketList(filtered);
+}
+
+function renderTicketList(list){
+  if(!list.length) return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum chamado</div>`;
+  return list.sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt)).map(t=>{
+    const lastMsg = t.messages?.[t.messages.length-1];
+    return `<div class="support-item${activeTicket===t.id?' active':''}" onclick="openTicket('${t.id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="support-item-name">${t.clinicName||t.email||'Cliente'}</div>
+        <span class="priority-${t.status||'aberto'}">${{aberto:'Aberto',andamento:'Andamento',resolvido:'Resolvido'}[t.status]||'Aberto'}</span>
+      </div>
+      <div class="support-item-preview">${lastMsg?.text||t.title||'Novo chamado'}</div>
+      <div class="support-item-meta">
+        <span style="font-size:11px;color:var(--muted)">${fmtDateTime(t.updatedAt||t.createdAt)}</span>
+        <span class="${planClass(t.plano)}" style="font-size:10px">${planLabel(t.plano)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openTicket(id){
+  activeTicket = id;
+  const ticket = tickets.find(t=>t.id===id);
+  if(!ticket) return;
+  // Atualiza status pra andamento se estava aberto
+  if(ticket.status==='aberto'){
+    ticket.status='andamento';
+    api('updateSupportTicket',{id, status:'andamento'});
+  }
+  refreshSupportList();
+  renderTicketChat(ticket);
+}
+
+function refreshSupportList(){
+  const el = document.getElementById('ticket-list');
+  if(el) el.innerHTML = renderTicketList(tickets);
+}
+
+function renderTicketChat(ticket){
+  const chatArea = document.getElementById('support-chat-area');
+  if(!chatArea) return;
+  const msgs = ticket.messages||[];
+  chatArea.innerHTML=`
+    <div class="support-chat-header">
+      <div>
+        <div style="font-weight:700">${ticket.clinicName||ticket.email}</div>
+        <div style="font-size:12px;color:var(--muted)"><span class="${planClass(ticket.plano)}">${planLabel(ticket.plano)}</span> · ${ticket.email}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="resolveTicket('${ticket.id}')">✅ Resolver</button>
+      </div>
+    </div>
+    <div class="support-messages" id="chat-msgs">
+      ${msgs.map(m=>`
+        <div>
+          <div class="msg ${m.role==='agent'?'msg-agent':'msg-client'}">${m.text}</div>
+          <div class="msg-time" style="text-align:${m.role==='agent'?'right':'left'}">${fmtDateTime(m.at)}</div>
+        </div>`).join('')}
+      ${msgs.length===0?'<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">Aguardando mensagem do cliente...</div>':''}
+    </div>
+    <div class="support-input">
+      <input type="text" id="agent-msg" placeholder="Digite sua resposta..." onkeydown="if(event.key==='Enter')sendAgentMsg('${ticket.id}')"/>
+      <button class="btn btn-primary" onclick="sendAgentMsg('${ticket.id}')">Enviar →</button>
+    </div>`;
+  // Scroll to bottom
+  setTimeout(()=>{ const el=document.getElementById('chat-msgs'); if(el) el.scrollTop=el.scrollHeight; },100);
+}
+
+async function sendAgentMsg(ticketId){
+  const input = document.getElementById('agent-msg');
+  const text = input?.value?.trim();
+  if(!text) return;
+  input.value='';
+  const msg = { role:'agent', text, at: new Date().toISOString() };
+  await api('addSupportMessage',{ticketId, message: msg});
+  // Atualiza local
+  const ticket = tickets.find(t=>t.id===ticketId);
+  if(ticket){ ticket.messages = [...(ticket.messages||[]), msg]; ticket.updatedAt=msg.at; renderTicketChat(ticket); }
+}
+
+async function resolveTicket(ticketId){
+  await api('updateSupportTicket',{id:ticketId, status:'resolvido'});
+  const ticket = tickets.find(t=>t.id===ticketId);
+  if(ticket){ ticket.status='resolvido'; ticket.updatedAt=new Date().toISOString(); }
+  toast('✅ Chamado resolvido!');
+  renderSuporte();
+}
+
+// FINANCEIRO
+function renderFinanceiro(){
+  const ativ=ativos();
+  const totalMRR=mrr();
+  const totalCusto=custoTotal(ativ.length);
+  const lucro=lucroLiq();
+  const byPlan={starter:{n:0,rev:0,custo:0},profissional:{n:0,rev:0,custo:0},clinica:{n:0,rev:0,custo:0},premium:{n:0,rev:0,custo:0}};
+  const custoFixoPorCliente=ativ.length>0?((parseFloat(config.custos.vps)||0)+(parseFloat(config.custos.email)||0)+(parseFloat(config.custos.outros)||0))/Math.max(ativ.length,1):0;
+  const custoVar=(parseFloat(config.custos.anthropic_por_cliente)||0)+(parseFloat(config.custos.meta)||0);
+  ativ.forEach(c=>{ const p=c.plano||'starter'; byPlan[p].n++; byPlan[p].rev+=precoPlano(p); byPlan[p].custo+=custoFixoPorCliente+custoVar; });
+
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar"><div><div class="page-title">Financeiro</div><div class="page-sub">Receita, custos e margem por plano</div></div></div>
+  <div class="grid-4" style="margin-bottom:24px">
+    <div class="card kpi-green"><div class="kpi-label">Receita total</div><div class="kpi-val">${fmtBRL(totalMRR)}</div><div class="kpi-sub">/mês</div></div>
+    <div class="card kpi-red"><div class="kpi-label">Custos totais</div><div class="kpi-val">${fmtBRL(totalCusto)}</div><div class="kpi-sub">/mês</div></div>
+    <div class="card ${lucro>=0?'kpi-green':'kpi-red'}"><div class="kpi-label">Lucro líquido</div><div class="kpi-val">${fmtBRL(lucro)}</div><div class="kpi-sub">/mês</div></div>
+    <div class="card kpi-blue"><div class="kpi-label">Margem</div><div class="kpi-val">${totalMRR>0?Math.round(lucro/totalMRR*100):0}%</div><div class="kpi-sub">do faturamento</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Lucro por plano</div>
+      ${['starter','profissional','clinica','premium'].map(p=>{
+        const bp=byPlan[p]; const lucroP=bp.rev-bp.custo; const margemP=bp.rev>0?Math.round(lucroP/bp.rev*100):0;
+        return `<div class="plan-row">
+          <div><div style="font-weight:700">${planLabel(p)}</div><div style="font-size:12px;color:var(--muted)">${bp.n} cliente${bp.n!==1?'s':''} · ${fmtBRL(precoPlano(p))}/mês</div></div>
+          <div style="text-align:right"><div class="plan-revenue">${fmtBRL(bp.rev)}</div><div style="font-size:12px;color:${lucroP>=0?'var(--green)':'var(--red)'}">Lucro: ${fmtBRL(lucroP)} (${margemP}%)</div></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="card"><div class="card-title">Receita vs Custos</div><div class="chart-wrap"><canvas id="chart-fin"></canvas></div></div>
+  </div>`;
+
+  setTimeout(()=>{
+    const ctx=document.getElementById('chart-fin');
+    if(ctx) chartInstances.fin=new Chart(ctx,{type:'bar',data:{labels:['Starter','Profissional','Clínica','Premium'],datasets:[{label:'Receita',data:[byPlan.starter.rev,byPlan.profissional.rev,byPlan.clinica.rev,byPlan.premium.rev],backgroundColor:'#00D4A0',borderRadius:6},{label:'Custo',data:[byPlan.starter.custo,byPlan.profissional.custo,byPlan.clinica.custo,byPlan.premium.custo],backgroundColor:'#E03E3E',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8AAAC8'},grid:{color:'#1E3048'}},y:{ticks:{color:'#8AAAC8'},grid:{color:'#1E3048'}}},plugins:{legend:{labels:{color:'#8AAAC8'}}}}});
+  },100);
+}
+
+// ALERTAS
+function renderAlertas(){
+  const vencendo7=clientes.filter(c=>{ const d=daysDiff(c.vencimento); return d!==null&&d>=0&&d<=7; });
+  const vencidos=clientes.filter(c=>{ const d=daysDiff(c.vencimento); return d!==null&&d<0&&c.status!=='cancelado'; });
+  const novos=clientes.filter(c=>monthsActive(c.inicio)<=1&&c.status==='ativo');
+  const abertos=tickets.filter(t=>t.status==='aberto');
+
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar"><div><div class="page-title">Alertas</div><div class="page-sub">Ações que precisam de atenção</div></div></div>
+  <div class="grid-4">
+    <div class="card kpi-red"><div class="kpi-label">Suporte aberto</div><div class="kpi-val">${abertos.length}</div><div class="kpi-sub">chamados pendentes</div></div>
+    <div class="card kpi-yellow"><div class="kpi-label">Vencendo em 7 dias</div><div class="kpi-val">${vencendo7.length}</div><div class="kpi-sub">Risco de churn</div></div>
+    <div class="card kpi-red"><div class="kpi-label">Vencidos</div><div class="kpi-val">${vencidos.length}</div><div class="kpi-sub">Cobrar ou cancelar</div></div>
+    <div class="card kpi-green"><div class="kpi-label">Novos (≤30 dias)</div><div class="kpi-val">${novos.length}</div><div class="kpi-sub">Fazer onboarding</div></div>
+  </div>
+  ${abertos.length>0?`<div class="card" style="margin-bottom:16px"><div class="card-title" style="color:var(--red)">💬 Suporte aguardando resposta</div>${abertos.map(t=>`<div class="alert alert-red"><div><strong>${t.clinicName||t.email}</strong> — <span class="${planClass(t.plano)}">${planLabel(t.plano)}</span><div style="margin-top:2px">${t.messages?.[t.messages.length-1]?.text||'Novo chamado'}</div></div><button class="btn btn-outline btn-sm" onclick="goTo('suporte')" style="margin-left:auto;flex-shrink:0">Responder</button></div>`).join('')}</div>`:''}
+  ${vencendo7.length>0?`<div class="card" style="margin-bottom:16px"><div class="card-title" style="color:var(--yellow)">⚠️ Vencendo nos próximos 7 dias</div>${vencendo7.map(c=>`<div class="alert alert-yellow"><div><strong>${c.nome||c.email}</strong> — <span class="${planClass(c.plano)}">${planLabel(c.plano)}</span><div>Vence em ${daysDiff(c.vencimento)} dia${daysDiff(c.vencimento)!==1?'s':''}</div></div><button class="btn btn-outline btn-sm" onclick="openModal('${c.id}')" style="margin-left:auto">Renovar</button></div>`).join('')}</div>`:''}
+  ${abertos.length===0&&vencendo7.length===0&&vencidos.length===0&&novos.length===0?`<div class="card" style="text-align:center;padding:48px"><div style="font-size:40px;margin-bottom:12px">✅</div><div style="font-weight:700;font-size:16px">Tudo em ordem!</div></div>`:''}`;
+}
+
+// CONFIG
+function renderConfig(){
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar">
+    <div><div class="page-title">Configurações</div><div class="page-sub">Preços e custos operacionais</div></div>
+    <div class="topbar-right"><button class="btn btn-green" onclick="saveConfig()">💾 Salvar tudo</button></div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="config-section">
+      <h3>💰 Preços por plano (R$/mês)</h3>
+      <div class="config-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="config-item"><label>🌱 Starter</label><input class="config-input" id="cfg-p-starter" type="number" value="${config.precos.starter}"/></div>
+        <div class="config-item"><label>⭐ Profissional</label><input class="config-input" id="cfg-p-prof" type="number" value="${config.precos.profissional}"/></div>
+        <div class="config-item"><label>🏥 Clínica</label><input class="config-input" id="cfg-p-clin" type="number" value="${config.precos.clinica}"/></div>
+        <div class="config-item"><label>👑 Premium</label><input class="config-input" id="cfg-p-prem" type="number" value="${config.precos.premium}"/></div>
+      </div>
+    </div>
+    <div class="config-section">
+      <h3>📦 Custos fixos mensais</h3>
+      <div class="config-grid">
+        <div class="config-item"><label>VPS / Hospedagem</label><input class="config-input" id="cfg-c-vps" type="number" step="0.01" value="${config.custos.vps}"/></div>
+        <div class="config-item"><label>Email profissional</label><input class="config-input" id="cfg-c-email" type="number" step="0.01" value="${config.custos.email}"/></div>
+        <div class="config-item"><label>Outros</label><input class="config-input" id="cfg-c-outros" type="number" step="0.01" value="${config.custos.outros}"/></div>
+      </div>
+    </div>
+    <div class="config-section" style="margin-bottom:0">
+      <h3>📈 Custos variáveis (por cliente/mês)</h3>
+      <div class="config-grid">
+        <div class="config-item"><label>Anthropic API</label><input class="config-input" id="cfg-c-anthropic" type="number" step="0.01" value="${config.custos.anthropic_por_cliente}"/></div>
+        <div class="config-item"><label>Meta / WhatsApp</label><input class="config-input" id="cfg-c-meta" type="number" step="0.01" value="${config.custos.meta}"/></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="background:var(--green-l);border-color:rgba(0,212,160,.3)">
+    <div style="font-size:13px;color:var(--green)">💡 Preview: MRR de <strong>${fmtBRL(mrr())}</strong> − custos de <strong>${fmtBRL(custoTotal(ativos().length))}</strong> = lucro de <strong>${fmtBRL(lucroLiq())}</strong>/mês</div>
+  </div>`;
+}
+
+async function saveConfig(){
+  config.precos.starter=parseFloat(document.getElementById('cfg-p-starter').value)||397;
+  config.precos.profissional=parseFloat(document.getElementById('cfg-p-prof').value)||597;
+  config.precos.clinica=parseFloat(document.getElementById('cfg-p-clin').value)||997;
+  config.precos.premium=parseFloat(document.getElementById('cfg-p-prem').value)||1497;
+  config.custos.vps=parseFloat(document.getElementById('cfg-c-vps').value)||0;
+  config.custos.email=parseFloat(document.getElementById('cfg-c-email').value)||11.99;
+  config.custos.outros=parseFloat(document.getElementById('cfg-c-outros').value)||0;
+  config.custos.anthropic_por_cliente=parseFloat(document.getElementById('cfg-c-anthropic').value)||0;
+  config.custos.meta=parseFloat(document.getElementById('cfg-c-meta').value)||0;
+  await api('crmSaveConfig',{config});
+  toast('✅ Configurações salvas!');
+  renderConfig();
+}
+
+// MODAL CLIENTE
+function openModal(id){
+  editId=id||null;
+  const c=id?clientes.find(x=>x.id===id):null;
+  document.getElementById('modal-title').textContent=c?'Editar cliente':'Adicionar cliente';
+  document.getElementById('f-nome').value=c?.nome||'';
+  document.getElementById('f-email').value=c?.email||'';
+  document.getElementById('f-plano').value=c?.plano||'starter';
+  document.getElementById('f-status').value=c?.status||'ativo';
+  document.getElementById('f-inicio').value=c?.inicio||new Date().toISOString().split('T')[0];
+  document.getElementById('f-venc').value=c?.vencimento||nextMonth();
+  document.getElementById('f-tel').value=c?.telefone||'';
+  document.getElementById('f-cidade').value=c?.cidade||'';
+  document.getElementById('f-obs').value=c?.obs||'';
+  document.getElementById('modal-cliente').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal-cliente').classList.remove('open'); }
+
+async function saveCliente(){
+  const email=document.getElementById('f-email').value.trim().toLowerCase();
+  if(!email){ alert('Email obrigatório'); return; }
+  const data={
+    nome:document.getElementById('f-nome').value.trim(),
+    email,plano:document.getElementById('f-plano').value,
+    status:document.getElementById('f-status').value,
+    inicio:document.getElementById('f-inicio').value,
+    vencimento:document.getElementById('f-venc').value,
+    telefone:document.getElementById('f-tel').value.trim(),
+    cidade:document.getElementById('f-cidade').value.trim(),
+    obs:document.getElementById('f-obs').value.trim(),
+    id:editId||keyId(email),
+    updatedAt:new Date().toISOString(),
+  };
+  if(!editId) data.createdAt=new Date().toISOString();
+  document.getElementById('save-btn').textContent='Salvando...';
+  await api('crmSaveCliente',{cliente:data});
+  const idx=clientes.findIndex(c=>c.id===data.id);
+  if(idx>=0) clientes[idx]=data; else clientes.push(data);
+  closeModal();
+  document.getElementById('save-btn').textContent='Salvar';
+  toast('✅ Cliente salvo!');
+  await api('setAccess',{email,plano:data.plano});
+  goTo(currentPage);
+}
+
+async function deleteCliente(id,nome){
+  if(!confirm(`Remover "${nome}" do CRM?`)) return;
+  await api('crmDeleteCliente',{id});
+  clientes=clientes.filter(c=>c.id!==id);
+  toast('🗑️ Cliente removido');
+  goTo(currentPage);
+}
+
+// TOAST
+function toast(msg,type){
+  const t=document.createElement('div');
+  t.className='toast';
+  t.style.borderColor=type==='error'?'var(--red)':'var(--green)';
+  t.style.color=type==='error'?'var(--red)':'var(--green)';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+document.getElementById('modal-cliente').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+</script>
+</body>
+</html>
