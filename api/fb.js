@@ -717,6 +717,154 @@ module.exports = async (req, res) => {
       });
     }
 
+    // ── CRM: listar clientes (colecao crm_clientes) ──────
+    if (action === "crmListClientes") {
+      const r = await fsReq("crm_clientes");
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ clientes: [] });
+      const clientes = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        return {
+          id: doc.name.split("/").pop(),
+          nome: g("nome"), email: g("email"), plano: g("plano"),
+          status: g("status"), inicio: g("inicio"), vencimento: g("vencimento"),
+          telefone: g("telefone"), cidade: g("cidade"), obs: g("obs"),
+          createdAt: g("createdAt"), updatedAt: g("updatedAt"),
+        };
+      });
+      return res.status(200).json({ clientes });
+    }
+
+    // ── CRM: salvar cliente ───────────────────────────
+    if (action === "crmSaveCliente") {
+      const { cliente } = payload;
+      if (!cliente?.id) return res.status(400).json({ error: "ID obrigatório" });
+      const r = await fsReq(`crm_clientes/${cliente.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields(cliente) }),
+      });
+      return res.status(200).json(await r.json());
+    }
+
+    // ── CRM: deletar cliente ──────────────────────────
+    if (action === "crmDeleteCliente") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+      const url = `${FS}/crm_clientes/${id}?key=${API_KEY}`;
+      await fetch(url, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── CRM: config ───────────────────────────────────
+    if (action === "crmGetConfig") {
+      const r = await fsReq("crm_config/main");
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json({ config: null });
+      try {
+        const cfg = JSON.parse(d.fields.json?.stringValue || "{}");
+        return res.status(200).json({ config: cfg });
+      } catch { return res.status(200).json({ config: null }); }
+    }
+
+    if (action === "crmSaveConfig") {
+      const { config } = payload;
+      const r = await fsReq("crm_config/main", {
+        method: "PATCH",
+        body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(config) } } }),
+      });
+      return res.status(200).json(await r.json());
+    }
+
+    // ── SUPORTE: listar tickets ───────────────────────
+    if (action === "listSupportTickets") {
+      const r = await fsReq("support_tickets");
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ tickets: [] });
+      const tickets = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = k => f[k]?.stringValue || "";
+        return {
+          id: doc.name.split("/").pop(),
+          email: g("email"), clinicName: g("clinicName"), plano: g("plano"),
+          title: g("title"), status: g("status") || "aberto",
+          createdAt: g("createdAt"), updatedAt: g("updatedAt"),
+          messages: JSON.parse(f.messages?.stringValue || "[]"),
+        };
+      });
+      return res.status(200).json({ tickets });
+    }
+
+    // ── SUPORTE: criar ticket ─────────────────────────
+    if (action === "createSupportTicket") {
+      const { email, clinicName, plano, title, message } = payload;
+      if (!email) return res.status(400).json({ error: "Email obrigatório" });
+      const id = emailToKey(email) + "_" + Date.now();
+      const msgs = message ? JSON.stringify([{ role: "client", text: message, at: new Date().toISOString() }]) : "[]";
+      const r = await fsReq(`support_tickets/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields({
+          email, clinicName: clinicName || email.split("@")[0], plano: plano || "starter",
+          title: title || message || "Novo chamado",
+          status: "aberto", messages: msgs,
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        })}),
+      });
+      return res.status(200).json({ ok: true, id });
+    }
+
+    // ── SUPORTE: adicionar mensagem ───────────────────
+    if (action === "addSupportMessage") {
+      const { ticketId, message } = payload;
+      if (!ticketId || !message) return res.status(400).json({ error: "ticketId e message obrigatórios" });
+      // Busca msgs atuais
+      const r = await fsReq(`support_tickets/${ticketId}`);
+      const d = await r.json();
+      const msgs = JSON.parse(d.fields?.messages?.stringValue || "[]");
+      msgs.push(message);
+      const r2 = await fsReq(`support_tickets/${ticketId}?updateMask.fieldPaths=messages&updateMask.fieldPaths=updatedAt`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: {
+          messages: { stringValue: JSON.stringify(msgs) },
+          updatedAt: { stringValue: new Date().toISOString() },
+        }}),
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── SUPORTE: atualizar status ─────────────────────
+    if (action === "updateSupportTicket") {
+      const { id, status } = payload;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+      const url = `${FS}/support_tickets/${id}?key=${API_KEY}&updateMask.fieldPaths=status&updateMask.fieldPaths=updatedAt`;
+      await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: {
+          status: { stringValue: status || "resolvido" },
+          updatedAt: { stringValue: new Date().toISOString() },
+        }}),
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── SUPORTE: buscar ticket por email ──────────────
+    if (action === "getSupportTickets") {
+      const { email } = payload;
+      if (!email) return res.status(400).json({ tickets: [] });
+      const r = await fsReq("support_tickets");
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ tickets: [] });
+      const tickets = (d.documents || [])
+        .map(doc => {
+          const f = doc.fields || {};
+          const g = k => f[k]?.stringValue || "";
+          return { id: doc.name.split("/").pop(), email: g("email"), clinicName: g("clinicName"), plano: g("plano"), title: g("title"), status: g("status") || "aberto", createdAt: g("createdAt"), updatedAt: g("updatedAt"), messages: JSON.parse(f.messages?.stringValue || "[]") };
+        })
+        .filter(t => t.email === email);
+      return res.status(200).json({ tickets });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
