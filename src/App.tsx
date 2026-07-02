@@ -9,6 +9,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import ProntuarioPanel from './components/ProntuarioPanel';
 import FirstAccessModal from './components/FirstAccessModal';
+import SupportChat from './components/SupportChat';
 import ProfileModal from './components/ProfileModal';
 import LoginScreen from './components/LoginScreen';
 
@@ -761,6 +762,15 @@ export default function App() {
             email={userProfile.email || localStorage.getItem('atendia_email') || ''}
             idToken={firstAccessIdToken}
             onComplete={() => setShowFirstAccess(false)}
+          />
+        )}
+
+        {/* Chat de Suporte */}
+        {isLoggedIn && (
+          <SupportChat
+            email={userProfile.email || localStorage.getItem('atendia_email') || ''}
+            clinicName={userProfile.clinicName || userProfile.name || ''}
+            currentPlan={currentPlan}
           />
         )}
 
