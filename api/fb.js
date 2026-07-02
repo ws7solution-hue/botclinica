@@ -822,8 +822,11 @@ module.exports = async (req, res) => {
       const d = await r.json();
       const msgs = JSON.parse(d.fields?.messages?.stringValue || "[]");
       msgs.push(message);
-      const r2 = await fsReq(`support_tickets/${ticketId}?updateMask.fieldPaths=messages&updateMask.fieldPaths=updatedAt`, {
+      // URL com updateMask e key corretos (sem double ?)
+      const url = `${FS}/support_tickets/${ticketId}?key=${API_KEY}&updateMask.fieldPaths=messages&updateMask.fieldPaths=updatedAt`;
+      await fetch(url, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: {
           messages: { stringValue: JSON.stringify(msgs) },
           updatedAt: { stringValue: new Date().toISOString() },
