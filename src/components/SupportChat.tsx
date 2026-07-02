@@ -36,6 +36,21 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
   const [loading, setLoading] = useState(false);
   const [unread, setUnread] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-fechar após 5 minutos de inatividade
+  const resetInactivityTimer = () => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(() => {
+      setOpen(false);
+    }, 5 * 60 * 1000); // 5 minutos
+  };
+
+  useEffect(() => {
+    if (open) resetInactivityTimer();
+    else if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    return () => { if (inactivityTimer.current) clearTimeout(inactivityTimer.current); };
+  }, [open]);
 
   const hasSupport = SUPPORT_PLANS.includes(currentPlan);
 
@@ -101,6 +116,7 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
 
   async function sendMessage() {
     if (!newMessage.trim() || !activeTicket) return;
+    resetInactivityTimer();
     const msg: Message = { role: 'client', text: newMessage.trim(), at: new Date().toISOString() };
     setNewMessage('');
     // Otimistic update
@@ -141,7 +157,7 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     <div className="fixed bottom-6 right-6 z-50">
       {/* Botão flutuante */}
       <button
-        onClick={() => { setOpen(v => !v); setUnread(0); }}
+        onClick={() => { setOpen(v => !v); setUnread(0); resetInactivityTimer(); }}
         className="w-14 h-14 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-full shadow-2xl flex items-center justify-center transition-all relative"
       >
         {open ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
