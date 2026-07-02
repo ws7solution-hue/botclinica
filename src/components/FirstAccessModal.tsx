@@ -47,7 +47,9 @@ export default function FirstAccessModal({ email, idToken, onComplete }: FirstAc
       });
 
       setDone(true);
-      setTimeout(onComplete, 2000);
+      // Marca localmente que a senha já foi definida — evita o modal reaparecer
+      localStorage.setItem('atendia_password_set', 'true');
+      setTimeout(onComplete, 1500);
     } catch {
       setError('Erro de conexão. Tente novamente.');
       setLoading(false);
