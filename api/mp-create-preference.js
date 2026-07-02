@@ -7,7 +7,7 @@ const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || "";
 const PLAN_PRICES = {
   starter: 397,
   profissional: 597,
-  clinica: 0.02,
+  clinica: 997,
   premium: 1497,
 };
 
