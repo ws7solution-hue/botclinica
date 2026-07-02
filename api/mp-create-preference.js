@@ -8,7 +8,7 @@ const PLAN_PRICES = {
   starter: 397,
   profissional: 597,
   clinica: 997,
-  premium: 0.01,
+  premium: 0,01,
 };
 
 const PLAN_NAMES = {
