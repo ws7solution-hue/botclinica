@@ -217,7 +217,8 @@ export default function App() {
 
     // Primeiro acesso — abre modal pra definir senha própria
     // Só mostra se o servidor confirmou firstAccess: true (não depende só do profile local)
-    if (profile.firstAccess === true && profile.idToken) {
+    // E só mostra em login novo (não em reload de sessão existente)
+    if (profile.firstAccess === true && profile.idToken && !localStorage.getItem('atendia_password_set')) {
       setFirstAccessIdToken(profile.idToken);
       setShowFirstAccess(true);
     }
@@ -644,6 +645,7 @@ export default function App() {
           setIsLoggedIn(false);
           localStorage.removeItem('atendia_logged_in');
           localStorage.removeItem('atendia_email');
+          localStorage.removeItem('atendia_password_set');
           setDoctors([]);
           setAppointments([]);
           setConversations([]);
