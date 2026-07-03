@@ -697,6 +697,7 @@ export default function App() {
               setSelectedChatId={setSelectedChatId}
               onAddSystemLog={addSystemLog}
               onOpenQuickAppointmentWithPatient={handleOpenQuickAppointmentWithPatient}
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
             />
           )}
 
@@ -719,6 +720,7 @@ export default function App() {
               specialties={specialties}
               setActiveTab={setActiveTab}
               currentPlan={currentPlan}
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
             />
           )}
 
