@@ -34,13 +34,20 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
   }
 
   async function handleConnect() {
+    if (!clinicId) {
+      setError('Email da clínica não identificado. Faça logout e login novamente.');
+      setStatus('error');
+      return;
+    }
     setStatus('loading');
     setError('');
     setQrData(null);
     onAddSystemLog('info', 'Gerando QR Code do WhatsApp...');
 
     try {
-      const r = await fetch(`${WA_SERVICE}/qr/${encodeURIComponent(clinicId)}`);
+      const encoded = encodeURIComponent(clinicId);
+      const r = await fetch(`${WA_SERVICE}/qr/${encoded}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
 
       if (d.connected) {
