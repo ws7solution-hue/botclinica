@@ -1,150 +1,145 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, Smartphone, AlertCircle, Loader, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw } from 'lucide-react';
 
-const META_APP_ID = '1350636587005556';
-const META_APP_SECRET = '20e8a34c67874880aa0b897148e8311c';
-const REDIRECT_URI = 'https://botclinica.com.br/app';
+// URL do serviço multi-tenant na VPS
+const WA_SERVICE = 'https://api.botclinica.com.br/wa';
 
 interface WhatsAppConnectProps {
   clinicId: string;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
 }
 
-interface WACredentials {
-  phoneNumber: string;
-  phoneNumberId: string;
-  wabaId: string;
-  connectedAt: string;
-}
-
 export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppConnectProps) {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'connected' | 'error'>('idle');
-  const [credentials, setCredentials] = useState<WACredentials | null>(null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'qr' | 'connected' | 'error'>('idle');
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [phone, setPhone] = useState('');
+  const [error, setError] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Busca credenciais já salvas
   useEffect(() => {
     if (!clinicId) return;
-    fetch('/api/fb', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getWhatsAppCredentials', payload: { clinicId } }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d && d.phoneNumber) {
-          setCredentials(d);
-          setStatus('connected');
-        }
-      })
-      .catch(() => {});
+    checkStatus();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [clinicId]);
 
-  // Verifica se voltou do OAuth com ?code= na URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-
-    if (!code || !state) return;
-
-    const savedState = localStorage.getItem('wa_oauth_state');
-    const savedClinicId = localStorage.getItem('wa_oauth_clinic');
-
-    if (state !== savedState) return;
-
-    // Limpa os params da URL sem reload
-    const url = new URL(window.location.href);
-    url.searchParams.delete('code');
-    url.searchParams.delete('state');
-    window.history.replaceState({}, '', url.toString());
-    localStorage.removeItem('wa_oauth_state');
-    localStorage.removeItem('wa_oauth_clinic');
-
-    // Usa o clinicId salvo no localStorage (evita race condition)
-    const effectiveClinicId = savedClinicId || clinicId;
-    if (!effectiveClinicId) return;
-
-    setStatus('loading');
-    onAddSystemLog('info', 'Autorizando WhatsApp Business...');
-    exchangeCodeForToken(code, effectiveClinicId);
-  }, []); // Roda só uma vez no mount — código OAuth só aparece uma vez
-
-  async function exchangeCodeForToken(code: string, effectiveClinicId: string) {
+  async function checkStatus() {
     try {
-      // Troca o code pelo token via nossa API (evita expor o App Secret no frontend)
-      const r = await fetch('/api/fb', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'exchangeWACode',
-          payload: { code, redirectUri: REDIRECT_URI, clinicId: effectiveClinicId },
-        }),
-      });
+      const r = await fetch(`${WA_SERVICE}/status/${encodeURIComponent(clinicId)}`);
+      const d = await r.json();
+      if (d.connected) {
+        setPhone(d.phone || '');
+        setStatus('connected');
+      }
+    } catch (e) {}
+  }
+
+  async function handleConnect() {
+    setStatus('loading');
+    setError('');
+    setQrData(null);
+    onAddSystemLog('info', 'Gerando QR Code do WhatsApp...');
+
+    try {
+      const r = await fetch(`${WA_SERVICE}/qr/${encodeURIComponent(clinicId)}`);
       const d = await r.json();
 
-      if (d.error || !d.phoneNumber) {
-        throw new Error(d.error || 'Não foi possível obter as credenciais do WhatsApp.');
+      if (d.connected) {
+        setPhone(d.phone || '');
+        setStatus('connected');
+        onAddSystemLog('success', `WhatsApp ${d.phone} já está conectado!`);
+        return;
       }
 
-      setCredentials(d);
-      setStatus('connected');
-      onAddSystemLog('success', `WhatsApp ${d.phoneNumber} conectado com sucesso ao AtendIA!`);
+      if (d.qr) {
+        setQrData(d.qr);
+        setStatus('qr');
+        onAddSystemLog('info', 'QR Code gerado! Escaneie com o WhatsApp da clínica.');
+        startPolling();
+        return;
+      }
+
+      throw new Error(d.error || 'Erro ao gerar QR Code.');
     } catch (e: any) {
       setStatus('error');
-      onAddSystemLog('error', `Erro ao conectar WhatsApp: ${e.message}`);
+      setError(e.message);
+      onAddSystemLog('error', `Erro: ${e.message}`);
     }
   }
 
-  function handleConnect() {
-    // Gera state aleatório pra segurança CSRF
-    const state = Math.random().toString(36).substring(2);
-    localStorage.setItem('wa_oauth_state', state);
-    localStorage.setItem('wa_oauth_clinic', clinicId);
-
-    // Monta URL do OAuth da Meta — sem SDK, abre direto no navegador
-    const params = new URLSearchParams({
-      client_id: META_APP_ID,
-      redirect_uri: REDIRECT_URI,
-      scope: 'whatsapp_business_messaging,whatsapp_business_management',
-      response_type: 'code',
-      state,
-    });
-
-    const oauthUrl = `https://www.facebook.com/dialog/oauth?${params.toString()}`;
-    window.location.href = oauthUrl;
+  function startPolling() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 60) { // 2 minutos
+        clearInterval(pollRef.current!);
+        setStatus('idle');
+        setQrData(null);
+        return;
+      }
+      try {
+        const r = await fetch(`${WA_SERVICE}/status/${encodeURIComponent(clinicId)}`);
+        const d = await r.json();
+        if (d.connected) {
+          clearInterval(pollRef.current!);
+          setPhone(d.phone || '');
+          setStatus('connected');
+          setQrData(null);
+          onAddSystemLog('success', `WhatsApp ${d.phone} conectado com sucesso!`);
+        }
+      } catch (e) {}
+    }, 2000);
   }
 
   async function handleDisconnect() {
-    await fetch('/api/fb', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'saveWhatsAppCredentials',
-        payload: { clinicId, phoneNumberId: '', accessToken: '', wabaId: '', phoneNumber: '' },
-      }),
-    });
-    setCredentials(null);
-    setStatus('idle');
-    onAddSystemLog('info', 'WhatsApp desconectado.');
+    try {
+      await fetch(`${WA_SERVICE}/disconnect/${encodeURIComponent(clinicId)}`, { method: 'DELETE' });
+      setStatus('idle');
+      setPhone('');
+      setQrData(null);
+      if (pollRef.current) clearInterval(pollRef.current);
+      onAddSystemLog('info', 'WhatsApp desconectado.');
+    } catch (e) {
+      onAddSystemLog('error', 'Erro ao desconectar.');
+    }
   }
 
-  if (status === 'connected' && credentials) {
+  if (status === 'connected') {
     return (
       <div className="flex items-center gap-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
         <CheckCircle className="w-8 h-8 text-emerald-500 flex-shrink-0" />
         <div className="flex-1">
-          <p className="text-sm font-bold text-emerald-700 font-sans">WhatsApp Conectado</p>
-          <p className="text-xs text-emerald-600 font-sans">{credentials.phoneNumber}</p>
-          <p className="text-[10px] text-emerald-500 font-sans mt-0.5">
-            Conectado em {new Date(credentials.connectedAt).toLocaleDateString('pt-BR')}
-          </p>
+          <p className="text-sm font-bold text-emerald-700 font-sans">WhatsApp Conectado ✅</p>
+          <p className="text-xs text-emerald-600 font-sans">{phone ? `+${phone}` : 'Número ativo'}</p>
+          <p className="text-[10px] text-emerald-500 font-sans mt-0.5">Mensagens sendo recebidas e respondidas automaticamente</p>
         </div>
-        <button
-          onClick={handleDisconnect}
-          className="text-xs text-emerald-600 hover:text-red-500 font-sans font-medium transition-colors"
-        >
+        <button onClick={handleDisconnect} className="text-xs text-emerald-600 hover:text-red-500 font-sans font-medium transition-colors">
           Desconectar
         </button>
+      </div>
+    );
+  }
+
+  if (status === 'qr' && qrData) {
+    return (
+      <div className="space-y-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 text-center">
+          <p className="text-xs font-bold text-slate-700 font-sans mb-1">Escaneie o QR Code com o WhatsApp da clínica</p>
+          <p className="text-[11px] text-slate-500 font-sans mb-4">
+            Abra o WhatsApp → Menu → Aparelhos conectados → Conectar um aparelho
+          </p>
+          <div className="flex justify-center mb-4">
+            <img src={qrData} alt="QR Code WhatsApp" className="w-52 h-52 rounded-xl border border-slate-100" />
+          </div>
+          <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 font-sans">
+            <Loader className="w-3 h-3 animate-spin text-[#1A6FA8]" />
+            Aguardando leitura do QR Code...
+          </div>
+          <button onClick={handleConnect} className="mt-3 flex items-center gap-1 text-xs text-[#1A6FA8] font-sans mx-auto hover:underline">
+            <RefreshCw className="w-3 h-3" /> Gerar novo QR Code
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-400 font-sans text-center">O QR Code expira em 2 minutos. Se expirar, clique em "Gerar novo QR Code".</p>
       </div>
     );
   }
@@ -155,36 +150,32 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         <div className="flex items-start gap-3">
           <Smartphone className="w-5 h-5 text-[#1A6FA8] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-bold text-slate-700 font-sans">Conecte o WhatsApp Business da sua clínica</p>
+            <p className="text-xs font-bold text-slate-700 font-sans">Conecte o WhatsApp da sua clínica</p>
             <p className="text-[11px] text-slate-500 font-sans mt-1">
-              Você será redirecionado para o Facebook para autorizar o acesso. O processo leva menos de 2 minutos.
+              Escaneie um QR Code com o WhatsApp do número da clínica. Qualquer chip funciona — sem burocracia.
             </p>
           </div>
         </div>
       </div>
 
-      {status === 'error' && (
+      {error && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs text-red-600 font-sans">Erro ao conectar. Tente novamente.</p>
+          <p className="text-xs text-red-600 font-sans">{error}</p>
         </div>
       )}
 
-      {status === 'loading' ? (
-        <div className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 rounded-xl">
-          <Loader className="w-4 h-4 animate-spin text-[#1A6FA8]" />
-          <span className="text-sm text-slate-600 font-sans">Conectando...</span>
-        </div>
-      ) : (
-        <button
-          onClick={handleConnect}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#1EB958] text-white font-bold text-sm rounded-xl transition-colors font-sans"
-        >
-          <Smartphone className="w-4 h-4" />
-          Conectar WhatsApp Business
-          <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-        </button>
-      )}
+      <button
+        onClick={handleConnect}
+        disabled={status === 'loading'}
+        className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#1EB958] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-colors font-sans"
+      >
+        {status === 'loading' ? (
+          <><Loader className="w-4 h-4 animate-spin" /> Gerando QR Code...</>
+        ) : (
+          <><Smartphone className="w-4 h-4" /> Conectar WhatsApp via QR Code</>
+        )}
+      </button>
     </div>
   );
 }
