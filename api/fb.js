@@ -685,7 +685,67 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: !d.error });
     }
 
-    // ── WHATSAPP CREDENTIALS: salvar por clínica ─────────
+    // ── WHATSAPP: trocar code OAuth pelo token ────────
+    if (action === "exchangeWACode") {
+      const { code, redirectUri, clinicId } = payload;
+      if (!code) return res.status(400).json({ error: "code obrigatório" });
+
+      const APP_ID = "1350636587005556";
+      const APP_SECRET = "20e8a34c67874880aa0b897148e8311c";
+
+      // Troca code por token
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v20.0/oauth/access_token?client_id=${APP_ID}&client_secret=${APP_SECRET}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+      );
+      const tokenData = await tokenRes.json();
+      if (!tokenData.access_token) {
+        console.error("exchangeWACode token error:", tokenData);
+        return res.status(200).json({ error: "Falha ao obter token: " + (tokenData.error?.message || "erro desconhecido") });
+      }
+
+      const accessToken = tokenData.access_token;
+
+      // Busca WABAs do usuário
+      const wabaRes = await fetch(
+        `https://graph.facebook.com/v20.0/me/businesses?fields=whatsapp_business_accounts&access_token=${accessToken}`
+      );
+      const wabaData = await wabaRes.json();
+      const waba = wabaData.data?.[0]?.whatsapp_business_accounts?.data?.[0];
+      if (!waba) return res.status(200).json({ error: "Nenhuma conta WhatsApp Business encontrada." });
+
+      const wabaId = waba.id;
+
+      // Busca número de telefone
+      const phoneRes = await fetch(
+        `https://graph.facebook.com/v20.0/${wabaId}/phone_numbers?access_token=${accessToken}`
+      );
+      const phoneData = await phoneRes.json();
+      const phoneInfo = phoneData.data?.[0];
+      if (!phoneInfo) return res.status(200).json({ error: "Nenhum número de telefone encontrado." });
+
+      // Salva credenciais no Firestore
+      if (clinicId) {
+        const key = emailToKey(clinicId);
+        const col = `clinic_settings_${key}`;
+        await fsReq(`${col}/whatsapp`, {
+          method: "PATCH",
+          body: JSON.stringify({ fields: toFsFields({
+            phoneNumberId: phoneInfo.id,
+            accessToken,
+            wabaId,
+            phoneNumber: phoneInfo.display_phone_number,
+            connectedAt: new Date().toISOString(),
+          })}),
+        });
+      }
+
+      return res.status(200).json({
+        phoneNumber: phoneInfo.display_phone_number,
+        phoneNumberId: phoneInfo.id,
+        wabaId,
+        connectedAt: new Date().toISOString(),
+      });
+    }
     if (action === "saveWhatsAppCredentials") {
       const { clinicId, phoneNumberId, accessToken, wabaId, phoneNumber, token } = payload;
       if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
