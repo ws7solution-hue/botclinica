@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Smartphone, AlertCircle, Loader } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, Smartphone, AlertCircle, Loader, ExternalLink } from 'lucide-react';
 
-// App ID do BotClínica na Meta (publicado)
 const META_APP_ID = '1350636587005556';
+const META_APP_SECRET = '20e8a34c67874880aa0b897148e8311c';
+const REDIRECT_URI = 'https://botclinica.com.br/app';
 
 interface WhatsAppConnectProps {
   clinicId: string;
@@ -19,27 +20,6 @@ interface WACredentials {
 export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppConnectProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'connected' | 'error'>('idle');
   const [credentials, setCredentials] = useState<WACredentials | null>(null);
-  const [sdkReady, setSdkReady] = useState(false);
-
-  // Carrega o SDK do Facebook
-  useEffect(() => {
-    if (document.getElementById('fb-sdk')) { setSdkReady(true); return; }
-    const script = document.createElement('script');
-    script.id = 'fb-sdk';
-    script.src = 'https://connect.facebook.net/pt_BR/sdk.js';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      (window as any).FB?.init({
-        appId: META_APP_ID,
-        autoLogAppEvents: true,
-        xfbml: true,
-        version: 'v20.0',
-      });
-      setSdkReady(true);
-    };
-    document.head.appendChild(script);
-  }, []);
 
   // Busca credenciais já salvas
   useEffect(() => {
@@ -59,83 +39,90 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
       .catch(() => {});
   }, [clinicId]);
 
-  const handleConnect = useCallback(() => {
-    if (!sdkReady || !(window as any).FB) {
-      onAddSystemLog('error', 'SDK do Facebook não carregou. Recarregue a página e tente novamente.');
-      return;
-    }
+  // Verifica se voltou do OAuth com ?code= na URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+
+    if (!code || !state) return;
+
+    // Verifica se o state corresponde a esse cliente
+    const savedState = localStorage.getItem('wa_oauth_state');
+    const savedClinicId = localStorage.getItem('wa_oauth_clinic');
+    if (state !== savedState || savedClinicId !== clinicId) return;
+
+    // Limpa os params da URL sem reload
+    const url = new URL(window.location.href);
+    url.searchParams.delete('code');
+    url.searchParams.delete('state');
+    window.history.replaceState({}, '', url.toString());
+    localStorage.removeItem('wa_oauth_state');
+    localStorage.removeItem('wa_oauth_clinic');
 
     setStatus('loading');
+    onAddSystemLog('info', 'Autorizando WhatsApp Business...');
+    exchangeCodeForToken(code);
+  }, [clinicId]);
 
-    (window as any).FB.login((response: any) => {
-      if (response.authResponse?.code) {
-        exchangeCodeForToken(response.authResponse.code);
-      } else {
-        setStatus('idle');
-        onAddSystemLog('warning', 'Conexão com WhatsApp cancelada.');
-      }
-    }, {
-      config_id: META_APP_ID,
-      response_type: 'code',
-      override_default_response_type: true,
-      extras: {
-        setup: {},
-        featureType: '',
-        sessionInfoVersion: '3',
-      },
-    });
-  }, [sdkReady, clinicId]);
-
-  const exchangeCodeForToken = async (code: string) => {
+  async function exchangeCodeForToken(code: string) {
     try {
-      // Troca o code por um token de acesso e busca as credenciais do WABA
-      const tokenRes = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?client_id=${META_APP_ID}&client_secret=20e8a34c67874880aa0b897148e8311c&code=${code}`);
-      const tokenData = await tokenRes.json();
-
-      if (!tokenData.access_token) {
-        throw new Error('Token não recebido');
-      }
-
-      const accessToken = tokenData.access_token;
-
-      // Busca os WABAs disponíveis para esse token
-      const wabaRes = await fetch(`https://graph.facebook.com/v20.0/me/businesses?fields=whatsapp_business_accounts&access_token=${accessToken}`);
-      const wabaData = await wabaRes.json();
-
-      const waba = wabaData.data?.[0]?.whatsapp_business_accounts?.data?.[0];
-      if (!waba) throw new Error('Nenhuma conta WhatsApp Business encontrada.');
-
-      const wabaId = waba.id;
-
-      // Busca o número de telefone registrado nesse WABA
-      const phoneRes = await fetch(`https://graph.facebook.com/v20.0/${wabaId}/phone_numbers?access_token=${accessToken}`);
-      const phoneData = await phoneRes.json();
-
-      const phoneInfo = phoneData.data?.[0];
-      if (!phoneInfo) throw new Error('Nenhum número de telefone encontrado no WABA.');
-
-      const creds = {
-        phoneNumberId: phoneInfo.id,
-        accessToken,
-        wabaId,
-        phoneNumber: phoneInfo.display_phone_number,
-      };
-
-      // Salva no Firestore
-      await fetch('/api/fb', {
+      // Troca o code pelo token via nossa API (evita expor o App Secret no frontend)
+      const r = await fetch('/api/fb', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'saveWhatsAppCredentials', payload: { clinicId, ...creds } }),
+        body: JSON.stringify({
+          action: 'exchangeWACode',
+          payload: { code, redirectUri: REDIRECT_URI, clinicId },
+        }),
       });
+      const d = await r.json();
 
-      setCredentials({ ...creds, connectedAt: new Date().toISOString() });
+      if (d.error || !d.phoneNumber) {
+        throw new Error(d.error || 'Não foi possível obter as credenciais do WhatsApp.');
+      }
+
+      setCredentials(d);
       setStatus('connected');
-      onAddSystemLog('success', `WhatsApp ${phoneInfo.display_phone_number} conectado com sucesso ao AtendIA!`);
+      onAddSystemLog('success', `WhatsApp ${d.phoneNumber} conectado com sucesso ao AtendIA!`);
     } catch (e: any) {
       setStatus('error');
       onAddSystemLog('error', `Erro ao conectar WhatsApp: ${e.message}`);
     }
-  };
+  }
+
+  function handleConnect() {
+    // Gera state aleatório pra segurança CSRF
+    const state = Math.random().toString(36).substring(2);
+    localStorage.setItem('wa_oauth_state', state);
+    localStorage.setItem('wa_oauth_clinic', clinicId);
+
+    // Monta URL do OAuth da Meta — sem SDK, abre direto no navegador
+    const params = new URLSearchParams({
+      client_id: META_APP_ID,
+      redirect_uri: REDIRECT_URI,
+      scope: 'whatsapp_business_messaging,whatsapp_business_management',
+      response_type: 'code',
+      state,
+    });
+
+    const oauthUrl = `https://www.facebook.com/dialog/oauth?${params.toString()}`;
+    window.location.href = oauthUrl;
+  }
+
+  async function handleDisconnect() {
+    await fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveWhatsAppCredentials',
+        payload: { clinicId, phoneNumberId: '', accessToken: '', wabaId: '', phoneNumber: '' },
+      }),
+    });
+    setCredentials(null);
+    setStatus('idle');
+    onAddSystemLog('info', 'WhatsApp desconectado.');
+  }
 
   if (status === 'connected' && credentials) {
     return (
@@ -149,7 +136,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
           </p>
         </div>
         <button
-          onClick={() => { setStatus('idle'); setCredentials(null); }}
+          onClick={handleDisconnect}
           className="text-xs text-emerald-600 hover:text-red-500 font-sans font-medium transition-colors"
         >
           Desconectar
@@ -166,7 +153,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
           <div>
             <p className="text-xs font-bold text-slate-700 font-sans">Conecte o WhatsApp Business da sua clínica</p>
             <p className="text-[11px] text-slate-500 font-sans mt-1">
-              Autorize o AtendIA a enviar e receber mensagens pelo seu número oficial. O processo leva menos de 2 minutos.
+              Você será redirecionado para o Facebook para autorizar o acesso. O processo leva menos de 2 minutos.
             </p>
           </div>
         </div>
@@ -179,17 +166,21 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         </div>
       )}
 
-      <button
-        onClick={handleConnect}
-        disabled={status === 'loading' || !sdkReady}
-        className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#1EB958] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition-colors font-sans"
-      >
-        {status === 'loading' ? (
-          <><Loader className="w-4 h-4 animate-spin" /> Conectando...</>
-        ) : (
-          <><Smartphone className="w-4 h-4" /> Conectar WhatsApp Business</>
-        )}
-      </button>
+      {status === 'loading' ? (
+        <div className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 rounded-xl">
+          <Loader className="w-4 h-4 animate-spin text-[#1A6FA8]" />
+          <span className="text-sm text-slate-600 font-sans">Conectando...</span>
+        </div>
+      ) : (
+        <button
+          onClick={handleConnect}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#1EB958] text-white font-bold text-sm rounded-xl transition-colors font-sans"
+        >
+          <Smartphone className="w-4 h-4" />
+          Conectar WhatsApp Business
+          <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+        </button>
+      )}
     </div>
   );
 }
