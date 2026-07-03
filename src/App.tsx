@@ -293,23 +293,53 @@ export default function App() {
 
     const clinicId = email.replace(/[@.]/g, '_');
     let isMounted = true;
+    let prevHumanNeeded = 0;
 
     const fetchConversations = () => {
       fbListConversations(clinicId)
         .then((convsList) => {
-          if (isMounted) {
-            setRawConversations(convsList || []);
+          if (!isMounted) return;
+          setRawConversations(convsList || []);
+
+          // Detecta novas conversas com human_needed e notifica
+          const humanNeeded = (convsList || []).filter(c => c.status === 'human_needed').length;
+          if (humanNeeded > prevHumanNeeded) {
+            // Notificação sonora
+            try {
+              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.setValueAtTime(880, ctx.currentTime);
+              osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
+              gain.gain.setValueAtTime(0.3, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+              osc.start(ctx.currentTime);
+              osc.stop(ctx.currentTime + 0.4);
+            } catch (e) {}
+
+            addSystemLog('warning', `🙋 Paciente solicitou atendimento humano! Vá em Conversas para responder.`);
+
+            // Notificação do navegador
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('AtendIA — Atendimento Humano', {
+                body: 'Um paciente está aguardando atendimento humano!',
+                icon: '/favicon.ico',
+              });
+            } else if ('Notification' in window && Notification.permission !== 'denied') {
+              Notification.requestPermission();
+            }
           }
+          prevHumanNeeded = humanNeeded;
         })
         .catch((err) => {
           console.error("Error fetching conversations:", err);
-          addSystemLog('error', `Erro na sincronização de conversas: ${err.message}. Mantendo dados locais.`);
         });
     };
 
     addSystemLog('info', 'Sincronizando conversas com o Firestore...');
     fetchConversations();
-    // Polling a cada 5 segundos pra mostrar mensagens novas em tempo real
     const interval = setInterval(fetchConversations, 5000);
 
     return () => {
