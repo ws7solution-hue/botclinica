@@ -47,10 +47,10 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
 
     if (!code || !state) return;
 
-    // Verifica se o state corresponde a esse cliente
     const savedState = localStorage.getItem('wa_oauth_state');
     const savedClinicId = localStorage.getItem('wa_oauth_clinic');
-    if (state !== savedState || savedClinicId !== clinicId) return;
+
+    if (state !== savedState) return;
 
     // Limpa os params da URL sem reload
     const url = new URL(window.location.href);
@@ -60,12 +60,16 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     localStorage.removeItem('wa_oauth_state');
     localStorage.removeItem('wa_oauth_clinic');
 
+    // Usa o clinicId salvo no localStorage (evita race condition)
+    const effectiveClinicId = savedClinicId || clinicId;
+    if (!effectiveClinicId) return;
+
     setStatus('loading');
     onAddSystemLog('info', 'Autorizando WhatsApp Business...');
-    exchangeCodeForToken(code);
-  }, [clinicId]);
+    exchangeCodeForToken(code, effectiveClinicId);
+  }, []); // Roda só uma vez no mount — código OAuth só aparece uma vez
 
-  async function exchangeCodeForToken(code: string) {
+  async function exchangeCodeForToken(code: string, effectiveClinicId: string) {
     try {
       // Troca o code pelo token via nossa API (evita expor o App Secret no frontend)
       const r = await fetch('/api/fb', {
@@ -73,7 +77,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'exchangeWACode',
-          payload: { code, redirectUri: REDIRECT_URI, clinicId },
+          payload: { code, redirectUri: REDIRECT_URI, clinicId: effectiveClinicId },
         }),
       });
       const d = await r.json();
