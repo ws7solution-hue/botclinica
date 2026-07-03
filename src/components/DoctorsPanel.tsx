@@ -26,6 +26,7 @@ import {
   Upload
 } from 'lucide-react';
 import { Doctor, AtendiaPlan } from '../types';
+import { fbSaveDoctor, fbDeleteDoctor } from '../firebase';
 
 interface DoctorsPanelProps {
   doctors: Doctor[];
@@ -34,6 +35,7 @@ interface DoctorsPanelProps {
   specialties: string[];
   setActiveTab: (tab: any) => void;
   currentPlan: AtendiaPlan;
+  clinicId?: string;
 }
 
 const DAYS_OF_WEEK = [
@@ -51,7 +53,8 @@ export default function DoctorsPanel({
   onAddSystemLog,
   specialties,
   setActiveTab,
-  currentPlan
+  currentPlan,
+  clinicId
 }: DoctorsPanelProps) {
   // Plan limits check
   const doctorLimit = useMemo(() => {
@@ -237,8 +240,8 @@ export default function DoctorsPanel({
   };
 
   // Save/Submit Add or Edit form
-  const handleSaveDoctor = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveDoctor = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!formName || !formCrm) {
       alert("Por favor, preencha o nome completo e o número de CRM.");
       return;
@@ -250,34 +253,30 @@ export default function DoctorsPanel({
 
     if (editingDoctor) {
       // Update Doctor
-      setDoctors(prev => prev.map(doc => {
-        if (doc.id === editingDoctor.id) {
-          const updated = {
-            ...doc,
-            name: formName,
-            specialty: formSpecialty,
-            crm: formCrm,
-            avatarUrl: formAvatarUrl,
-            attendanceDays: formAttendanceDays,
-            startTime: formStartTime,
-            endTime: formEndTime,
-            schedules: schedulesString,
-            consultationFee: Number(formConsultationFee),
-            isActive: formIsActive,
-            procedures: formProcedures,
-            insurancePlans: formInsurancePlans,
-            exams: formExams,
-            discounts: formDiscounts,
-            schedulingPolicy: formSchedulingPolicy,
-            preparationInstructions: formPreparationInstructions,
-            additionalNotes: formAdditionalNotes,
-            botName: formBotName,
-            botTone: formBotTone
-          };
-          return updated;
-        }
-        return doc;
-      }));
+      const updated = {
+        ...editingDoctor,
+        name: formName,
+        specialty: formSpecialty,
+        crm: formCrm,
+        avatarUrl: formAvatarUrl,
+        attendanceDays: formAttendanceDays,
+        startTime: formStartTime,
+        endTime: formEndTime,
+        schedules: schedulesString,
+        consultationFee: Number(formConsultationFee),
+        isActive: formIsActive,
+        procedures: formProcedures,
+        insurancePlans: formInsurancePlans,
+        exams: formExams,
+        discounts: formDiscounts,
+        schedulingPolicy: formSchedulingPolicy,
+        preparationInstructions: formPreparationInstructions,
+        additionalNotes: formAdditionalNotes,
+        botName: formBotName,
+        botTone: formBotTone
+      };
+      setDoctors(prev => prev.map(doc => doc.id === editingDoctor.id ? updated : doc));
+      if (clinicId) fbSaveDoctor(clinicId, updated).catch(console.error);
       onAddSystemLog('success', `Informações e bot de atendimento do(a) Dr(a). ${formName} foram atualizados.`);
     } else {
       // Create Doctor
@@ -286,7 +285,7 @@ export default function DoctorsPanel({
         name: formName,
         specialty: formSpecialty,
         crm: formCrm,
-        rating: 4.8, // Initial average
+        rating: 4.8,
         avatarUrl: formAvatarUrl,
         schedules: schedulesString,
         consultationFee: Number(formConsultationFee),
@@ -306,6 +305,7 @@ export default function DoctorsPanel({
         botTone: formBotTone
       };
       setDoctors(prev => [...prev, newDoctor]);
+      if (clinicId) fbSaveDoctor(clinicId, newDoctor).catch(console.error);
       onAddSystemLog('success', `Novo médico Dr(a). ${formName} cadastrado com sucesso e sincronizado ao AtendIA.`);
     }
 
@@ -317,6 +317,7 @@ export default function DoctorsPanel({
   const handleDeleteConfirm = () => {
     if (doctorToDelete) {
       setDoctors(prev => prev.filter(doc => doc.id !== doctorToDelete.id));
+      if (clinicId) fbDeleteDoctor(clinicId, doctorToDelete.id).catch(console.error);
       onAddSystemLog('error', `Dr(a). ${doctorToDelete.name} foi removido(a) do sistema.`);
       setDoctorToDelete(null);
     }

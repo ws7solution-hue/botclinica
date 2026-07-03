@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw } from 'lucide-react';
 
-// URL do serviço multi-tenant na VPS
 const WA_SERVICE = 'https://api.botclinica.com.br/wa';
 
 interface WhatsAppConnectProps {
@@ -15,11 +14,15 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const qrRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!clinicId) return;
     checkStatus();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (qrRefreshRef.current) clearInterval(qrRefreshRef.current);
+    };
   }, [clinicId]);
 
   async function checkStatus() {
@@ -33,22 +36,30 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     } catch (e) {}
   }
 
+  async function fetchQR() {
+    try {
+      const r = await fetch(`${WA_SERVICE}/qr/${encodeURIComponent(clinicId)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    } catch (e: any) {
+      throw new Error(e.message);
+    }
+  }
+
   async function handleConnect() {
     if (!clinicId) {
       setError('Email da clínica não identificado. Faça logout e login novamente.');
       setStatus('error');
       return;
     }
+    if (qrRefreshRef.current) clearInterval(qrRefreshRef.current);
     setStatus('loading');
     setError('');
     setQrData(null);
     onAddSystemLog('info', 'Gerando QR Code do WhatsApp...');
 
     try {
-      const encoded = encodeURIComponent(clinicId);
-      const r = await fetch(`${WA_SERVICE}/qr/${encoded}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const d = await r.json();
+      const d = await fetchQR();
 
       if (d.connected) {
         setPhone(d.phone || '');
@@ -62,6 +73,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         setStatus('qr');
         onAddSystemLog('info', 'QR Code gerado! Escaneie com o WhatsApp da clínica.');
         startPolling();
+        startQRRefresh();
         return;
       }
 
@@ -73,13 +85,32 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     }
   }
 
+  function startQRRefresh() {
+    if (qrRefreshRef.current) clearInterval(qrRefreshRef.current);
+    qrRefreshRef.current = setInterval(async () => {
+      try {
+        const d = await fetchQR();
+        if (d.connected) {
+          clearInterval(qrRefreshRef.current!);
+          clearInterval(pollRef.current!);
+          setPhone(d.phone || '');
+          setStatus('connected');
+          setQrData(null);
+        } else if (d.qr) {
+          setQrData(d.qr);
+        }
+      } catch (e) {}
+    }, 18000);
+  }
+
   function startPolling() {
     if (pollRef.current) clearInterval(pollRef.current);
     let attempts = 0;
     pollRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 60) { // 2 minutos
+      if (attempts > 60) {
         clearInterval(pollRef.current!);
+        clearInterval(qrRefreshRef.current!);
         setStatus('idle');
         setQrData(null);
         return;
@@ -89,6 +120,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         const d = await r.json();
         if (d.connected) {
           clearInterval(pollRef.current!);
+          clearInterval(qrRefreshRef.current!);
           setPhone(d.phone || '');
           setStatus('connected');
           setQrData(null);
@@ -105,6 +137,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
       setPhone('');
       setQrData(null);
       if (pollRef.current) clearInterval(pollRef.current);
+      if (qrRefreshRef.current) clearInterval(qrRefreshRef.current);
       onAddSystemLog('info', 'WhatsApp desconectado.');
     } catch (e) {
       onAddSystemLog('error', 'Erro ao desconectar.');
@@ -140,13 +173,12 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
           </div>
           <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 font-sans">
             <Loader className="w-3 h-3 animate-spin text-[#1A6FA8]" />
-            Aguardando leitura do QR Code...
+            Aguardando leitura... QR atualiza automaticamente
           </div>
           <button onClick={handleConnect} className="mt-3 flex items-center gap-1 text-xs text-[#1A6FA8] font-sans mx-auto hover:underline">
             <RefreshCw className="w-3 h-3" /> Gerar novo QR Code
           </button>
         </div>
-        <p className="text-[10px] text-slate-400 font-sans text-center">O QR Code expira em 2 minutos. Se expirar, clique em "Gerar novo QR Code".</p>
       </div>
     );
   }

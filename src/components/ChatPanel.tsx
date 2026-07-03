@@ -145,6 +145,7 @@ interface ChatPanelProps {
   setSelectedChatId: (id: string | null) => void;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
   onOpenQuickAppointmentWithPatient: (patientName: string, patientPhone: string) => void;
+  clinicId?: string;
 }
 
 export default function ChatPanel({
@@ -154,7 +155,8 @@ export default function ChatPanel({
   selectedChatId,
   setSelectedChatId,
   onAddSystemLog,
-  onOpenQuickAppointmentWithPatient
+  onOpenQuickAppointmentWithPatient,
+  clinicId
 }: ChatPanelProps) {
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
   const [replyText, setReplyText] = useState('');
@@ -252,27 +254,27 @@ export default function ChatPanel({
     onAddSystemLog('success', `Atendimento de ${activeChat?.patientName} marcado como RESOLVIDO.`);
   };
 
-  // Send message as human
-  const handleSendMessage = (e: React.FormEvent) => {
+  // Send message as human — envia via Baileys real
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim() || !activeChat) return;
+
+    const text = replyText.trim();
+    const phone = activeChat.patientPhone || activeChat.id;
 
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
       sender: 'human',
-      text: replyText.trim(),
+      text,
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     };
 
-    const currentChatId = activeChat.id;
-    const currentPatientName = activeChat.patientName;
-
-    // Update conversation message stream
+    // Atualiza UI imediatamente
     setConversations(prev => prev.map(c => {
-      if (c.id === currentChatId) {
+      if (c.id === activeChat.id) {
         return {
           ...c,
-          lastMessage: replyText.trim(),
+          lastMessage: text,
           lastMessageTime: newMsg.timestamp,
           messages: [...c.messages, newMsg]
         };
@@ -282,39 +284,24 @@ export default function ChatPanel({
 
     setReplyText('');
 
-    // Simulate automatic patient response after 2 seconds
-    setTimeout(() => {
-      const patientResponses = [
-        "Muito obrigado pela resposta! Certo, combinado.",
-        "Excelente. Vou enviar os documentos hoje à tarde.",
-        "Perfeito, farei isso. Obrigado pela ajuda!",
-        "Ok, entendi. No dia do exame eu aviso na recepção então.",
-        "Maravilha, vou me programar."
-      ];
-      const randomReply = patientResponses[Math.floor(Math.random() * patientResponses.length)];
-
-      const patientMsg: Message = {
-        id: `msg-sim-${Date.now()}`,
-        sender: 'patient',
-        text: randomReply,
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setConversations(prev => prev.map(c => {
-        if (c.id === currentChatId) {
-          return {
-            ...c,
-            lastMessage: randomReply,
-            lastMessageTime: patientMsg.timestamp,
-            unreadCount: c.id !== selectedChatId ? c.unreadCount + 1 : 0,
-            messages: [...c.messages, patientMsg]
-          };
+    // Envia via Baileys se clinicId disponível
+    if (clinicId) {
+      try {
+        const r = await fetch(`https://api.botclinica.com.br/wa/send/${encodeURIComponent(clinicId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: phone, text }),
+        });
+        const d = await r.json();
+        if (!d.ok) {
+          onAddSystemLog('error', 'Erro ao enviar mensagem via WhatsApp.');
         }
-        return c;
-      }));
-
-      onAddSystemLog('info', `Simulação: Paciente ${currentPatientName} respondeu no chat.`);
-    }, 2000);
+      } catch (e) {
+        onAddSystemLog('error', 'Erro de conexão ao enviar mensagem.');
+      }
+    } else {
+      onAddSystemLog('warning', 'WhatsApp não conectado — mensagem não enviada ao paciente.');
+    }
   };
 
   // Filter conversations
