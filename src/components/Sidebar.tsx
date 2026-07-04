@@ -48,7 +48,8 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar"
-      className="w-[220px] min-w-[220px] bg-[#0F1623] text-slate-300 flex flex-col h-screen border-r border-slate-800 transition-all duration-300 shadow-2xl"
+      className="w-[220px] min-w-[220px] bg-[#0F1623] text-slate-300 flex flex-col border-r border-slate-800 transition-all duration-300 shadow-2xl"
+      style={{ height: '100dvh' }}
     >
       {/* Brand Logo Header */}
       <div className="p-5 border-b border-slate-800 flex items-center gap-3">
@@ -93,7 +94,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -122,56 +123,43 @@ export default function Sidebar({
             </button>
           );
         })}
-      </nav>
 
-      {/* Sidebar Footer User Profile */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/20 flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-1">
+        {/* Divider */}
+        <div className="border-t border-slate-800/60 my-2" />
+
+        {/* Perfil */}
+        <button
+          onClick={onEditProfile}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/60 text-left transition-all cursor-pointer group"
+          title="Editar perfil"
+        >
+          <div className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden border border-slate-600 shrink-0">
+            <img src={userProfile.avatarUrl} alt={userProfile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-300 truncate font-sans group-hover:text-white">
+              {userProfile.accountType === 'clinic' ? (userProfile.clinicName || userProfile.name) : (userProfile.doctorName || userProfile.name)}
+            </p>
+          </div>
+          <Edit2 className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 shrink-0" />
+        </button>
+
+        {/* Sair */}
+        {onLogout && (
           <button
-            onClick={onEditProfile}
-            className="flex-1 flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-800/40 text-left transition-all cursor-pointer group relative overflow-hidden focus:outline-hidden"
-            title="Clique para editar seu perfil"
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-all cursor-pointer"
           >
-            <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden border-2 border-slate-800 group-hover:border-[#1A6FA8] transition-all shrink-0 relative">
-              <img 
-                src={userProfile.avatarUrl} 
-                alt={userProfile.name}
-                className="w-full h-full object-cover group-hover:opacity-80 transition-all"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Edit2 className="w-3 h-3 text-white" />
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate leading-tight font-sans group-hover:text-blue-300 transition-colors">
-                {userProfile.accountType === 'clinic' ? (userProfile.clinicName || userProfile.name) : (userProfile.doctorName || userProfile.name)}
-              </p>
-              <p className="text-[11px] text-slate-500 truncate font-sans">
-                {userProfile.accountType === 'clinic' ? userProfile.role : `${userProfile.specialty || 'Médico'} • CRM ${userProfile.crm || 'N/A'}`}
-              </p>
-            </div>
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm font-medium font-sans">Sair</span>
           </button>
+        )}
 
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer focus:outline-hidden shrink-0"
-              title="Sair do Sistema"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
+        {/* Versão */}
+        <div className="px-3 pt-1">
+          <span className="text-[10px] text-slate-700 font-mono">v2.4.0-prod</span>
         </div>
-
-        {/* System Micro Credits (Humble, clean, professional) */}
-        <div className="text-[10px] text-slate-600 flex items-center justify-between px-1">
-          <span className="font-mono">v2.4.0-prod</span>
-          <span className="flex items-center gap-0.5 font-sans">
-            <CircleDot className="w-2.5 h-2.5 text-emerald-500" /> Ativo
-          </span>
-        </div>
-      </div>
+      </nav>
     </aside>
   );
 }
