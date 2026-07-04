@@ -73,6 +73,10 @@ export async function fbDeleteAppointment(id: string, clinicId?: string) {
   return post('deleteAppointment', { id, clinicId: clinicId || '' });
 }
 
+export async function fbDeleteConversation(id: string, clinicId?: string) {
+  return post('deleteConversation', { id, clinicId: clinicId || '' });
+}
+
 /** Cancela um agendamento via PATCH parcial (não sobrescreve o documento inteiro). */
 export async function fbCancelAppointment(appointmentId: string, clinicId: string) {
   return post('cancelAppointment', { clinicId: clinicId || '', appointmentId });
