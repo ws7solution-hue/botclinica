@@ -339,11 +339,20 @@ module.exports = async (req, res) => {
 
     // ── BOT CONFIG: save ─────────────────────────────────────
     if (action === "saveBotConfig") {
-      const { config } = payload;
-      const r = await fetch(`${FS}/clinic_config/main?key=${API_KEY}`, {
+      const { docId, config, clinicId } = payload;
+      // Suporta tanto docId explícito quanto clinicId
+      const path = docId || (clinicId ? `clinic_settings_${emailToKey(clinicId)}/bot` : "clinic_config/main");
+      const fields = {};
+      Object.entries(config || {}).forEach(([k, v]) => {
+        if (typeof v === 'string') fields[k] = { stringValue: v };
+        else if (typeof v === 'boolean') fields[k] = { booleanValue: v };
+        else if (typeof v === 'number') fields[k] = { doubleValue: v };
+      });
+      const url = `${FS}/${path}?key=${API_KEY}`;
+      const r = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields: { botConfig: { stringValue: JSON.stringify(config) } } })
+        body: JSON.stringify({ fields })
       });
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
