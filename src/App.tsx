@@ -10,6 +10,7 @@ import ReportsPanel from './components/ReportsPanel';
 import ProntuarioPanel from './components/ProntuarioPanel';
 import FirstAccessModal from './components/FirstAccessModal';
 import SupportChat from './components/SupportChat';
+import HumanAlert from './components/HumanAlert';
 import ProfileModal from './components/ProfileModal';
 import LoginScreen from './components/LoginScreen';
 
@@ -189,6 +190,7 @@ export default function App() {
   });
   const [showFirstAccess, setShowFirstAccess] = useState(false);
   const [firstAccessIdToken, setFirstAccessIdToken] = useState('');
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
   const handleLoginSuccess = (profile: UserProfile) => {
     const email = (profile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
@@ -304,32 +306,7 @@ export default function App() {
           // Detecta novas conversas com human_needed e notifica
           const humanNeeded = (convsList || []).filter(c => c.status === 'human_needed').length;
           if (humanNeeded > prevHumanNeeded) {
-            // Notificação sonora
-            try {
-              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              osc.connect(gain);
-              gain.connect(ctx.destination);
-              osc.frequency.setValueAtTime(880, ctx.currentTime);
-              osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
-              gain.gain.setValueAtTime(0.3, ctx.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-              osc.start(ctx.currentTime);
-              osc.stop(ctx.currentTime + 0.4);
-            } catch (e) {}
-
             addSystemLog('warning', `🙋 Paciente solicitou atendimento humano! Vá em Conversas para responder.`);
-
-            // Notificação do navegador
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('AtendIA — Atendimento Humano', {
-                body: 'Um paciente está aguardando atendimento humano!',
-                icon: '/favicon.ico',
-              });
-            } else if ('Notification' in window && Notification.permission !== 'denied') {
-              Notification.requestPermission();
-            }
           }
           prevHumanNeeded = humanNeeded;
         })
@@ -788,6 +765,19 @@ export default function App() {
           )}
         </main>
 
+        {/* Alerta de Atendimento Humano */}
+        {isLoggedIn && (
+          <HumanAlert
+            conversations={conversations.filter(c => !dismissedAlerts.has(c.id))}
+            onGoToChat={(id) => {
+              setActiveTab('chats');
+              setSelectedChatId(id);
+              setDismissedAlerts(prev => new Set([...prev, id]));
+            }}
+            onDismiss={(id) => setDismissedAlerts(prev => new Set([...prev, id]))}
+          />
+        )}
+
         {/* Modal de Primeiro Acesso */}
         {showFirstAccess && (
           <FirstAccessModal
@@ -1073,6 +1063,22 @@ export default function App() {
           onSave={(updated) => {
             setUserProfile(updated);
             addSystemLog('success', `Perfil de usuário atualizado: ${updated.name} (${updated.role}).`);
+            // Salva nome da clínica no Firestore pra o bot ler
+            const email = userProfile.email || localStorage.getItem('atendia_email') || '';
+            if (email && updated.clinicName) {
+              const key = email.toLowerCase().replace(/[@.]/g, '_');
+              fetch('/api/fb', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'saveBotConfig',
+                  payload: {
+                    docId: `clinic_settings_${key}/bot`,
+                    config: { clinicName: updated.clinicName }
+                  }
+                }),
+              }).catch(() => {});
+            }
           }}
         />
 
