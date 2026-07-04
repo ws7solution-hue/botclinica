@@ -85,6 +85,11 @@ export default function DoctorsPanel({
   const [formAttendanceDays, setFormAttendanceDays] = useState<string[]>(['Seg', 'Qua']);
   const [formStartTime, setFormStartTime] = useState('08:00');
   const [formEndTime, setFormEndTime] = useState('18:00');
+  const [formSlotDuration, setFormSlotDuration] = useState<number>(30);
+  const [formBreakStart, setFormBreakStart] = useState('');
+  const [formBreakEnd, setFormBreakEnd] = useState('');
+  const [formBreak2Start, setFormBreak2Start] = useState('');
+  const [formBreak2End, setFormBreak2End] = useState('');
   const [formConsultationFee, setFormConsultationFee] = useState(300);
   const [formIsActive, setFormIsActive] = useState(true);
   
@@ -192,6 +197,11 @@ export default function DoctorsPanel({
     setFormAttendanceDays(['Seg', 'Ter', 'Qua', 'Qui', 'Sex']);
     setFormStartTime('08:00');
     setFormEndTime('18:00');
+    setFormSlotDuration(30);
+    setFormBreakStart('');
+    setFormBreakEnd('');
+    setFormBreak2Start('');
+    setFormBreak2End('');
     setFormConsultationFee(300);
     setFormIsActive(true);
     
@@ -221,6 +231,11 @@ export default function DoctorsPanel({
     setFormAttendanceDays(doc.attendanceDays || ['Seg', 'Qua']);
     setFormStartTime(doc.startTime || '08:00');
     setFormEndTime(doc.endTime || '18:00');
+    setFormSlotDuration(doc.slotDuration || 30);
+    setFormBreakStart(doc.breakStart || '');
+    setFormBreakEnd(doc.breakEnd || '');
+    setFormBreak2Start(doc.break2Start || '');
+    setFormBreak2End(doc.break2End || '');
     setFormConsultationFee(doc.consultationFee);
     setFormIsActive(doc.isActive);
 
@@ -262,6 +277,11 @@ export default function DoctorsPanel({
         attendanceDays: formAttendanceDays,
         startTime: formStartTime,
         endTime: formEndTime,
+        slotDuration: formSlotDuration,
+        breakStart: formBreakStart || undefined,
+        breakEnd: formBreakEnd || undefined,
+        break2Start: formBreak2Start || undefined,
+        break2End: formBreak2End || undefined,
         schedules: schedulesString,
         consultationFee: Number(formConsultationFee),
         isActive: formIsActive,
@@ -294,6 +314,11 @@ export default function DoctorsPanel({
         attendanceDays: formAttendanceDays,
         startTime: formStartTime,
         endTime: formEndTime,
+        slotDuration: formSlotDuration,
+        breakStart: formBreakStart || undefined,
+        breakEnd: formBreakEnd || undefined,
+        break2Start: formBreak2Start || undefined,
+        break2End: formBreak2End || undefined,
         procedures: formProcedures,
         insurancePlans: formInsurancePlans,
         exams: formExams,
@@ -1018,6 +1043,62 @@ export default function DoctorsPanel({
                           onChange={(e) => setFormEndTime(e.target.value)}
                           className="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono bg-white"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Duração e Pausas */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 space-y-4">
+                    <h4 className="text-xs font-bold text-slate-700 font-sans">⏱️ Configuração da Agenda</h4>
+                    
+                    {/* Duração da consulta */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1.5">Duração de cada consulta</label>
+                      <select
+                        value={formSlotDuration}
+                        onChange={(e) => setFormSlotDuration(Number(e.target.value))}
+                        className="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] bg-white font-sans"
+                      >
+                        <option value={15}>15 minutos</option>
+                        <option value={20}>20 minutos</option>
+                        <option value={30}>30 minutos</option>
+                        <option value={45}>45 minutos</option>
+                        <option value={60}>1 hora</option>
+                        <option value={90}>1h30</option>
+                      </select>
+                    </div>
+
+                    {/* Pausa 1 */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1.5">Pausa (almoço ou lanche)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-sans mb-1">Início</label>
+                          <input type="time" value={formBreakStart} onChange={(e) => setFormBreakStart(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-sans mb-1">Fim</label>
+                          <input type="time" value={formBreakEnd} onChange={(e) => setFormBreakEnd(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono bg-white" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pausa 2 */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1.5">Segunda pausa (opcional)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-sans mb-1">Início</label>
+                          <input type="time" value={formBreak2Start} onChange={(e) => setFormBreak2Start(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-sans mb-1">Fim</label>
+                          <input type="time" value={formBreak2End} onChange={(e) => setFormBreak2End(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono bg-white" />
+                        </div>
                       </div>
                     </div>
                   </div>
