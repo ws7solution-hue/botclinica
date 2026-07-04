@@ -360,7 +360,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
             <li>Suporte por e-mail</li>
           </ul>
         </div>
-        <a href="https://mpago.la/2nie3Qn" target="_blank" class="np-btn btn-outline">Começar agora</a>
+        <button onclick="openCheckoutModal('starter')" class="np-btn btn-outline" style="cursor:pointer;font-family:inherit;border:none">Começar agora</button>
       </div>
 
       <!-- PROFISSIONAL -->
@@ -384,7 +384,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
             <li>Suporte prioritário WhatsApp</li>
           </ul>
         </div>
-        <a href="https://mpago.la/2tFxdmw" target="_blank" class="np-btn btn-blue">Começar agora</a>
+        <button onclick="openCheckoutModal('profissional')" class="np-btn btn-blue" style="cursor:pointer;font-family:inherit;border:none">Começar agora</button>
       </div>
 
       <!-- CLÍNICA -->
@@ -407,7 +407,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
             <li>Suporte WhatsApp 24h</li>
           </ul>
         </div>
-        <a href="https://mpago.la/1qHaMTD" target="_blank" class="np-btn btn-outline">Começar agora</a>
+        <button onclick="openCheckoutModal('clinica')" class="np-btn btn-outline" style="cursor:pointer;font-family:inherit;border:none">Começar agora</button>
       </div>
 
       <!-- PREMIUM -->
@@ -560,7 +560,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
     </div>
     <div style="text-align:center;margin-top:36px">
       <p style="color:#6B80A0;font-size:14px;margin-bottom:14px">Gostou? Seu bot pode estar funcionando assim em menos de 24h.</p>
-      <a href="/checkout" style="display:inline-block;background:#1A6FA8;color:#fff;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none">Começar agora →</a>
+      <button onclick="openCheckoutModal('profissional')" style="display:inline-block;background:#1A6FA8;color:#fff;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit">Começar agora →</button>
     </div>
   </div>
 </section>
@@ -624,9 +624,9 @@ function demoSend() {
   <div style="max-width:700px;margin:0 auto">
     <h2>Pronto pra automatizar o atendimento?</h2>
     <p>Teste o bot agora mesmo — experimente a demo interativa acima.</p>
-    <a href="/checkout" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15)">
+    <button onclick="openCheckoutModal('profissional')" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:none;cursor:pointer;font-family:inherit">
       🚀 Começar agora
-    </a>
+    </button>
     <p class="cta-note">✓ Demo grátis &nbsp;·&nbsp; ✓ Sem cartão &nbsp;·&nbsp; ✓ Configuração feita por nós</p>
   </div>
 </section>
@@ -639,12 +639,12 @@ function demoSend() {
       <p class="footer-desc">Atendimento inteligente pelo WhatsApp para clínicas e consultórios. Automatize, economize e atenda melhor.</p>
     </div>
     <div class="footer-col"><h4>Produto</h4><a href="#como-funciona">Como funciona</a><a href="#precos">Preços</a><a href="#faq">Dúvidas</a></div>
-    <div class="footer-col"><h4>Contato</h4><a href="https://wa.me/5531982158450" target="_blank">WhatsApp</a><a href="mailto:contato@botclinica.com.br">E-mail</a><a href="#">Instagram</a></div>
+    <div class="footer-col"><h4>Contato</h4><a href="https://wa.me/5531982158450" target="_blank">WhatsApp</a><a href="mailto:contato@botclinica.com.br">E-mail</a><a href="https://www.instagram.com/_botclinica" target="_blank">Instagram</a></div>
   </div>
   <div class="footer-bottom"><p>© 2025 BotClínica. Todos os direitos reservados.</p><p>botclinica.com.br</p></div>
 </footer>
 
-<a href="https://wa.me/5531991030288?text=Quero+experimentar+o+BotClínica" target="_blank" class="wa-float">💬</a>
+<a href="https://wa.me/5531982158450?text=Quero+experimentar+o+BotClínica" target="_blank" class="wa-float">💬</a>
 
 <script>
 function toggleFaq(el){
@@ -759,6 +759,51 @@ Lembrete na véspera!',time:'14:33'},
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){reveal();counters();});}
   else{reveal();counters();}
 })();
+</script>
+<!-- MODAL CAPTURA -->
+<div id="bc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)closeCheckoutModal()">
+  <div style="background:#fff;border-radius:20px;padding:36px;max-width:400px;width:92%;box-shadow:0 24px 80px rgba(0,0,0,.25)">
+    <h3 style="font-size:19px;font-weight:800;color:#1A2535;margin-bottom:6px">Quase lá! 🚀</h3>
+    <p style="font-size:13px;color:#64748B;margin-bottom:22px">Informe seus dados para finalizar a assinatura do plano <strong id="bc-plan-name" style="color:#1A6FA8"></strong>.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="bc-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+    </div>
+    <p id="bc-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="closeCheckoutModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;color:#64748B">Cancelar</button>
+      <button id="bc-btn" onclick="submitBCCheckout()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1A6FA8;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Ir para pagamento →</button>
+    </div>
+  </div>
+</div>
+<script>
+var bcPlan=null;
+var bcLabels={starter:'Starter',profissional:'Profissional',clinica:'Clínica',premium:'Premium'};
+function openCheckoutModal(plano){
+  bcPlan=plano;
+  document.getElementById('bc-plan-name').textContent=bcLabels[plano]||plano;
+  document.getElementById('bc-error').style.display='none';
+  document.getElementById('bc-modal').style.display='flex';
+}
+function closeCheckoutModal(){
+  document.getElementById('bc-modal').style.display='none';
+}
+async function submitBCCheckout(){
+  var clinic=document.getElementById('bc-clinic').value.trim();
+  var admin=document.getElementById('bc-admin').value.trim();
+  var email=document.getElementById('bc-email').value.trim();
+  var err=document.getElementById('bc-error');
+  var btn=document.getElementById('bc-btn');
+  if(!email||!email.includes('@')){err.textContent='Informe um email válido.';err.style.display='block';return;}
+  btn.textContent='Processando...';btn.disabled=true;
+  try{
+    var r=await fetch('/api/mp-create-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plano:bcPlan,email:email,clinicName:clinic,adminName:admin})});
+    var d=await r.json();
+    if(d.ok&&d.init_point){window.location.href=d.init_point;}
+    else{err.textContent=d.error||'Erro ao iniciar pagamento.';err.style.display='block';btn.textContent='Ir para pagamento →';btn.disabled=false;}
+  }catch(e){err.textContent='Erro de conexão.';err.style.display='block';btn.textContent='Ir para pagamento →';btn.disabled=false;}
+}
 </script>
 </body>
 </html>
