@@ -123,6 +123,26 @@ export default function SettingsPanel({
       daysBeforeAppointmentForReminder,
       rulesList: rules
     }));
+
+    // Salva no Firestore pra o bot ler
+    if (clinicId) {
+      fetch('/api/fb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveBotConfig',
+          payload: {
+            docId: `clinic_settings_${clinicId.toLowerCase().replace(/[@.]/g, '_')}/bot`,
+            config: {
+              clinicName,
+              welcomeMessage,
+              aiTone,
+            }
+          }
+        }),
+      }).catch(() => {});
+    }
+
     onAddSystemLog('success', 'Configurações gerais do AtendIA salvas e aplicadas em tempo real.');
     alert("Configurações atualizadas com sucesso!");
   };
