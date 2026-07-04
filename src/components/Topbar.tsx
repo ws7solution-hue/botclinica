@@ -21,6 +21,7 @@ interface TopbarProps {
   systemLogsCount: number;
   systemLogs?: SystemLogs[];
   onClearLogs?: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export default function Topbar({
@@ -31,7 +32,8 @@ export default function Topbar({
   onOpenQuickAppointment,
   systemLogsCount,
   systemLogs = [],
-  onClearLogs
+  onClearLogs,
+  onToggleSidebar
 }: TopbarProps) {
   const [time, setTime] = useState<string>('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -98,14 +100,26 @@ export default function Topbar({
   return (
     <header 
       id="topbar"
-      className="h-[70px] border-b border-slate-200 bg-white flex items-center justify-between px-6 sticky top-0 z-40"
+      className="h-[70px] border-b border-slate-200 bg-white flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40"
     >
+      {/* Hamburger — todas as telas */}
+      <button
+        onClick={onToggleSidebar}
+        className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 mr-2 flex-shrink-0"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
       {/* Title & Description Column */}
       <div className="flex-1 min-w-0">
-        <h2 className="text-lg font-bold text-slate-800 leading-tight font-sans tracking-tight">
+        <h2 className="text-base lg:text-lg font-bold text-slate-800 leading-tight font-sans tracking-tight truncate">
           {getTitle()}
         </h2>
-        <p className="text-xs text-slate-500 truncate mt-0.5 font-sans">
+        <p className="text-xs text-slate-500 truncate mt-0.5 font-sans hidden lg:block">
           {getSubtitle()}
         </p>
       </div>

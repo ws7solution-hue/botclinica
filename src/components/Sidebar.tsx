@@ -48,7 +48,7 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar"
-      className="w-[220px] min-w-[220px] bg-[#0F1623] text-slate-300 flex flex-col h-screen border-r border-slate-800 transition-all duration-300"
+      className="w-[220px] min-w-[220px] bg-[#0F1623] text-slate-300 flex flex-col h-screen border-r border-slate-800 transition-all duration-300 shadow-2xl"
     >
       {/* Brand Logo Header */}
       <div className="p-5 border-b border-slate-800 flex items-center gap-3">
