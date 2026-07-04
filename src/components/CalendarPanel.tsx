@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Calendar, 
   Plus, 
@@ -13,7 +13,9 @@ import {
   Send,
   X,
   Filter,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Appointment, Doctor, AtendiaPlan } from '../types';
 import LockOverlay from './LockOverlay';
@@ -48,6 +50,8 @@ export default function CalendarPanel({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingApptId, setUpdatingApptId] = useState<string | null>(null);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const clinicId = localStorage.getItem('atendia_email')?.toLowerCase().replace(/[@.]/g, '_') || '';
 
@@ -115,20 +119,110 @@ export default function CalendarPanel({
     }
   };
 
+  // Calendar computation
+  const calendarDays = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const hasAppt = appointments.some(a => a.date === dateStr && a.status !== 'canceled');
+      days.push({ day: d, dateStr, hasAppt });
+    }
+    return days;
+  }, [calendarDate, appointments]);
+
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const today = new Date().toISOString().split('T')[0];
+
   // Filtered appointments
   const filteredAppointments = appointments.filter(appt => {
     const matchesDoc = selectedDoctorFilter === 'all' || appt.doctorId === selectedDoctorFilter;
     const matchesStatus = selectedStatusFilter === 'all' || appt.status === selectedStatusFilter;
     const matchesSearch = appt.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           appt.patientPhone.includes(searchTerm);
-    return matchesDoc && matchesStatus && matchesSearch;
+    const matchesDay = !selectedDay || appt.date === selectedDay;
+    return matchesDoc && matchesStatus && matchesSearch && matchesDay;
   });
 
   return (
     <div id="calendar-panel" className="p-6 space-y-6">
-      
-      {/* Page header with Filter controls */}
+
+      {/* CALENDÁRIO MENSAL */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        {/* Header do calendário */}
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => { const d = new Date(calendarDate); d.setMonth(d.getMonth()-1); setCalendarDate(d); setSelectedDay(null); }} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+            <ChevronLeft className="w-4 h-4 text-slate-600" />
+          </button>
+          <h3 className="text-sm font-bold text-slate-800 font-sans">
+            {monthNames[calendarDate.getMonth()]} {calendarDate.getFullYear()}
+          </h3>
+          <button onClick={() => { const d = new Date(calendarDate); d.setMonth(d.getMonth()+1); setCalendarDate(d); setSelectedDay(null); }} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+            <ChevronRight className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Dias da semana */}
+        <div className="grid grid-cols-7 mb-1">
+          {dayNames.map(d => (
+            <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1 font-sans">{d}</div>
+          ))}
+        </div>
+
+        {/* Grade de dias */}
+        <div className="grid grid-cols-7 gap-0.5">
+          {calendarDays.map((day, i) => {
+            if (!day) return <div key={`empty-${i}`} />;
+            const isToday = day.dateStr === today;
+            const isSelected = day.dateStr === selectedDay;
+            return (
+              <button
+                key={day.dateStr}
+                onClick={() => setSelectedDay(selectedDay === day.dateStr ? null : day.dateStr)}
+                className={`relative flex flex-col items-center justify-center py-2 rounded-lg text-xs font-sans font-semibold transition-all
+                  ${isSelected ? 'bg-[#1A6FA8] text-white' : isToday ? 'bg-blue-50 text-[#1A6FA8] border border-[#1A6FA8]' : 'hover:bg-slate-50 text-slate-700'}
+                `}
+              >
+                {day.day}
+                {day.hasAppt && (
+                  <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white' : 'bg-emerald-500'}`} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Legenda */}
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-sans">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Com agendamentos
+          </div>
+          {selectedDay && (
+            <button onClick={() => setSelectedDay(null)} className="flex items-center gap-1 text-[11px] text-[#1A6FA8] font-sans hover:underline ml-auto">
+              <X className="w-3 h-3" /> Limpar filtro
+            </button>
+          )}
+        </div>
+      </div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200">
+        {selectedDay && (
+          <div className="flex items-center gap-2 w-full pb-2 border-b border-slate-100">
+            <span className="text-sm font-bold text-[#1A6FA8] font-sans">
+              📅 {new Date(selectedDay + 'T12:00:00').toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'})}
+            </span>
+            <span className="bg-[#1A6FA8] text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-sans">
+              {filteredAppointments.length} consulta{filteredAppointments.length !== 1 ? 's' : ''}
+            </span>
+            <button onClick={() => setSelectedDay(null)} className="ml-auto text-[11px] text-slate-400 hover:text-red-500 font-sans flex items-center gap-1">
+              <X className="w-3 h-3" /> Limpar filtro de data
+            </button>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           
           {/* Search bar */}
