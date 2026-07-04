@@ -314,7 +314,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
           <div class="price-feature"><span class="ck">✓</span> Notificações em tempo real</div>
           <div class="price-feature"><span class="ck">✓</span> Suporte por e-mail</div>
         </div>
-        <button onclick="openModal('starter')" class="btn btn-outline" style="width:100%;justify-content:center;cursor:pointer;font-family:inherit">Começar agora</button>
+        <button onclick="openCheckoutModal('starter')" class="btn btn-outline" style="width:100%;justify-content:center;cursor:pointer;font-family:inherit;border:1.5px solid var(--blue)">Começar agora</button>
       </div>
       <div class="price-card featured">
         <div class="price-badge">⭐ Mais escolhido</div>
@@ -330,7 +330,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
           <div class="price-feature"><span class="ck">✓</span> Relatórios e métricas</div>
           <div class="price-feature"><span class="ck">✓</span> Suporte prioritário</div>
         </div>
-        <button onclick="openModal('profissional')" class="btn btn-primary" style="width:100%;justify-content:center;cursor:pointer;font-family:inherit">Começar agora</button>
+        <button onclick="openCheckoutModal('profissional')" class="btn btn-primary" style="width:100%;justify-content:center;cursor:pointer;font-family:inherit">Começar agora</button>
       </div>
       <div class="price-card">
         <div class="price-name">Clínica</div>
@@ -345,7 +345,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
           <div class="price-feature"><span class="ck">✓</span> Suporte WhatsApp</div>
           <div class="price-feature"><span class="ck">✓</span> Onboarding presencial</div>
         </div>
-        <button onclick="openModal('clinica')" class="btn btn-outline" style="width:100%;justify-content:center;cursor:pointer;font-family:inherit">Começar agora</button>
+        <button onclick="openCheckoutModal('clinica')" class="btn btn-outline" style="width:100%;justify-content:center;cursor:pointer;font-family:inherit;border:1.5px solid var(--blue)">Começar agora</button>
       </div>
         <div class="price-card" style="border:2px solid #F59E0B;position:relative;overflow:hidden">
           <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#F59E0B,#EF4444)"></div>
@@ -490,7 +490,7 @@ footer{background:#0D1828;padding:48px 5% 32px}
     </div>
     <div style="text-align:center;margin-top:36px">
       <p style="color:#6B80A0;font-size:14px;margin-bottom:14px">Gostou? Seu bot pode estar funcionando assim em menos de 24h.</p>
-      <button onclick="openModal('profissional')" style="display:inline-block;background:#1A6FA8;color:#fff;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit">Começar agora →</button>
+      <button onclick="openCheckoutModal('profissional')" style="display:inline-block;background:#1A6FA8;color:#fff;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit">Começar agora →</button>
     </div>
   </div>
 </section>
@@ -554,7 +554,9 @@ function demoSend() {
   <div style="max-width:700px;margin:0 auto">
     <h2>Pronto pra automatizar o atendimento?</h2>
     <p>Teste o bot agora mesmo — experimente a demo interativa acima.</p>
-    <button onclick="openModal('profissional')" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);cursor:pointer;font-family:inherit;border:none">🚀 Começar agora</button>
+    <button onclick="openCheckoutModal('profissional')" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:none;cursor:pointer;font-family:inherit">
+      🚀 Começar agora
+    </button>
     <p class="cta-note">✓ Demo grátis &nbsp;·&nbsp; ✓ Sem cartão &nbsp;·&nbsp; ✓ Configuração feita por nós</p>
   </div>
 </section>
@@ -644,7 +646,11 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
       {t:'p',txt:'Quinta-feira que vem',time:'14:32 ✓✓'},
       {t:'bot',txt:'Temos horários às 10h, 14h e 16h. Qual prefere?',time:'14:32'},
       {t:'p',txt:'14h por favor 😊',time:'14:33 ✓✓'},
-      {t:'bot',txt:'Perfeito! 📅 Agendado:\nDra. Ana — Dermatologia\nQui-feira, 14h\n\nLembrete na véspera!',time:'14:33'},
+      {t:'bot',txt:'Perfeito! 📅 Agendado:
+Dra. Ana — Dermatologia
+Qui-feira, 14h
+
+Lembrete na véspera!',time:'14:33'},
     ];
     var c=document.getElementById('phone-chat-anim');
     if(!c)return;
@@ -684,57 +690,50 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
   else{reveal();counters();}
 })();
 </script>
-
 <!-- MODAL CAPTURA -->
-<div id="checkout-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+<div id="bc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)closeCheckoutModal()">
   <div style="background:#fff;border-radius:20px;padding:36px;max-width:400px;width:92%;box-shadow:0 24px 80px rgba(0,0,0,.25)">
     <h3 style="font-size:19px;font-weight:800;color:#1A2535;margin-bottom:6px">Quase lá! 🚀</h3>
-    <p style="font-size:13px;color:#64748B;margin-bottom:22px">Informe seus dados para finalizar a assinatura do plano <strong id="modal-plan-name" style="color:#1A6FA8"></strong>.</p>
+    <p style="font-size:13px;color:#64748B;margin-bottom:22px">Informe seus dados para finalizar a assinatura do plano <strong id="bc-plan-name" style="color:#1A6FA8"></strong>.</p>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <input id="checkout-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
-      <input id="checkout-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
-      <input id="checkout-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
     </div>
-    <p id="checkout-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+    <p id="bc-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
     <div style="display:flex;gap:10px;margin-top:20px">
       <button onclick="closeCheckoutModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;color:#64748B">Cancelar</button>
-      <button id="checkout-submit-btn" onclick="submitCheckout()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1A6FA8;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Ir para pagamento →</button>
+      <button id="bc-btn" onclick="submitBCCheckout()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1A6FA8;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Ir para pagamento →</button>
     </div>
   </div>
 </div>
-
 <script>
-let currentCheckoutPlan = null;
-const PLAN_LABELS = { starter: 'Starter', profissional: 'Profissional', clinica: 'Clínica', premium: 'Premium' };
-
-function openModal(plano) {
-  currentCheckoutPlan = plano;
-  document.getElementById('modal-plan-name').textContent = PLAN_LABELS[plano] || plano;
-  document.getElementById('checkout-error').style.display = 'none';
-  document.getElementById('checkout-modal').style.display = 'flex';
+var bcPlan=null;
+var bcLabels={starter:'Starter',profissional:'Profissional',clinica:'Clínica',premium:'Premium'};
+function openCheckoutModal(plano){
+  bcPlan=plano;
+  document.getElementById('bc-plan-name').textContent=bcLabels[plano]||plano;
+  document.getElementById('bc-error').style.display='none';
+  document.getElementById('bc-modal').style.display='flex';
 }
-function closeCheckoutModal() {
-  document.getElementById('checkout-modal').style.display = 'none';
+function closeCheckoutModal(){
+  document.getElementById('bc-modal').style.display='none';
 }
-document.getElementById('checkout-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeCheckoutModal();
-});
-async function submitCheckout() {
-  const clinicName = document.getElementById('checkout-clinic').value.trim();
-  const adminName = document.getElementById('checkout-admin').value.trim();
-  const email = document.getElementById('checkout-email').value.trim();
-  const errEl = document.getElementById('checkout-error');
-  const btn = document.getElementById('checkout-submit-btn');
-  if (!email || !email.includes('@')) { errEl.textContent = 'Informe um email válido.'; errEl.style.display = 'block'; return; }
-  btn.textContent = 'Processando...'; btn.disabled = true;
-  try {
-    const r = await fetch('/api/mp-create-preference', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plano: currentCheckoutPlan, email, clinicName, adminName }) });
-    const data = await r.json();
-    if (data.ok && data.init_point) { window.location.href = data.init_point; }
-    else { errEl.textContent = data.error || 'Erro ao iniciar pagamento.'; errEl.style.display = 'block'; btn.textContent = 'Ir para pagamento →'; btn.disabled = false; }
-  } catch(e) { errEl.textContent = 'Erro de conexão.'; errEl.style.display = 'block'; btn.textContent = 'Ir para pagamento →'; btn.disabled = false; }
+async function submitBCCheckout(){
+  var clinic=document.getElementById('bc-clinic').value.trim();
+  var admin=document.getElementById('bc-admin').value.trim();
+  var email=document.getElementById('bc-email').value.trim();
+  var err=document.getElementById('bc-error');
+  var btn=document.getElementById('bc-btn');
+  if(!email||!email.includes('@')){err.textContent='Informe um email válido.';err.style.display='block';return;}
+  btn.textContent='Processando...';btn.disabled=true;
+  try{
+    var r=await fetch('/api/mp-create-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plano:bcPlan,email:email,clinicName:clinic,adminName:admin})});
+    var d=await r.json();
+    if(d.ok&&d.init_point){window.location.href=d.init_point;}
+    else{err.textContent=d.error||'Erro ao iniciar pagamento.';err.style.display='block';btn.textContent='Ir para pagamento →';btn.disabled=false;}
+  }catch(e){err.textContent='Erro de conexão.';err.style.display='block';btn.textContent='Ir para pagamento →';btn.disabled=false;}
 }
 </script>
-
 </body>
 </html>
