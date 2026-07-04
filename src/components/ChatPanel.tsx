@@ -188,7 +188,8 @@ export default function ChatPanel({
   };
 
   // Handle human intervention
-  const handleTakeOver = (chatId: string) => {
+  const handleTakeOver = async (chatId: string) => {
+    const chat = conversations.find(c => c.id === chatId);
     setConversations(prev => prev.map(c => {
       if (c.id === chatId) {
         return {
@@ -198,7 +199,7 @@ export default function ChatPanel({
             ...c.messages,
             {
               id: `sys-${Date.now()}`,
-              sender: 'bot',
+              sender: 'bot' as const,
               text: '⚠️ O chatbot foi pausado. Um atendente humano assumiu o controle deste chat.',
               timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             }
@@ -207,6 +208,22 @@ export default function ChatPanel({
       }
       return c;
     }));
+
+    // Salva status no Firestore
+    if (clinicId) {
+      await fetch('/api/fb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveConversation',
+          payload: {
+            clinicId,
+            conversation: { ...chat, id: chatId, status: 'human_active' }
+          }
+        }),
+      }).catch(() => {});
+    }
+
     onAddSystemLog('warning', `Atendente assumiu atendimento de ${activeChat?.patientName || 'Paciente'}.`);
   };
 
@@ -262,7 +279,9 @@ export default function ChatPanel({
     if (!replyText.trim() || !activeChat) return;
 
     const text = replyText.trim();
-    const phone = activeChat.patientPhone || activeChat.id;
+    // Resolve o phone — usa patientPhone ou reconstrói do ID
+    const phone = activeChat.patientPhone || 
+                  activeChat.id.replace(/_/g, '') + '@s.whatsapp.net';
 
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
