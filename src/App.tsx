@@ -644,29 +644,41 @@ export default function App() {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#F0F2F5] text-slate-700 antialiased font-sans">
       
+      {/* Overlay - all screens */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* 1. Dark Left Sidebar */}
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        unreadChats={unreadChatsCount}
-        whatsappConnected={whatsappConnected}
-        userProfile={userProfile}
-        onEditProfile={() => setProfileModalOpen(true)}
-        currentPlan={currentPlan}
-        onLogout={() => {
-          setIsLoggedIn(false);
-          localStorage.removeItem('atendia_logged_in');
-          localStorage.removeItem('atendia_email');
-          localStorage.removeItem('atendia_password_set');
-          setDoctors([]);
-          setAppointments([]);
-          setConversations([]);
-          addSystemLog('info', 'Sessão encerrada com sucesso.');
-        }}
-      />
+      <div className={`fixed z-50 h-full transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={(tab) => { setActiveTab(tab); setSidebarOpen(false); }} 
+          unreadChats={unreadChatsCount}
+          whatsappConnected={whatsappConnected}
+          userProfile={userProfile}
+          onEditProfile={() => setProfileModalOpen(true)}
+          currentPlan={currentPlan}
+          onLogout={() => {
+            setIsLoggedIn(false);
+            localStorage.removeItem('atendia_logged_in');
+            localStorage.removeItem('atendia_email');
+            localStorage.removeItem('atendia_password_set');
+            setDoctors([]);
+            setAppointments([]);
+            setConversations([]);
+            addSystemLog('info', 'Sessão encerrada com sucesso.');
+          }}
+        />
+      </div>
 
       {/* 2. Main content block */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -678,6 +690,7 @@ export default function App() {
           onToggleWhatsapp={handleToggleWhatsapp}
           onSimulateIncomingChat={handleSimulateIncomingChat}
           onOpenQuickAppointment={handleOpenQuickAppointment}
+          onToggleSidebar={() => setSidebarOpen(prev => !prev)}
           systemLogsCount={systemLogs.length}
           systemLogs={systemLogs}
           onClearLogs={handleClearLogs}
