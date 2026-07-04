@@ -14,9 +14,11 @@ import {
   Bookmark,
   Sparkles,
   CalendarCheck,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 import { Conversation, Message, Doctor } from '../types';
+import { fbDeleteConversation } from '../firebase';
 
 // React class ErrorBoundary to prevent media message parsing or rendering errors from crashing the page
 class ErrorBoundary extends React.Component<
@@ -398,6 +400,19 @@ export default function ChatPanel({
                         {chat.unreadCount}
                       </span>
                     )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Excluir conversa com ${chat.patientName}?`)) return;
+                        const email = localStorage.getItem('atendia_email') || '';
+                        fbDeleteConversation(chat.id, email).catch(() => {});
+                        setConversations(prev => prev.filter(c => c.id !== chat.id));
+                      }}
+                      className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors rounded"
+                      title="Excluir conversa"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               </div>

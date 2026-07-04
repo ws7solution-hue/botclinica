@@ -137,6 +137,7 @@ export default function SettingsPanel({
               clinicName,
               welcomeMessage,
               aiTone,
+              phone,
             }
           }
         }),
@@ -210,7 +211,7 @@ export default function SettingsPanel({
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
-                  Número de WhatsApp Vinculado
+                  Número de WhatsApp da Clínica
                 </label>
                 <div className="relative">
                   <Smartphone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -219,9 +220,11 @@ export default function SettingsPanel({
                     type="text"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+55 (31) 99105-8485"
                     className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 font-sans mt-1">Número que os pacientes usam para contato. O bot informará este número se solicitado.</p>
               </div>
             </div>
 

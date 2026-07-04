@@ -15,11 +15,12 @@ import {
   Filter,
   Loader2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { Appointment, Doctor, AtendiaPlan } from '../types';
 import LockOverlay from './LockOverlay';
-import { fbCancelAppointment, fbMarkReminderSent } from '../firebase';
+import { fbCancelAppointment, fbMarkReminderSent, fbDeleteAppointment } from '../firebase';
 
 interface CalendarPanelProps {
   appointments: Appointment[];
@@ -59,31 +60,39 @@ export default function CalendarPanel({
   const handleTriggerReminder = async (apptId: string) => {
     setUpdatingApptId(apptId);
     try {
-      // 1. Update in backend
-      await fbMarkReminderSent(apptId, clinicId);
-      
-      // 2. Update local state
-      setAppointments(prev => prev.map(a => {
-        if (a.id === apptId) {
-          return {
-            ...a,
-            reminderSent: true,
-            reminderStatus: 'sent'
-          };
-        }
-        return a;
-      }));
-      
       const appt = appointments.find(a => a.id === apptId);
-      if (appt) {
-        onAddSystemLog('success', `Disparado lembrete manual via WhatsApp para ${appt.patientName}.`);
-        // TODO: notificar paciente via WhatsApp sobre envio de lembrete
+      if (!appt) return;
+
+      // Envia via Baileys real
+      const email = localStorage.getItem('atendia_email') || '';
+      const msg = `Olá, ${appt.patientName}! 👋 Lembramos que você tem uma consulta com ${appt.doctorName} no dia ${new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR')}, às ${appt.time}.\n\nConfirme sua presença respondendo *Confirmo* ou cancele com *Cancelar*.\n\nAguardamos você! 🏥`;
+
+      if (email) {
+        await fetch(`https://api.botclinica.com.br/wa/send/${encodeURIComponent(email)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: appt.patientPhone, text: msg }),
+        });
       }
+
+      await fbMarkReminderSent(apptId, clinicId);
+      setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, reminderSent: true, reminderStatus: 'sent' } : a));
+      onAddSystemLog('success', `Lembrete enviado via WhatsApp para ${appt.patientName}.`);
     } catch (err: any) {
-      console.error(err);
-      onAddSystemLog('error', `Falha ao registrar envio de lembrete: ${err.message}`);
+      onAddSystemLog('error', `Falha ao enviar lembrete: ${err.message}`);
     } finally {
       setUpdatingApptId(null);
+    }
+  };
+
+  const handleDeleteAppointment = async (apptId: string) => {
+    if (!confirm('Excluir esta consulta permanentemente?')) return;
+    try {
+      await fbDeleteAppointment(apptId, clinicId);
+      setAppointments(prev => prev.filter(a => a.id !== apptId));
+      onAddSystemLog('warning', 'Consulta excluída permanentemente.');
+    } catch (err: any) {
+      onAddSystemLog('error', `Falha ao excluir consulta: ${err.message}`);
     }
   };
 
@@ -389,6 +398,13 @@ export default function CalendarPanel({
                             ) : (
                               <XCircle className="w-3.5 h-3.5" />
                             )}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAppointment(appt.id)}
+                            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg border border-slate-200 transition-all cursor-pointer flex items-center justify-center"
+                            title="Excluir consulta permanentemente"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
