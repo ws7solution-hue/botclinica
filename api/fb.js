@@ -492,6 +492,17 @@ module.exports = async (req, res) => {
     }
 
     // ── AGENDAMENTOS: deletar ─────────────────────────────
+    // ── CONVERSAS: deletar ────────────────────────────────
+    if (action === "deleteConversation") {
+      const { id, clinicId } = payload;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+      const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
+      const url = `${FS}/${col}/${id}?key=${API_KEY}`;
+      await fetch(url, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── APPOINTMENTS: deletar permanentemente ─────────────
     if (action === "deleteAppointment") {
       const { id, clinicId } = payload;
       const col = clinicId ? `appointments_${emailToKey(clinicId)}` : "appointments";
