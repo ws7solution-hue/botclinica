@@ -424,9 +424,10 @@ module.exports = async (req, res) => {
       // Salvar arrays separadamente (com updateMask — sem isso, o PATCH sobrescreve
       // o documento inteiro e apaga nome/especialidade/CRM salvos na chamada acima)
       if (doctor.attendanceDays) {
-        const mask = "updateMask.fieldPaths=attendanceDays&updateMask.fieldPaths=schedules";
-        await fsReq(`${col}/${doctor.id}?${mask}`, {
+        const url = `${FS}/${col}/${doctor.id}?key=${API_KEY}&updateMask.fieldPaths=attendanceDays&updateMask.fieldPaths=schedules`;
+        await fetch(url, {
           method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fields: {
             attendanceDays: { arrayValue: { values: doctor.attendanceDays.map(v => ({ stringValue: v })) } },
             schedules: { arrayValue: { values: (doctor.schedules || []).map(v => ({ stringValue: v })) } },
