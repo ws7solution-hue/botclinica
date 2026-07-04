@@ -677,7 +677,7 @@ export default function DoctorsPanel({
                     <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Agente IA Ativo</span>
                     <div className="flex items-center gap-1 text-slate-700 font-bold mt-0.5 truncate">
                       <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                      <span className="text-violet-700">"{doc.botName || 'Sofia'}"</span>
+                      <span className="text-violet-700">AtendIA</span>
                     </div>
                   </div>
                 </div>
@@ -828,19 +828,6 @@ export default function DoctorsPanel({
               >
                 <BookOpen className="w-4 h-4" />
                 2. Configuração do Bot
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormActiveTab('bot_behavior')}
-                className={`flex-1 py-3 px-4 text-xs font-bold font-sans border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  formActiveTab === 'bot_behavior' 
-                    ? 'text-[#1A6FA8] border-[#1A6FA8] bg-white' 
-                    : 'text-slate-500 border-transparent hover:bg-slate-100 hover:text-slate-800'
-                }`}
-              >
-                <Smile className="w-4 h-4" />
-                3. Comportamento do Bot
               </button>
             </div>
 
@@ -1277,122 +1264,16 @@ export default function DoctorsPanel({
                 </div>
               )}
 
-              {/* Tab 3: Bot Behavior */}
-              {formActiveTab === 'bot_behavior' && (
-                <div className="space-y-6">
-                  <div className="bg-violet-50 border border-violet-200/50 rounded-xl p-4 flex gap-3 text-xs text-slate-600">
-                    <Smile className="w-5 h-5 text-violet-600 shrink-0" />
-                    <div>
-                      <span className="font-bold text-violet-700 block">Personalidade & Tom de Voz</span>
-                      Defina a identidade do robô específico deste médico. O bot agirá sob o nome escolhido e usará as inflexões selecionadas ao interagir com os pacientes.
-                    </div>
-                  </div>
-
-                  {/* Bot Name */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 font-sans block">
-                      Nome do Robô Assistente
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Sofia, Gabriel, Cláudio Bot..."
-                      value={formBotName}
-                      onChange={(e) => setFormBotName(e.target.value)}
-                      className="w-full p-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-[#1A6FA8] focus:border-[#1A6FA8] focus:outline-hidden font-sans"
-                    />
-                    <p className="text-[10px] text-slate-400 font-sans">
-                      O robô começará o contato dizendo "Olá, sou {formBotName || 'Sofia'}, assistente do(a) Dr(a)..."
-                    </p>
-                  </div>
-
-                  {/* Tone of Voice */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-700 font-sans block">
-                      Tom de Voz (Inflexão Linguística)
-                    </label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      
-                      {/* Cordial */}
-                      <label className={`border rounded-xl p-4 flex items-start gap-3 cursor-pointer transition-all ${
-                        formBotTone === 'Cordial' 
-                          ? 'border-blue-500 bg-blue-50/20 shadow-xs' 
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="botTone"
-                          value="Cordial"
-                          checked={formBotTone === 'Cordial'}
-                          onChange={() => setFormBotTone('Cordial')}
-                          className="mt-0.5 text-[#1A6FA8]"
-                        />
-                        <div className="space-y-0.5">
-                          <span className="text-xs font-bold text-slate-800 font-sans block">Cordial</span>
-                          <p className="text-[10px] text-slate-500 font-sans leading-snug">
-                            Calmo, prestativo, empático e de fácil compreensão. Usa muitos termos de cortesia. Ideal para todas as idades.
-                          </p>
-                        </div>
-                      </label>
-
-                      {/* Formal */}
-                      <label className={`border rounded-xl p-4 flex items-start gap-3 cursor-pointer transition-all ${
-                        formBotTone === 'Formal' 
-                          ? 'border-blue-500 bg-blue-50/20 shadow-xs' 
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="botTone"
-                          value="Formal"
-                          checked={formBotTone === 'Formal'}
-                          onChange={() => setFormBotTone('Formal')}
-                          className="mt-0.5 text-[#1A6FA8]"
-                        />
-                        <div className="space-y-0.5">
-                          <span className="text-xs font-bold text-slate-800 font-sans block">Formal</span>
-                          <p className="text-[10px] text-slate-500 font-sans leading-snug">
-                            Polido, direto, gramaticalmente formal e extremamente respeitoso. Indicado para clínicas executivas ou idosos.
-                          </p>
-                        </div>
-                      </label>
-
-                      {/* Descontraído */}
-                      <label className={`border rounded-xl p-4 flex items-start gap-3 cursor-pointer transition-all ${
-                        formBotTone === 'Descontraído' 
-                          ? 'border-blue-500 bg-blue-50/20 shadow-xs' 
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="botTone"
-                          value="Descontraído"
-                          checked={formBotTone === 'Descontraído'}
-                          onChange={() => setFormBotTone('Descontraído')}
-                          className="mt-0.5 text-[#1A6FA8]"
-                        />
-                        <div className="space-y-0.5">
-                          <span className="text-xs font-bold text-slate-800 font-sans block">Descontraído</span>
-                          <p className="text-[10px] text-slate-500 font-sans leading-snug">
-                            Usa termos amigáveis, emojis e linguagem mais leve. Perfeito para consultórios de Pediatria ou Dermatologia jovem.
-                          </p>
-                        </div>
-                      </label>
-
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Tab 3 removida - Tom de Voz movido para Configurações gerais */}
 
             </form>
 
             {/* Modal Footer Controls */}
             <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between">
               <div>
-                {/* Visual indicator of step */}
                 <span className="text-[11px] text-slate-400 font-sans font-bold">
-                  {formActiveTab === 'basic' && 'Passo 1 de 3 (Dados Clínicos)'}
-                  {formActiveTab === 'bot_config' && 'Passo 2 de 3 (Treinamento)'}
-                  {formActiveTab === 'bot_behavior' && 'Passo 3 de 3 (Sintonia)'}
+                  {formActiveTab === 'basic' && 'Passo 1 de 2 (Dados Clínicos)'}
+                  {formActiveTab === 'bot_config' && 'Passo 2 de 2 (Treinamento)'}
                 </span>
               </div>
 
@@ -1405,39 +1286,30 @@ export default function DoctorsPanel({
                   Cancelar
                 </button>
                 
-                {formActiveTab !== 'basic' && (
+                {formActiveTab === 'bot_config' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (formActiveTab === 'bot_behavior') setFormActiveTab('bot_config');
-                      else if (formActiveTab === 'bot_config') setFormActiveTab('basic');
-                    }}
+                    onClick={() => setFormActiveTab('basic')}
                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer font-sans"
                   >
                     Voltar
                   </button>
                 )}
 
-                {formActiveTab !== 'bot_behavior' ? (
+                {formActiveTab === 'basic' ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (formActiveTab === 'basic') setFormActiveTab('bot_config');
-                      else if (formActiveTab === 'bot_config') setFormActiveTab('bot_behavior');
-                    }}
-                    className="px-4 py-2 bg-[#1A6FA8] hover:bg-[#145683] text-white rounded-lg text-xs font-bold transition-all cursor-pointer font-sans flex items-center gap-1.5"
+                    onClick={() => setFormActiveTab('bot_config')}
+                    className="px-4 py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-bold transition-all cursor-pointer font-sans flex items-center gap-1.5"
                   >
-                    Próximo Passo
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    Próximo Passo <ChevronRight className="w-3.5 h-3.5"/>
                   </button>
                 ) : (
                   <button
-                    type="button"
                     onClick={handleSaveDoctor}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer font-sans flex items-center gap-1.5 shadow-sm"
+                    className="px-4 py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-bold transition-all cursor-pointer font-sans flex items-center gap-1.5"
                   >
-                    Salvar Configurações
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-3.5 h-3.5"/> Salvar Médico
                   </button>
                 )}
               </div>
