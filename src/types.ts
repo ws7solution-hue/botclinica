@@ -32,14 +32,21 @@ export interface Doctor {
   crm: string;
   rating: number;
   avatarUrl: string;
-  schedules: string[]; // e.g., 'Seg, Qua 08:00 - 12:00'
+  schedules: string[];
   consultationFee: number;
   activePatientsCount: number;
   isActive: boolean;
-  attendanceDays: string[]; // ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-  startTime: string; // '08:00'
-  endTime: string; // '18:00'
+  attendanceDays: string[];
+  startTime: string;
+  endTime: string;
   
+  // Configuração de agenda
+  slotDuration?: number; // duração da consulta em minutos (15, 20, 30, 45, 60)
+  breakStart?: string;   // início da pausa (ex: '12:00')
+  breakEnd?: string;     // fim da pausa (ex: '13:00')
+  break2Start?: string;  // segunda pausa opcional
+  break2End?: string;
+
   // Bot Configuration Section
   procedures?: string;
   insurancePlans?: string;

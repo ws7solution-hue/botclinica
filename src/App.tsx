@@ -371,22 +371,29 @@ export default function App() {
     return labels[key] || key;
   };
 
-  // Generate 45-minute slots for doctor
+  // Generate time slots for doctor respecting duration and breaks
   const getDoctorTimeSlots = (doctor: Doctor) => {
     const start = doctor.startTime || '08:00';
     const end = doctor.endTime || '18:00';
+    const duration = doctor.slotDuration || 30; // padrão 30 minutos
     const slots: string[] = [];
     
-    let [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    
-    const startMinutes = sh * 60 + sm;
-    const endMinutes = eh * 60 + em;
-    
-    for (let m = startMinutes; m < endMinutes; m += 45) {
-      const h = Math.floor(m / 60);
-      const mins = m % 60;
-      slots.push(`${String(h).padStart(2, '0')}:${String(mins).padStart(2, '0')}`);
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const toStr = (m: number) => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+
+    const startMin = toMin(start);
+    const endMin = toMin(end);
+    const break1Start = doctor.breakStart ? toMin(doctor.breakStart) : null;
+    const break1End = doctor.breakEnd ? toMin(doctor.breakEnd) : null;
+    const break2Start = doctor.break2Start ? toMin(doctor.break2Start) : null;
+    const break2End = doctor.break2End ? toMin(doctor.break2End) : null;
+
+    for (let m = startMin; m + duration <= endMin; m += duration) {
+      // Verifica se o slot cai dentro de alguma pausa
+      const slotEnd = m + duration;
+      const inBreak1 = break1Start !== null && break1End !== null && m < break1End && slotEnd > break1Start;
+      const inBreak2 = break2Start !== null && break2End !== null && m < break2End && slotEnd > break2Start;
+      if (!inBreak1 && !inBreak2) slots.push(toStr(m));
     }
     return slots;
   };
@@ -997,12 +1004,15 @@ export default function App() {
                             const computedDate = getNextDateForDayOfWeek(modalDayOfWeek);
 
                             return slots.map(slotTime => {
-                              const isOccupied = appointments.some(appt => 
-                                appt.doctorId === selectedDoc.id && 
-                                appt.date === computedDate && 
-                                appt.time === slotTime && 
-                                appt.status !== 'canceled'
-                              );
+                              const isOccupied = appointments.some(appt => {
+                                const sameDate = appt.date === computedDate;
+                                const sameTime = appt.time === slotTime;
+                                const notCanceled = appt.status !== 'canceled';
+                                const sameDoc = appt.doctorId === selectedDoc.id ||
+                                  (appt.doctorName && selectedDoc.name &&
+                                   appt.doctorName.toLowerCase().includes(selectedDoc.name.split(' ')[1]?.toLowerCase() || selectedDoc.name.toLowerCase()));
+                                return sameDate && sameTime && notCanceled && sameDoc;
+                              });
 
                               return (
                                 <option 
