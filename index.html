@@ -1,14 +1,810 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR" translate="no">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="google" content="notranslate" />
-    <title>AtendIA — BotClínica</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+<meta charset="UTF-8"/>
+<meta name="google" content="notranslate" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BotClínica — Atendimento automático pelo WhatsApp para clínicas</title>
+<meta name="description" content="Sua clínica atendendo pacientes 24h pelo WhatsApp com inteligência artificial. Agende, confirme e responda automaticamente."/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --blue:#1A6FA8;--blue-dark:#135A8C;--blue-light:#EBF4FB;
+  --green:#0D9B6E;--green-light:#E8F8F2;
+  --text:#1A2535;--muted:#6B80A0;--border:#E4EAF0;
+  --bg:#F4F8FC;--white:#FFFFFF;
+  --shadow:0 2px 16px rgba(26,111,168,0.08);
+  --shadow-lg:0 8px 40px rgba(26,111,168,0.14);
+}
+body{font-family:'Inter',sans-serif;color:var(--text);background:var(--white);line-height:1.6;font-size:16px}
+a{text-decoration:none;color:inherit}
 
+nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 5%}
+.nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;color:var(--text)}
+.logo-icon{width:38px;height:38px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.logo span{color:var(--blue)}
+.nav-links{display:flex;align-items:center;gap:32px}
+.nav-links a{color:var(--muted);font-size:14px;font-weight:500;transition:color .15s}
+.nav-links a:hover{color:var(--blue)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:all .15s;border:none;text-decoration:none}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-dark);transform:translateY(-1px);box-shadow:0 4px 16px rgba(26,111,168,0.3)}
+.btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue)}
+.btn-outline:hover{background:var(--blue-light)}
+.btn-lg{padding:14px 32px;font-size:16px;border-radius:10px}
+.btn-white{background:#fff;color:var(--blue)}
+.btn-white:hover{background:var(--blue-light)}
+
+.hero{background:linear-gradient(160deg,var(--blue) 0%,#0E5490 100%);padding:90px 5% 80px;text-align:center;position:relative;overflow:hidden;isolation:isolate}
+.hero::before{content:'';position:absolute;inset:0;z-index:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/svg%3E")}
+.hero>*{position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:6px 16px;color:#fff;font-size:13px;font-weight:500;margin-bottom:24px}
+.hero-badge span{width:8px;height:8px;border-radius:50%;background:#4ADE80;display:inline-block;animation:pulse 2s infinite}
+.hero h1{font-size:clamp(32px,5vw,56px);font-weight:800;color:#ffffff !important;line-height:1.15;margin-bottom:20px;max-width:780px;margin-left:auto;margin-right:auto}
+.hero h1 em{font-style:normal;color:#7FD4F8}
+.hero p{font-size:18px;color:rgba(255,255,255,0.82);max-width:540px;margin:0 auto 36px;line-height:1.7}
+.hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.hero-numbers{display:flex;gap:40px;justify-content:center;margin-top:56px;flex-wrap:wrap}
+.hero-num{text-align:center}
+.hero-num strong{display:block;font-size:32px;font-weight:800;color:#fff}
+.hero-num span{font-size:13px;color:rgba(255,255,255,0.65)}
+
+.section{padding:80px 5%}
+.section-inner{max-width:1100px;margin:0 auto}
+.section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--blue);margin-bottom:12px;text-align:center}
+.section-title{font-size:clamp(26px,4vw,38px);font-weight:800;line-height:1.2;margin-bottom:14px;text-align:center}
+.section-sub{color:var(--muted);font-size:16px;line-height:1.7;max-width:540px;margin:0 auto;text-align:center}
+.bg-gray{background:var(--bg)}
+
+.mockup-inner{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.mockup-text h2{font-size:36px;font-weight:800;line-height:1.2;margin-bottom:16px;text-align:left}
+.mockup-text h2 em{font-style:normal;color:var(--blue)}
+.mockup-text p{color:var(--muted);font-size:16px;line-height:1.7;margin-bottom:28px;text-align:left}
+.feature-list{display:flex;flex-direction:column;gap:14px}
+.feature-item{display:flex;align-items:flex-start;gap:12px}
+.feature-dot{width:22px;height:22px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:11px}
+.feature-item p{font-size:14.5px;color:var(--text)}
+
+.phone{background:#1C1C1E;border-radius:40px;padding:14px;box-shadow:0 30px 80px rgba(0,0,0,0.22);border:2px solid #2C2C2E;width:280px;margin:0 auto}
+.phone-bar{display:flex;justify-content:space-between;padding:4px 14px 8px;color:#eee;font-size:10px}
+.phone-header{background:#075E54;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.phone-avatar{width:34px;height:34px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#000}
+.phone-name{color:#fff;font-weight:600;font-size:12px}
+.phone-status{color:rgba(255,255,255,0.7);font-size:10px}
+.phone-chat{background:#ECE5DD;padding:12px 10px;min-height:320px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:11.5px;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
+.msg-bot{background:#fff;color:#111;align-self:flex-start;border-radius:2px 12px 12px 12px}
+.msg-p{background:#DCF8C6;color:#111;align-self:flex-end;border-radius:12px 12px 2px 12px}
+.msg-time{font-size:9px;color:#999;text-align:right;margin-top:3px}
+
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:52px}
+.step-card{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:28px 24px;position:relative}
+.step-card::before{content:attr(data-step);position:absolute;top:-14px;left:24px;background:var(--blue);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.step-icon{width:48px;height:48px;border-radius:12px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:22px}
+.step-card h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.step-card p{color:var(--muted);font-size:14px;line-height:1.6}
+
+.compare-table{background:var(--white);border-radius:16px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow);margin-top:48px;max-width:860px;margin-left:auto;margin-right:auto}
+.compare-header{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--bg);border-bottom:1px solid var(--border)}
+.compare-header div{padding:14px 20px;font-weight:700;font-size:14px;text-align:center}
+.compare-header .col-bot{background:var(--blue);color:#fff}
+.compare-row{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border)}
+.compare-row:last-child{border-bottom:none}
+.compare-row div{padding:13px 20px;font-size:13.5px;display:flex;align-items:center;gap:7px}
+.compare-row .col-feat{color:var(--muted);font-weight:500}
+.compare-row .col-bot{background:rgba(26,111,168,0.03);justify-content:center;color:var(--green);font-weight:600}
+.compare-row .col-old{justify-content:center;color:#E03E3E}
+.ck{color:var(--green);font-weight:700;font-size:16px}
+.cx{color:#E03E3E;font-weight:700;font-size:16px}
+
+.pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:52px;max-width:1200px;margin-left:auto;margin-right:auto}
+.price-card{border:1px solid var(--border);border-radius:16px;padding:28px 24px;position:relative;background:var(--white)}
+.price-card.featured{border:2px solid var(--blue);box-shadow:var(--shadow-lg)}
+.price-badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
+.price-name{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px}
+.price-value{font-size:38px;font-weight:800;color:var(--text);line-height:1}
+.price-value sup{font-size:17px;font-weight:600;vertical-align:super;margin-right:2px}
+.price-value sub{font-size:13px;font-weight:400;color:var(--muted)}
+.price-desc{color:var(--muted);font-size:13px;margin:10px 0 18px;line-height:1.5}
+.price-divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.price-features{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+.price-feature{display:flex;align-items:center;gap:9px;font-size:13.5px}
+.price-feature .ck{font-size:14px}
+
+.testimonials-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:48px}
+.test-card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:24px}
+.stars{display:flex;gap:3px;margin-bottom:14px;color:#F59E0B;font-size:15px}
+.test-text{color:var(--text);font-size:14px;line-height:1.7;margin-bottom:18px}
+.test-author{display:flex;align-items:center;gap:10px}
+.author-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.author-name{font-weight:600;font-size:14px}
+.author-role{color:var(--muted);font-size:12px}
+
+.faq-inner{max-width:700px;margin:0 auto}
+.faq-item{border-bottom:1px solid var(--border);padding:20px 0}
+.faq-q{font-weight:600;font-size:15px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.faq-icon{font-size:20px;color:var(--blue);flex-shrink:0;transition:transform .2s;line-height:1}
+.faq-a{color:var(--muted);font-size:14.5px;line-height:1.7;margin-top:12px;display:none}
+.faq-item.open .faq-a{display:block}
+.faq-item.open .faq-icon{transform:rotate(45deg)}
+
+.cta-section{background:linear-gradient(135deg,var(--blue) 0%,#0E5490 100%);padding:80px 5%;text-align:center}
+.cta-section h2{font-size:clamp(26px,4vw,42px);font-weight:800;color:#fff;margin-bottom:14px}
+.cta-section p{color:rgba(255,255,255,0.82);font-size:17px;margin-bottom:36px}
+.cta-note{color:rgba(255,255,255,0.55);font-size:13px;margin-top:16px}
+
+footer{background:#0D1828;padding:48px 5% 32px}
+.footer-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px;margin-bottom:40px}
+.footer-logo{font-weight:800;font-size:20px;color:#fff;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.footer-logo-icon{width:32px;height:32px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.footer-desc{color:#4E6880;font-size:14px;line-height:1.6}
+.footer-col h4{color:#fff;font-weight:600;font-size:12px;margin-bottom:14px;text-transform:uppercase;letter-spacing:0.8px}
+.footer-col a{display:block;color:#4E6880;font-size:13.5px;margin-bottom:8px}
+.footer-col a:hover{color:#fff}
+.footer-bottom{border-top:1px solid #162535;padding-top:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.footer-bottom p{color:#4E6880;font-size:12px}
+
+.wa-float{position:fixed;bottom:28px;right:28px;z-index:999;background:#25D366;border-radius:50%;width:56px;height:56px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,0.4);transition:transform .2s;font-size:26px;text-decoration:none}
+.wa-float:hover{transform:scale(1.1)}
+.btn-login{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:all .15s;border:1.5px solid var(--blue);color:var(--blue);background:#fff;text-decoration:none;margin-left:8px}
+.btn-login:hover{background:var(--blue);color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(26,111,168,.25)}
+.btn-login svg{transition:transform .2s}
+.btn-login:hover svg{transform:translateX(2px)}
+
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.2)}}
+@media(max-width:768px){
+  .mockup-inner{grid-template-columns:1fr}
+  .steps-grid{grid-template-columns:1fr}
+  .pricing-grid{grid-template-columns:1fr}
+  .testimonials-grid{grid-template-columns:1fr}
+  .footer-inner{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .compare-row div,.compare-header div{padding:10px 12px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <div class="logo-icon">🤖</div>
+      Bot<span>Clínica</span>
+    </a>
+    <div class="nav-links">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#precos">Preços</a>
+      <a href="#faq">Dúvidas</a>
+    </div>
+    <a href="https://wa.me/5531982158450?text=Quero+saber+mais+sobre+o+BotClínica" target="_blank" class="btn btn-primary">
+      💬 Falar no WhatsApp
+    </a>
+    <a href="/app" class="btn-login">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Entrar
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge"><span></span> Mais de 200 atendimentos automatizados por clínica/mês</div>
+  <h1>Sua clínica atendendo<br/><em>24h pelo WhatsApp</em><br/>sem recepcionista</h1>
+  <p>Agendamentos, confirmações e dúvidas respondidas automaticamente. Seus pacientes atendidos na hora, sua equipe focada no que importa.</p>
+  <div class="hero-btns">
+    
+    <a href="#demo" class="btn btn-lg" style="color:#fff;border:1.5px solid rgba(255,255,255,0.4)">Ver demo agora</a>
+  </div>
+  <div class="hero-numbers">
+    <div class="hero-num"><strong>92%</strong><span>das perguntas<br/>respondidas pelo bot</span></div>
+    <div class="hero-num"><strong>24h</strong><span>atendendo seus<br/>pacientes</span></div>
+    <div class="hero-num"><strong>3 seg</strong><span>tempo médio<br/>de resposta</span></div>
+    <div class="hero-num"><strong>R$0</strong><span>custo extra<br/>por mensagem</span></div>
+  </div>
+</section>
+
+<!-- MOCKUP -->
+<section class="section bg-gray">
+  <div class="section-inner">
+    <div class="mockup-inner">
+      <div class="mockup-text">
+        <div class="section-label" style="text-align:left">Atendimento inteligente</div>
+        <h2>Um assistente que <em>nunca para</em> de atender</h2>
+        <p>Enquanto sua equipe descansa, o BotClínica continua agendando consultas, confirmando horários e respondendo dúvidas — com simpatia e agilidade.</p>
+        <div class="feature-list">
+          <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Agendamento automático</strong> — pergunta o serviço, a data e confirma tudo na hora</p></div>
+          <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Lembretes de consulta</strong> — reduz faltas em até 40% com confirmações automáticas</p></div>
+          <div class="feature-item"><div class="feature-dot">✓</div><p><strong>FAQ inteligente</strong> — responde valores, convênios, localização e horários</p></div>
+          <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Bot por médico</strong> — cada médico tem seu próprio assistente personalizado</p></div>
+          <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Transferência com notificação</strong> — avisa o atendente com som e alerta visual</p></div>
+        </div>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="phone-bar"><span>9:41</span><span>100%</span></div>
+          <div class="phone-header">
+            <div class="phone-avatar">S</div>
+            <div><div class="phone-name">Sofia · Clínica Exemplo</div><div class="phone-status">online agora</div></div>
+          </div>
+          <div class="phone-chat">
+            <div class="msg msg-p">Oi, quero agendar com a dermatologista<div class="msg-time">14:31 ✓✓</div></div>
+            <div class="msg msg-bot">Olá! 😊 A Dra. Carla atende às terças e quintas. Qual seria a melhor data pra você?<div class="msg-time">14:31</div></div>
+            <div class="msg msg-p">Quinta-feira que vem<div class="msg-time">14:32 ✓✓</div></div>
+            <div class="msg msg-bot">Temos horários às 10h, 14h e 16h. Qual prefere?<div class="msg-time">14:32</div></div>
+            <div class="msg msg-p">14h por favor<div class="msg-time">14:33 ✓✓</div></div>
+            <div class="msg msg-bot">Perfeito! 📅 Agendado:<br/><br/><strong>Dra. Carla — Dermatologia</strong><br/>Quinta-feira, 14h<br/><br/>Enviaremos lembrete na véspera. Até lá! 😊<div class="msg-time">14:33</div></div>
+          </div>
+        </div>
+
+</div>
+          </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="section" id="como-funciona">
+  <div class="section-inner">
+    <div class="section-label">Simples de começar</div>
+    <h2 class="section-title">Funciona em 3 passos</h2>
+    <p class="section-sub">Sem complicação técnica. Configuramos tudo pra você e entregamos funcionando em até 24h.</p>
+    <div class="steps-grid">
+      <div class="step-card" data-step="1">
+        <div class="step-icon">✏️</div>
+        <h3>Configure sua clínica</h3>
+        <p>Informe o nome da clínica, médicos, especialidades, horários e o nome do assistente de cada um. Leva menos de 5 minutos.</p>
+      </div>
+      <div class="step-card" data-step="2">
+        <div class="step-icon">📱</div>
+        <h3>Conecte seu WhatsApp</h3>
+        <p>Escaneie um QR Code e seu número de WhatsApp já estará conectado. Nenhum número novo necessário.</p>
+      </div>
+      <div class="step-card" data-step="3">
+        <div class="step-icon">🚀</div>
+        <h3>Comece a atender 24h</h3>
+        <p>Seu assistente começa a responder pacientes automaticamente. Você acompanha tudo pelo painel com notificações em tempo real.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARATIVO -->
+<section class="section bg-gray">
+  <div class="section-inner">
+    <div class="section-label">Por que BotClínica?</div>
+    <h2 class="section-title">BotClínica vs recepcionista tradicional</h2>
+    <div class="compare-table">
+      <div class="compare-header">
+        <div></div>
+        <div class="col-bot">🤖 BotClínica</div>
+        <div style="text-align:center;color:var(--muted)">👩 Recepcionista</div>
+      </div>
+      <div class="compare-row"><div class="col-feat">Disponibilidade</div><div class="col-bot"><span class="ck">✓</span> 24h por dia, 7 dias</div><div class="col-old"><span class="cx">✗</span> Horário comercial</div></div>
+      <div class="compare-row"><div class="col-feat">Custo mensal</div><div class="col-bot"><span class="ck">✓</span> A partir de R$ 397</div><div class="col-old"><span class="cx">✗</span> R$ 1.800 a R$ 3.500</div></div>
+      <div class="compare-row"><div class="col-feat">Tempo de resposta</div><div class="col-bot"><span class="ck">✓</span> Menos de 3 segundos</div><div class="col-old"><span class="cx">✗</span> Minutos a horas</div></div>
+      <div class="compare-row"><div class="col-feat">Atendimentos simultâneos</div><div class="col-bot"><span class="ck">✓</span> Ilimitados</div><div class="col-old"><span class="cx">✗</span> 1 por vez</div></div>
+      <div class="compare-row"><div class="col-feat">Férias e faltas</div><div class="col-bot"><span class="ck">✓</span> Nunca para</div><div class="col-old"><span class="cx">✗</span> Deixa sem atendimento</div></div>
+      <div class="compare-row"><div class="col-feat">Painel e relatórios</div><div class="col-bot"><span class="ck">✓</span> Tempo real, por médico</div><div class="col-old"><span class="cx">✗</span> Nenhum</div></div>
+      <div class="compare-row"><div class="col-feat">Bot por médico</div><div class="col-bot"><span class="ck">✓</span> Cada médico tem o seu</div><div class="col-old"><span class="cx">✗</span> Não disponível</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PREÇOS -->
+<section class="section" id="precos">
+  <div class="section-inner" style="text-align:center">
+    <div class="section-label">Planos e preços</div>
+    <h2 class="section-title">Simples, sem surpresas</h2>
+    <p class="section-sub">Cancele quando quiser. Sem taxa de instalação. Sem contrato mínimo.</p>
+
+    <style>
+      .new-pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:52px;max-width:1200px;margin-left:auto;margin-right:auto}
+      .np-card{border:1px solid #E5E7EB;border-radius:20px;padding:32px 28px;position:relative;background:#fff;display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s,box-shadow .2s;cursor:default}
+      .np-card:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(0,0,0,.08)}
+      .np-card.featured{border:2px solid #1A6FA8;box-shadow:0 8px 30px rgba(26,111,168,.15)}
+      .np-card.premium-card{background:#0F172A;border:1px solid rgba(245,158,11,.3);box-shadow:0 8px 30px rgba(245,158,11,.1)}
+      .np-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;padding:4px 14px;border-radius:20px;white-space:nowrap;display:flex;align-items:center;gap:4px}
+      .np-badge.blue{background:#1A6FA8;color:#fff}
+      .np-badge.gold{background:#F59E0B;color:#000}
+      .np-plan-name{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#9CA3AF;margin-bottom:12px;font-family:monospace}
+      .np-card.premium-card .np-plan-name{color:#F59E0B}
+      .np-price{display:flex;align-items:baseline;gap:4px;margin-bottom:6px}
+      .np-price-cur{font-size:13px;font-weight:700;color:#64748B}
+      .np-card.premium-card .np-price-cur{color:#F59E0B}
+      .np-price-val{font-size:42px;font-weight:900;color:#0F172A;line-height:1;font-family:monospace}
+      .np-card.premium-card .np-price-val{color:#fff}
+      .np-price-per{font-size:12px;color:#9CA3AF;font-weight:500}
+      .np-desc{font-size:12px;color:#6B7280;margin-bottom:20px;line-height:1.5;text-align:left}
+      .np-card.premium-card .np-desc{color:#94A3B8}
+      .np-divider{border:none;border-top:1px solid #F1F5F9;margin:16px 0}
+      .np-card.premium-card .np-divider{border-color:rgba(255,255,255,.08)}
+      .np-features{list-style:none;padding:0;margin:0 0 24px;text-align:left;flex:1}
+      .np-features li{font-size:12px;color:#374151;padding:5px 0;display:flex;align-items:center;gap:8px}
+      .np-card.premium-card .np-features li{color:#CBD5E1}
+      .np-features li::before{content:"✓";color:#10B981;font-weight:700;font-size:13px;flex-shrink:0}
+      .np-card.premium-card .np-features li::before{color:#F59E0B}
+      .np-btn{display:block;width:100%;padding:14px;border-radius:14px;font-size:12px;font-weight:800;text-align:center;text-decoration:none;transition:all .2s;border:none;cursor:pointer}
+      .np-btn.btn-outline{background:#fff;border:1.5px solid #E5E7EB;color:#374151}
+      .np-btn.btn-outline:hover{border-color:#1A6FA8;color:#1A6FA8}
+      .np-btn.btn-blue{background:#1A6FA8;color:#fff;box-shadow:0 4px 12px rgba(26,111,168,.25)}
+      .np-btn.btn-blue:hover{background:#155b8b}
+      .np-btn.btn-gold{background:linear-gradient(135deg,#F59E0B,#EF4444);color:#000;font-weight:900}
+      .np-btn.btn-gold:hover{opacity:.9}
+      @media(max-width:900px){.new-pricing-grid{grid-template-columns:repeat(2,1fr)}}
+      @media(max-width:500px){.new-pricing-grid{grid-template-columns:1fr}}
+    </style>
+
+    <div class="new-pricing-grid">
+
+      <!-- STARTER -->
+      <div class="np-card">
+        <div>
+          <div class="np-plan-name">Starter</div>
+          <div class="np-price">
+            <span class="np-price-cur">R$</span>
+            <span class="np-price-val">397</span>
+            <span class="np-price-per">/mês</span>
+          </div>
+          <p class="np-desc">Ideal para consultórios pequenos que querem iniciar com tecnologia.</p>
+          <hr class="np-divider"/>
+          <ul class="np-features">
+            <li>1 número de WhatsApp</li>
+            <li>1 médico cadastrado</li>
+            <li>Até 300 conversas/mês</li>
+            <li>Agendamento automático</li>
+            <li>Painel de conversas</li>
+            <li>Notificações em tempo real</li>
+            <li>Suporte por e-mail</li>
+          </ul>
+        </div>
+        <button onclick="openCheckoutModal('starter')" class="np-btn btn-outline" style="cursor:pointer;font-family:inherit;border:none">Começar agora</button>
+      </div>
+
+      <!-- PROFISSIONAL -->
+      <div class="np-card featured">
+        <div class="np-badge blue">⭐ MAIS ESCOLHIDO</div>
+        <div>
+          <div class="np-plan-name">Profissional</div>
+          <div class="np-price">
+            <span class="np-price-cur">R$</span>
+            <span class="np-price-val">597</span>
+            <span class="np-price-per">/mês</span>
+          </div>
+          <p class="np-desc">Perfeito para clínicas de médio porte que buscam automatização.</p>
+          <hr class="np-divider"/>
+          <ul class="np-features">
+            <li>1 número de WhatsApp</li>
+            <li><strong>Conversas ilimitadas</strong></li>
+            <li><strong>Bot individual por médico</strong></li>
+            <li>Lembretes automáticos</li>
+            <li>Relatórios e métricas</li>
+            <li>Suporte prioritário WhatsApp</li>
+          </ul>
+        </div>
+        <button onclick="openCheckoutModal('profissional')" class="np-btn btn-blue" style="cursor:pointer;font-family:inherit;border:none">Começar agora</button>
+      </div>
+
+      <!-- CLÍNICA -->
+      <div class="np-card">
+        <div>
+          <div class="np-plan-name">Clínica</div>
+          <div class="np-price">
+            <span class="np-price-cur">R$</span>
+            <span class="np-price-val">997</span>
+            <span class="np-price-per">/mês</span>
+          </div>
+          <p class="np-desc">Ideal para clínicas com múltiplos médicos especialistas.</p>
+          <hr class="np-divider"/>
+          <ul class="np-features">
+            <li>Múltiplos médicos especialistas</li>
+            <li>Conversas ilimitadas</li>
+            <li>Dashboard gerencial amplo</li>
+            <li>Relatórios avançados por canal</li>
+            <li>Onboarding presencial</li>
+            <li>Suporte WhatsApp 24h</li>
+          </ul>
+        </div>
+        <button onclick="openCheckoutModal('clinica')" class="np-btn btn-outline" style="cursor:pointer;font-family:inherit;border:none">Começar agora</button>
+      </div>
+
+      <!-- PREMIUM -->
+      <div class="np-card premium-card">
+        <div class="np-badge gold">🏆 MAIS COMPLETO</div>
+        <div>
+          <div class="np-plan-name">Premium</div>
+          <div class="np-price">
+            <span class="np-price-cur">R$</span>
+            <span class="np-price-val">1.497</span>
+            <span class="np-price-per">/mês</span>
+          </div>
+          <p class="np-desc">Solução premium com IA avançada, Prontuário e Agendamento.</p>
+          <hr class="np-divider"/>
+          <ul class="np-features">
+            <li>Tudo do plano Clínica</li>
+            <li><strong style="color:#F59E0B">Prontuário eletrônico integrado</strong></li>
+            <li><strong style="color:#F59E0B">Remarcação de faltas automática</strong></li>
+            <li>Avisos automáticos de atrasos</li>
+            <li>Relatórios avançados com IA</li>
+            <li>Suporte VIP prioritário 24h</li>
+          </ul>
+        </div>
+        <a href="https://mpago.la/1gG6G2h" target="_blank" class="np-btn btn-gold">Assinar Premium</a>
+      </div>
+
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:32px">✓ Demo grátis em todos os planos &nbsp;·&nbsp; ✓ Cancele quando quiser &nbsp;·&nbsp; ✓ Sem taxa de instalação</p>
+  </div>
+</section>
+
+<!-- DEPOIMENTOS -->
+<section class="section bg-gray">
+  <div class="section-inner">
+    <div class="section-label">Depoimentos</div>
+    <h2 class="section-title">Clínicas que já automatizaram</h2>
+    <div class="testimonials-grid">
+      <div class="test-card">
+        <div class="stars">★★★★★</div>
+        <p class="test-text">"Antes perdia pacientes que mandavam mensagem fora do horário. Hoje o bot agenda 24h. Em um mês, minha agenda estava cheia como nunca."</p>
+        <div class="test-author"><div class="author-av" style="background:#EBF4FB;color:#1A6FA8">DR</div><div><div class="author-name">Dr. Rafael Mendes</div><div class="author-role">Clínico Geral · Belo Horizonte</div></div></div>
+      </div>
+      <div class="test-card">
+        <div class="stars">★★★★★</div>
+        <p class="test-text">"Economizei quase R$ 2.000 por mês em salário de recepcionista. O bot atende melhor do que eu esperava. Os pacientes adoraram."</p>
+        <div class="test-author"><div class="author-av" style="background:#E8F8F2;color:#0D9B6E">CS</div><div><div class="author-name">Dra. Camila Souza</div><div class="author-role">Dermatologista · São Paulo</div></div></div>
+      </div>
+      <div class="test-card">
+        <div class="stars">★★★★★</div>
+        <p class="test-text">"Nossa clínica tem 4 médicos e o bot gerencia a agenda de todos. As faltas reduziram 35% com os lembretes automáticos."</p>
+        <div class="test-author"><div class="author-av" style="background:#F5F3FF;color:#7C3AED">AL</div><div><div class="author-name">Ana Lima</div><div class="author-role">Gestora · Clínica MultiSaúde · RJ</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq">
+  <div class="section-inner">
+    <div class="section-label">Dúvidas frequentes</div>
+    <h2 class="section-title" style="margin-bottom:40px">Perguntas e respostas</h2>
+    <div class="faq-inner">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Preciso trocar meu número de WhatsApp?<span class="faq-icon">+</span></div>
+        <div class="faq-a">Não! O BotClínica se conecta ao seu número atual de WhatsApp Business. Você escaneia um QR Code e pronto. Seus contatos continuam os mesmos.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">O bot substitui completamente minha recepcionista?<span class="faq-icon">+</span></div>
+        <div class="faq-a">Para a maioria das clínicas, sim. O bot resolve mais de 90% dos atendimentos automaticamente. Para situações complexas, ele notifica um atendente humano com todo o contexto da conversa — inclusive com som e alerta visual no painel.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Os pacientes vão saber que estão falando com um bot?<span class="faq-icon">+</span></div>
+        <div class="faq-a">O bot usa linguagem natural, nome personalizado e responde de forma humanizada. A maioria dos pacientes não percebe diferença. Você pode configurar o tom — cordial, formal ou descontraído.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Como funciona o bot por médico?<span class="faq-icon">+</span></div>
+        <div class="faq-a">Cada médico da clínica tem seu próprio assistente com nome, personalidade e agenda configurados separadamente. Quando um paciente pergunta sobre a Dra. Ana, responde a "Sofia". Quando pergunta sobre o Dr. Carlos, responde o "Lucas". Você gerencia tudo pelo painel.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Preciso ter conhecimento técnico?<span class="faq-icon">+</span></div>
+        <div class="faq-a">Zero. Nossa equipe faz toda a configuração e entrega o bot funcionando em até 24h. Você só precisa preencher as informações da clínica.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Posso cancelar quando quiser?<span class="faq-icon">+</span></div>
+        <div class="faq-a">Sim, sem burocracia. Sem contrato mínimo, sem multa. Com Demo grátis pra testar, acreditamos que você vai querer ficar.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+
+<!-- ── DEMO INTERATIVA ── -->
+<section id="demo" style="padding:72px 5%;background:#F4F8FC">
+  <div style="max-width:1000px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:44px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:#EBF4FB;border:1px solid #1A6FA8;border-radius:20px;padding:6px 16px;color:#1A6FA8;font-size:12px;font-weight:700;margin-bottom:16px;letter-spacing:.5px;text-transform:uppercase">⚡ Experimente agora — grátis</div>
+      <h2 style="font-size:clamp(24px,3vw,36px);font-weight:800;color:#1A2535;margin-bottom:12px">Teste o bot em tempo real</h2>
+      <p style="color:#6B80A0;font-size:15px;max-width:520px;margin:0 auto">Simule uma conversa como se fosse um paciente da <strong>Clínica Exemplo</strong>. Peça para agendar, tire dúvidas, teste à vontade.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:32px;align-items:start">
+      <div>
+        <div style="background:#fff;border:1px solid #E4EAF0;border-radius:16px;padding:24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div style="width:46px;height:46px;background:linear-gradient(135deg,#1A6FA8,#0D9B6E);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🏥</div>
+            <div>
+              <div style="font-weight:800;font-size:15px;color:#1A2535">Clínica Exemplo</div>
+              <div style="font-size:12px;color:#0D9B6E;font-weight:600">● Bot online agora</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:#6B80A0;line-height:1.8">
+            <div>👨‍⚕️ <strong style="color:#1A2535">Dr. Carlos Mendes</strong> — Clínica Geral</div>
+            <div>👩‍⚕️ <strong style="color:#1A2535">Dra. Ana Lima</strong> — Dermatologia</div>
+            <div style="margin-top:8px">🕐 Seg–Sex: 8h–18h | Sáb: 8h–12h</div>
+            <div>📍 Belo Horizonte, MG</div>
+          </div>
+        </div>
+        <div style="background:#EBF4FB;border-radius:12px;padding:16px;font-size:13px;color:#1A6FA8;line-height:1.7">
+          <div style="font-weight:700;margin-bottom:6px">💡 Sugestões para testar:</div>
+          <div onclick="fillMsg('Quero agendar uma consulta')" style="cursor:pointer;padding:5px 0;border-bottom:1px solid rgba(26,111,168,.15)">"Quero agendar uma consulta"</div>
+          <div onclick="fillMsg('Quais são os horários disponíveis?')" style="cursor:pointer;padding:5px 0;border-bottom:1px solid rgba(26,111,168,.15)">"Quais são os horários disponíveis?"</div>
+          <div onclick="fillMsg('Vocês atendem convênio?')" style="cursor:pointer;padding:5px 0;border-bottom:1px solid rgba(26,111,168,.15)">"Vocês atendem convênio?"</div>
+          <div onclick="fillMsg('Preciso cancelar minha consulta')" style="cursor:pointer;padding:5px 0">"Preciso cancelar minha consulta"</div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1.5px solid #E4EAF0;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(26,111,168,.1)">
+        <div style="background:linear-gradient(135deg,#1A6FA8,#135A8C);padding:16px 20px;display:flex;align-items:center;gap:12px">
+          <div style="width:38px;height:38px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px">🤖</div>
+          <div>
+            <div style="font-weight:700;font-size:14px;color:#fff">Sofia — Assistente da Clínica Exemplo</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.75)">BotClínica</div>
+          </div>
+          <div style="margin-left:auto;width:8px;height:8px;background:#4ADE80;border-radius:50%"></div>
+        </div>
+        <div id="demo-msgs" style="height:320px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#F8FAFC">
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🤖</div>
+            <div style="background:#fff;border:1px solid #E4EAF0;border-radius:16px 16px 16px 4px;padding:11px 14px;font-size:13px;color:#1A2535;max-width:80%;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+              Olá! 😊 Bem-vindo à <strong>Clínica Exemplo</strong>! Sou a Sofia, sua assistente virtual. Como posso ajudar você hoje?
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid #E4EAF0;display:flex;gap:8px;background:#fff">
+          <input id="demo-input" placeholder="Digite sua mensagem..." style="flex:1;border:1.5px solid #E4EAF0;border-radius:24px;padding:10px 16px;font-size:14px;outline:none;font-family:inherit;transition:.15s;color:#1A2535" onfocus="this.style.borderColor='#1A6FA8'" onblur="this.style.borderColor='#E4EAF0'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();demoSend();}"/>
+          <button onclick="demoSend()" id="demo-send-btn" style="width:42px;height:42px;background:#1A6FA8;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:36px">
+      <p style="color:#6B80A0;font-size:14px;margin-bottom:14px">Gostou? Seu bot pode estar funcionando assim em menos de 24h.</p>
+      <button onclick="openCheckoutModal('profissional')" style="display:inline-block;background:#1A6FA8;color:#fff;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit">Começar agora →</button>
+    </div>
+  </div>
+</section>
+
+<script>
+var demoHistory = [];
+var demoLoading = false;
+var DEMO_SYSTEM = "Voce e Sofia, assistente virtual da Clinica Exemplo em Belo Horizonte. Dr. Carlos Mendes (Clinica Geral, Seg/Qua/Sex 8h-17h) e Dra. Ana Lima (Dermatologia, Ter/Qui 9h-18h). Consulta: R$180, apenas particular. Horario: Seg-Sex 8h-18h, Sab 8h-12h. Seja simpatica, objetiva, maximo 3 frases. Se quiser agendar, peca nome e telefone. Voce e uma demonstracao do BotClinica.";
+
+function fillMsg(text) { document.getElementById('demo-input').value = text; document.getElementById('demo-input').focus(); }
+
+function addMsgToChat(text, isBot) {
+  var c = document.getElementById('demo-msgs');
+  var w = document.createElement('div');
+  w.style.display = 'flex'; w.style.gap = '8px'; w.style.alignItems = 'flex-end';
+  if (!isBot) w.style.flexDirection = 'row-reverse';
+  if (isBot) { var av = document.createElement('div'); av.style.cssText = 'width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0'; av.textContent = '🤖'; w.appendChild(av); }
+  var b = document.createElement('div');
+  b.style.cssText = 'padding:11px 14px;font-size:13px;max-width:78%;line-height:1.5;';
+  if (isBot) { b.style.background='#fff'; b.style.border='1px solid #E4EAF0'; b.style.borderRadius='16px 16px 16px 4px'; b.style.color='#1A2535'; }
+  else { b.style.background='#1A6FA8'; b.style.borderRadius='16px 16px 4px 16px'; b.style.color='#fff'; }
+  b.textContent = text; w.appendChild(b); c.appendChild(w); c.scrollTop = c.scrollHeight;
+}
+
+function showTyping() {
+  var c = document.getElementById('demo-msgs');
+  var d = document.createElement('div'); d.id = 'demo-typing'; d.style.cssText = 'display:flex;gap:8px;align-items:flex-end';
+  d.innerHTML = '<div style="width:28px;height:28px;background:linear-gradient(135deg,#1A6FA8,#135A8C);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px">🤖</div><div style="background:#fff;border:1px solid #E4EAF0;border-radius:16px 16px 16px 4px;padding:11px 16px"><div style="display:flex;gap:4px"><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s infinite;display:inline-block"></span><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s .15s infinite;display:inline-block"></span><span style="width:7px;height:7px;background:#1A6FA8;border-radius:50%;animation:bounce .8s .3s infinite;display:inline-block"></span></div></div>';
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
+}
+
+function hideTyping() { var t = document.getElementById('demo-typing'); if (t) t.remove(); }
+
+function demoSend() {
+  if (demoLoading) return;
+  var input = document.getElementById('demo-input');
+  var text = (input.value || '').trim();
+  if (!text) return;
+  input.value = '';
+  addMsgToChat(text, false);
+  demoHistory.push({role:'user',content:text});
+  demoLoading = true;
+  var btn = document.getElementById('demo-send-btn');
+  if (btn) btn.style.opacity = '0.5';
+  showTyping();
+  fetch('/api/chat', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:300,system:DEMO_SYSTEM,messages:demoHistory})})
+  .then(function(r){return r.json();})
+  .then(function(d){ hideTyping(); var reply=(d.content&&d.content[0]&&d.content[0].text)?d.content[0].text:'Desculpe, tente novamente.'; addMsgToChat(reply,true); demoHistory.push({role:'assistant',content:reply}); if(demoHistory.length>16)demoHistory=demoHistory.slice(-16); })
+  .catch(function(){ hideTyping(); addMsgToChat('Erro de conexao. Tente novamente!',true); })
+  .finally(function(){ demoLoading=false; if(btn)btn.style.opacity='1'; });
+}
+</script>
+<style>
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+#demo-msgs::-webkit-scrollbar{width:4px}
+#demo-msgs::-webkit-scrollbar-thumb{background:#E4EAF0;border-radius:2px}
+@media(max-width:700px){#demo > div > div:nth-child(2){grid-template-columns:1fr!important}}
+</style>
+
+<section class="cta-section">
+  <div style="max-width:700px;margin:0 auto">
+    <h2>Pronto pra automatizar o atendimento?</h2>
+    <p>Teste o bot agora mesmo — experimente a demo interativa acima.</p>
+    <button onclick="openCheckoutModal('profissional')" class="btn btn-white btn-lg" style="font-size:16px;padding:16px 36px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);border:none;cursor:pointer;font-family:inherit">
+      🚀 Começar agora
+    </button>
+    <p class="cta-note">✓ Demo grátis &nbsp;·&nbsp; ✓ Sem cartão &nbsp;·&nbsp; ✓ Configuração feita por nós</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-logo"><div class="footer-logo-icon">🤖</div> BotClínica</div>
+      <p class="footer-desc">Atendimento inteligente pelo WhatsApp para clínicas e consultórios. Automatize, economize e atenda melhor.</p>
+    </div>
+    <div class="footer-col"><h4>Produto</h4><a href="#como-funciona">Como funciona</a><a href="#precos">Preços</a><a href="#faq">Dúvidas</a></div>
+    <div class="footer-col"><h4>Contato</h4><a href="https://wa.me/5531982158450" target="_blank">WhatsApp</a><a href="mailto:contato@botclinica.com.br">E-mail</a><a href="https://www.instagram.com/_botclinica" target="_blank">Instagram</a></div>
+  </div>
+  <div class="footer-bottom"><p>© 2025 BotClínica. Todos os direitos reservados.</p><p>botclinica.com.br</p></div>
+</footer>
+
+<a href="https://wa.me/5531982158450?text=Quero+experimentar+o+BotClínica" target="_blank" class="wa-float">💬</a>
+
+<script>
+function toggleFaq(el){
+  const item=el.parentElement;
+  const wasOpen=item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open'));
+  if(!wasOpen)item.classList.add('open');
+}
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const id=a.getAttribute('href').slice(1);
+    const el=document.getElementById(id);
+    if(el){e.preventDefault();el.scrollIntoView({behavior:'smooth',block:'start'});}
+  });
+});
+</script>
+<style id="anim-css">
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes float-badge{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.msg-anim{opacity:0;transform:translateY(6px);animation:msg-in .35s ease forwards}
+@keyframes msg-in{to{opacity:1;transform:translateY(0)}}
+.typing-dots span{display:inline-block;width:7px;height:7px;background:#999;border-radius:50%;margin:0 2px;animation:tdot .8s infinite}
+.typing-dots span:nth-child(2){animation-delay:.15s}
+.typing-dots span:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+</style>
+<script id="anim-js">
+(function(){
+  // Scroll reveal
+  function reveal(){
+    document.querySelectorAll('.section-label,.section-title,.section-sub,.feature-item,.price-card,.step,.faq-item,.mockup-text').forEach(function(el,i){
+      el.classList.add('reveal');
+      el.style.transitionDelay=(Math.floor(i%3)*0.12)+'s';
+    });
+    var io=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target);}});},{threshold:0.1});
+    document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+  }
+
+  // Contador animado
+  function counters(){
+    var els=document.querySelectorAll('.hero-num-val');
+    var done=false;
+    var io=new IntersectionObserver(function(entries){
+      if(!entries[0].isIntersecting||done)return;
+      done=true;
+      els.forEach(function(el){
+        var txt=el.textContent;
+        var num=parseInt(txt.replace(/\D/g,''));
+        var suf=txt.replace(/[0-9]/g,'');
+        var start=performance.now();
+        (function step(ts){
+          var p=Math.min((ts-start)/1600,1);
+          var ease=1-Math.pow(1-p,3);
+          el.textContent=Math.round(ease*num)+suf;
+          if(p<1)requestAnimationFrame(step);
+        })(start);
+      });
+    },{threshold:0.5});
+    if(els.length)io.observe(els[0].closest('div')||els[0]);
+  }
+
+  // Chat animado
+  function chatAnim(){
+    var msgs=[
+      {t:'p',txt:'Oi, quero agendar com a dermatologista',time:'14:31 ✓✓'},
+      {t:'bot',txt:'Olá! 😊 A Dra. Ana atende terças e quintas. Qual data fica melhor?',time:'14:31'},
+      {t:'p',txt:'Quinta-feira que vem',time:'14:32 ✓✓'},
+      {t:'bot',txt:'Temos horários às 10h, 14h e 16h. Qual prefere?',time:'14:32'},
+      {t:'p',txt:'14h por favor 😊',time:'14:33 ✓✓'},
+      {t:'bot',txt:'Perfeito! 📅 Agendado:
+Dra. Ana — Dermatologia
+Qui-feira, 14h
+
+Lembrete na véspera!',time:'14:33'},
+    ];
+    var c=document.getElementById('phone-chat-anim');
+    if(!c)return;
+    var idx=0;
+
+    function typing(){
+      var d=document.createElement('div');
+      d.id='tdot';
+      d.style.cssText='background:#fff;border-radius:0 8px 8px 8px;padding:10px 14px;align-self:flex-start;box-shadow:0 1px 2px rgba(0,0,0,.1);animation:msg-in .35s ease forwards;opacity:0';
+      d.innerHTML='<div style="display:flex;gap:4px;align-items:center"><span style="width:7px;height:7px;background:#999;border-radius:50%;display:inline-block;animation:tdot .8s infinite"></span><span style="width:7px;height:7px;background:#999;border-radius:50%;display:inline-block;animation:tdot .8s .15s infinite"></span><span style="width:7px;height:7px;background:#999;border-radius:50%;display:inline-block;animation:tdot .8s .3s infinite"></span></div>';
+      c.appendChild(d);
+      c.scrollTop=9999;
+    }
+    function rmTyping(){var t=document.getElementById('tdot');if(t)t.remove();}
+    function addMsg(m){var d=document.createElement('div');d.className='msg msg-'+m.t+' msg-anim';d.innerHTML=m.txt.replace(/
+/g,'<br>')+'<div class="msg-time">'+m.time+'</div>';c.appendChild(d);c.scrollTop=9999;}
+
+    function next(){
+      if(idx>=msgs.length){
+        setTimeout(function(){c.style.transition='opacity .5s';c.style.opacity='0';setTimeout(function(){c.innerHTML='';c.style.opacity='1';idx=0;setTimeout(next,600);},500);},4000);
+        return;
+      }
+      var m=msgs[idx++];
+      if(m.t==='bot'){typing();setTimeout(function(){rmTyping();addMsg(m);setTimeout(next,1800);},1000+Math.random()*400);}
+      else{addMsg(m);setTimeout(next,1400);}
+    }
+
+    // Iniciar direto após load
+    if(document.readyState==='loading'){
+      document.addEventListener('DOMContentLoaded',function(){setTimeout(next,1200);});
+    } else {
+      setTimeout(next,1200);
+    }
+  }
+
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){reveal();counters();});}
+  else{reveal();counters();}
+})();
+</script>
+<!-- MODAL CAPTURA -->
+<div id="bc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)closeCheckoutModal()">
+  <div style="background:#fff;border-radius:20px;padding:36px;max-width:400px;width:92%;box-shadow:0 24px 80px rgba(0,0,0,.25)">
+    <h3 style="font-size:19px;font-weight:800;color:#1A2535;margin-bottom:6px">Quase lá! 🚀</h3>
+    <p style="font-size:13px;color:#64748B;margin-bottom:22px">Informe seus dados para finalizar a assinatura do plano <strong id="bc-plan-name" style="color:#1A6FA8"></strong>.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="bc-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+      <input id="bc-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none;font-family:inherit"/>
+    </div>
+    <p id="bc-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="closeCheckoutModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;color:#64748B">Cancelar</button>
+      <button id="bc-btn" onclick="submitBCCheckout()" style="flex:2;padding:12px;border-radius:10px;border:none;background:#1A6FA8;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Ir para pagamento →</button>
+    </div>
+  </div>
+</div>
+<script>
+var bcPlan=null;
+var bcLabels={starter:'Starter',profissional:'Profissional',clinica:'Clínica',premium:'Premium'};
+function openCheckoutModal(plano){
+  bcPlan=plano;
+  document.getElementById('bc-plan-name').textContent=bcLabels[plano]||plano;
+  document.getElementById('bc-error').style.display='none';
+  document.getElementById('bc-modal').style.display='flex';
+}
+function closeCheckoutModal(){
+  document.getElementById('bc-modal').style.display='none';
+}
+async function submitBCCheckout(){
+  var clinic=document.getElementById('bc-clinic').value.trim();
+  var admin=document.getElementById('bc-admin').value.trim();
+  var email=document.getElementById('bc-email').value.trim();
+  var err=document.getElementById('bc-error');
+  var btn=document.getElementById('bc-btn');
+  if(!email||!email.includes('@')){err.textContent='Informe um email válido.';err.style.display='block';return;}
+  btn.textContent='Processando...';btn.disabled=true;
+  try{
+    var r=await fetch('/api/mp-create-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plano:bcPlan,email:email,clinicName:clinic,adminName:admin})});
+    var d=await r.json();
+    if(d.ok&&d.init_point){window.location.href=d.init_point;}
+    else{err.textContent=d.error||'Erro ao iniciar pagamento.';err.style.display='block';btn.textContent='Ir para pagamento →';btn.disabled=false;}
+  }catch(e){err.textContent='Erro de conexão.';err.style.display='block';btn.textContent='Ir para pagamento →';btn.disabled=false;}
+}
+</script>
+</body>
+</html>
