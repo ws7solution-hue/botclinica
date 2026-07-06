@@ -236,9 +236,44 @@ export default function App() {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
-    if (payment === 'success') {
+    const sessionId = params.get('session_id');
+
+    if (payment === 'success' && sessionId) {
       window.history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => addSystemLog('success', '🎉 Pagamento confirmado! Bem-vindo ao AtendIA. Configure sua clínica em Configurações.'), 1500);
+      
+      // Busca dados da sessão Stripe e faz login automático
+      fetch('/api/stripe-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getSession', sessionId }),
+      })
+      .then(r => r.json())
+      .then(async d => {
+        if (d.email && d.senhaTemp) {
+          // Faz login automático com senha temporária
+          const lr = await fetch('/api/fb', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              action: 'login', 
+              payload: { email: d.email, password: d.senhaTemp }
+            }),
+          });
+          const ld = await lr.json();
+          if (ld.ok) {
+            handleLoginSuccess({
+              ...ld,
+              email: d.email,
+              clinicName: d.clinicName || '',
+              firstAccess: true,
+            });
+            setTimeout(() => addSystemLog('success', '🎉 Pagamento confirmado! Crie sua senha para continuar.'), 500);
+          }
+        }
+      })
+      .catch(() => {
+        addSystemLog('info', '✅ Pagamento confirmado! Faça login para acessar o painel.');
+      });
     }
   }, []);
 
