@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { 
   Settings, 
   Save, 
@@ -69,17 +69,6 @@ export default function SettingsPanel({
   const [enableAutoReminders, setEnableAutoReminders] = useState(botSettings.enableAutoReminders);
   const [daysBeforeAppointmentForReminder, setDaysBeforeAppointmentForReminder] = useState(botSettings.daysBeforeAppointmentForReminder);
   
-  useEffect(() => {
-    setClinicName(botSettings.clinicName || '');
-    setPhone(botSettings.phone || '');
-    setWelcomeMessage(botSettings.welcomeMessage || '');
-    setAiTone(botSettings.aiTone || 'profissional');
-    setAllowDirectDoctorScheduling(!!botSettings.allowDirectDoctorScheduling);
-    setEnableAutoReminders(!!botSettings.enableAutoReminders);
-    setDaysBeforeAppointmentForReminder(botSettings.daysBeforeAppointmentForReminder || 1);
-    setRules(botSettings.rulesList || []);
-  }, [botSettings]);
-
   // Premium specific states
   const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(currentPlan === 'premium');
   const [enableDelayAlerts, setEnableDelayAlerts] = useState(currentPlan === 'premium');

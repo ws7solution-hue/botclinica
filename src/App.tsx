@@ -39,15 +39,12 @@ import {
   fbListAppointments, 
   fbSaveAppointment, 
   fbListConversations, 
-  fbSaveConversation,
-  fbGetBotConfig
+  fbSaveConversation 
 } from './firebase';
 
 import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, CalendarCheck } from 'lucide-react';
 
 export const DEMO_EMAIL = 'contato@botclinica.com.br';
-
-const profileStorageKey = (email: string) => `atendia_user_profile_${email.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<SidebarTab>('overview');
@@ -199,18 +196,7 @@ export default function App() {
     const email = (profile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
     localStorage.setItem('atendia_email', email);
     localStorage.setItem('atendia_logged_in', 'true');
-
-    let savedProfile: Partial<UserProfile> = {};
-    try {
-      savedProfile = JSON.parse(localStorage.getItem(profileStorageKey(email)) || '{}');
-    } catch (e) {
-      savedProfile = {};
-    }
-
-    const mergedProfile = { ...profile, ...savedProfile, email };
-    setUserProfile(mergedProfile);
-    localStorage.setItem(profileStorageKey(email), JSON.stringify(mergedProfile));
-    localStorage.setItem('atendia_user_profile', JSON.stringify(mergedProfile));
+    setUserProfile({ ...profile, email });
     setIsLoggedIn(true);
 
     // LoginScreen já salvou o plano real (vindo do Firestore via fbLogin) em localStorage('atendia_plan').
@@ -244,8 +230,6 @@ export default function App() {
   // Save profile to localStorage whenever it changes
   React.useEffect(() => {
     localStorage.setItem('atendia_user_profile', JSON.stringify(userProfile));
-    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
-    if (email) localStorage.setItem(profileStorageKey(email), JSON.stringify(userProfile));
   }, [userProfile]);
 
   // Detecta redirect pós-pagamento
@@ -296,26 +280,6 @@ export default function App() {
       });
     }
   }, []);
-
-  // Carrega configurações da clínica do Firestore ao logar/recarregar
-  React.useEffect(() => {
-    if (!isLoggedIn) return;
-    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
-    if (!email || email === DEMO_EMAIL) return;
-    const key = email.replace(/[@.]/g, '_');
-
-    fbGetBotConfig(`clinic_settings_${key}/bot`)
-      .then(config => {
-        if (!config) return;
-        setBotSettings((prev: any) => ({ ...prev, ...config }));
-        setUserProfile(prev => ({
-          ...prev,
-          clinicName: config.clinicName || prev.clinicName,
-          phone: config.phone || prev.phone,
-        }));
-      })
-      .catch(() => {});
-  }, [isLoggedIn, userProfile.email]);
 
   // Verifica firstAccess para usuários já logados (ex: redirect pós-pagamento)
   React.useEffect(() => {
