@@ -302,14 +302,14 @@ footer a{color:var(--blue)}
     btn.disabled = true;
 
     try {
-      const r = await fetch('/api/stripe-checkout', {
+      const r = await fetch('/api/mp-create-preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plano: currentCheckoutPlan, email, clinicName, adminName }),
       });
       const data = await r.json();
-      if (data.ok && data.url) {
-        window.location.href = data.url;
+      if (data.ok && data.init_point) {
+        window.location.href = data.init_point;
       } else {
         errEl.textContent = data.error || 'Erro ao iniciar pagamento. Tente novamente.';
         errEl.style.display = 'block';
