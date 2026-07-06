@@ -22,6 +22,13 @@ const qrcode = require('qrcode');
 const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 app.use(express.json());
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -51,7 +58,7 @@ async function fsPatch(path_, body) {
   return r.json();
 }
 function emailToKey(email) { return email.toLowerCase().replace(/[@.]/g, '_'); }
-function g(f, k) { return f?.[k]?.stringValue || f?.[k]?.booleanValue ?? ''; }
+function g(f, k) { return f?.[k]?.stringValue || f?.[k]?.booleanValue || ''; }
 
 // ── Busca configurações da clínica no Firestore ───────────────────────────────
 async function getClinicConfig(clinicId) {
