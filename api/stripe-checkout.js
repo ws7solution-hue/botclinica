@@ -50,6 +50,9 @@ module.exports = async (req, res) => {
     if (!priceId) return res.status(400).json({ error: 'Plano inválido' });
 
     try {
+      // Cria conta ANTES de ir pro Stripe — garante login automático ao voltar
+      await activateAccount({ email, plano, clinicName, adminName });
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         payment_method_types: ['card'],
