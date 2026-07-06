@@ -8,7 +8,7 @@ const PLAN_PRICES = {
   starter: 397,
   profissional: 597,
   clinica: 997,
-  premium: 0.02,
+  premium: 1497,
 };
 
 const PLAN_NAMES = {
@@ -57,9 +57,9 @@ module.exports = async (req, res) => {
       external_reference: externalRef,
       notification_url: "https://botclinica.com.br/api/mp-webhook",
       back_urls: {
-        success: "https://botclinica.com.br/checkout?status=success",
+        success: "https://botclinica.com.br/app?payment=success",
         failure: "https://botclinica.com.br/checkout?status=failure",
-        pending: "https://botclinica.com.br/checkout?status=pending",
+        pending: "https://botclinica.com.br/app?payment=pending",
       },
       auto_return: "approved",
       payment_methods: {

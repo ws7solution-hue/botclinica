@@ -377,7 +377,28 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, email, plano, idToken: d.idToken, firstAccess });
     }
 
-    // ── GET PLAN ──────────────────────────────────────────
+    // ── CHECK FIRST ACCESS ────────────────────────────────
+    if (action === "checkFirstAccess") {
+      const { email } = payload;
+      if (!email) return res.status(400).json({ error: "email obrigatório" });
+      const key = emailToKey(email);
+      const r = await fsReq(`acessos_autorizados/${key}`);
+      const d = await r.json();
+      const firstAccess = d.fields?.firstAccess?.booleanValue !== false;
+      if (!firstAccess) return res.status(200).json({ firstAccess: false });
+
+      // Busca senha temporária para fazer login e obter idToken real
+      const senhaTemp = d.fields?.senhaTemp?.stringValue || d.fields?.senha?.stringValue || '';
+      if (!senhaTemp) return res.status(200).json({ firstAccess: true, idToken: '' });
+
+      const lr = await fetch(`${AUTH_URL}:signInWithPassword?key=${API_KEY}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true })
+      });
+      const ld = await lr.json();
+      if (ld.error) return res.status(200).json({ firstAccess: true, idToken: '' });
+      return res.status(200).json({ firstAccess: true, idToken: ld.idToken });
+    }
     if (action === "getPlan") {
       const { email } = payload;
       const r = await fsReq(`acessos_autorizados/${emailToKey(email)}`);
