@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
         const d = await r.json();
         const senhaTemp = d.fields?.senhaTemp?.stringValue || '';
 
-        return res.status(200).json({ email, clinicName, senhaTemp });
+        return res.status(200).json({ email, clinicName, senhaTemp, plano: d.fields?.plano?.stringValue || 'starter' });
       } catch (e) {
         return res.status(500).json({ error: e.message });
       }
