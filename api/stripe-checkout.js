@@ -17,18 +17,37 @@ module.exports = async (req, res) => {
 
   const stripe = require('stripe')(STRIPE_SECRET);
 
-  // ── Criar sessão de checkout ──────────────────────────────────────────────
+  // ── Buscar dados da sessão para login automático ─────────────────────────
   if (req.method === 'POST' && !req.headers['stripe-signature']) {
-    const { plano, email, clinicName, adminName } = req.body;
+    const { action, sessionId, plano, email, clinicName, adminName } = req.body;
 
-    if (!plano || !email) {
-      return res.status(400).json({ error: 'Plano e email são obrigatórios' });
+    if (action === 'getSession' && sessionId) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const { email, clinicName } = session.metadata || {};
+        
+        if (!email) return res.status(200).json({ error: 'Sessão inválida' });
+
+        // Busca senha temporária do Firestore
+        const FB_KEY = 'AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew';
+        const FB_PROJECT = 'botclinica-60b6f';
+        const FS = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
+        const key = email.toLowerCase().replace(/[@.]/g, '_');
+        const r = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
+        const d = await r.json();
+        const senhaTemp = d.fields?.senhaTemp?.stringValue || '';
+
+        return res.status(200).json({ email, clinicName, senhaTemp });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
     }
 
+    // ── Criar sessão de checkout ────────────────────────────────────────────
+
+    if (!plano || !email) return res.status(400).json({ error: 'Plano e email são obrigatórios' });
     const priceId = PRICE_IDS[plano.toLowerCase()];
-    if (!priceId) {
-      return res.status(400).json({ error: 'Plano inválido' });
-    }
+    if (!priceId) return res.status(400).json({ error: 'Plano inválido' });
 
     try {
       const session = await stripe.checkout.sessions.create({
