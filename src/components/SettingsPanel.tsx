@@ -45,6 +45,7 @@ interface SettingsProps {
   setActiveTab: (tab: SidebarTab) => void;
   currentPlan: AtendiaPlan;
   clinicId?: string;
+  onUpdateProfile?: (clinicName: string, phone: string) => void;
 }
 
 export default function SettingsPanel({ 
@@ -56,7 +57,8 @@ export default function SettingsPanel({
   doctors,
   setActiveTab,
   currentPlan,
-  clinicId
+  clinicId,
+  onUpdateProfile
 }: SettingsProps) {
   // Local form states
   const [clinicName, setClinicName] = useState(botSettings.clinicName);
@@ -145,6 +147,8 @@ export default function SettingsPanel({
     }
 
     onAddSystemLog('success', 'Configurações gerais do AtendIA salvas e aplicadas em tempo real.');
+    // Atualiza o perfil no estado do React para persistir no localStorage
+    if (onUpdateProfile) onUpdateProfile(clinicName, phone);
     alert("Configurações atualizadas com sucesso!");
   };
 
