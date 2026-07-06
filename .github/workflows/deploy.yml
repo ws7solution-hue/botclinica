@@ -16,7 +16,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -27,15 +26,14 @@ jobs:
           NODE_ENV: production
 
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./
+        run: |
+          npm i -g vercel
+          vercel --token=${{ secrets.VERCEL_TOKEN }} --prod --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Update VPS bot
+      - name: Atualiza VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 187.77.242.43
@@ -44,4 +42,5 @@ jobs:
           script: |
             pm2 restart botclinica-multitenant
             pm2 restart botclinica-vendas
-            echo "VPS atualizada com sucesso!"
+            pm2 save
+            echo "VPS atualizada!"
