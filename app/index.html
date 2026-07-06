@@ -5,11 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google" content="notranslate" />
     <title>AtendIA — BotClínica</title>
-    <script type="module" crossorigin src="/app/assets/index-Q8oArxfC.js"></script>
-    <link rel="stylesheet" crossorigin href="/app/assets/index-D8CWgB49.css">
+    <script type="module" crossorigin src="/app/assets/index-CGP2prL_.js"></script>
+    <link rel="stylesheet" crossorigin href="/app/assets/index-D__DekKD.css">
   </head>
   <body>
     <div id="root"></div>
+    <!-- Loading pós-pagamento -->
+    <div id="payment-loading" style="display:none;position:fixed;inset:0;background:#0B1120;z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+      <div style="width:48px;height:48px;border:4px solid rgba(37,99,235,0.3);border-top-color:#2563EB;border-radius:50%;animation:spin 1s linear infinite"></div>
+      <p style="color:#fff;font-family:Inter,sans-serif;font-size:16px;font-weight:600">Ativando sua conta...</p>
+      <p style="color:rgba(255,255,255,0.5);font-family:Inter,sans-serif;font-size:13px">Aguarde um momento</p>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>
   </body>
 </html>
 
