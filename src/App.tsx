@@ -241,7 +241,9 @@ export default function App() {
     if (payment === 'success' && sessionId) {
       window.history.replaceState({}, '', window.location.pathname);
       
-      // Busca dados da sessão Stripe e faz login automático
+      // Mostra loading enquanto processa
+      document.getElementById('payment-loading')?.style.setProperty('display', 'flex');
+
       fetch('/api/stripe-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,7 +252,6 @@ export default function App() {
       .then(r => r.json())
       .then(async d => {
         if (d.email && d.senhaTemp) {
-          // Faz login automático com senha temporária
           const lr = await fetch('/api/fb', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -261,6 +262,7 @@ export default function App() {
           });
           const ld = await lr.json();
           if (ld.ok) {
+            if (d.plano) localStorage.setItem('atendia_plan', d.plano);
             handleLoginSuccess({
               ...ld,
               email: d.email,
@@ -270,8 +272,10 @@ export default function App() {
             setTimeout(() => addSystemLog('success', '🎉 Pagamento confirmado! Crie sua senha para continuar.'), 500);
           }
         }
+        document.getElementById('payment-loading')?.style.setProperty('display', 'none');
       })
       .catch(() => {
+        document.getElementById('payment-loading')?.style.setProperty('display', 'none');
         addSystemLog('info', '✅ Pagamento confirmado! Faça login para acessar o painel.');
       });
     }
