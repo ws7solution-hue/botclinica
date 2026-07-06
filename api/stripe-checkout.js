@@ -124,40 +124,25 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
 
   const emailToKey = (e) => e.toLowerCase().replace(/[@.]/g, '_');
 
-  const key = emailToKey(email);
+  // Gera senha temporária
+  const senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
 
-  // Gera senha temporária apenas se a conta Auth for criada agora.
-  // Se o webhook rodar depois, o usuário já existe; nesse caso reaproveitamos
-  // a senha temporária antiga para não quebrar o login automático pós-pagamento.
-  let senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
+  // Cria usuário no Firebase Auth
   let idToken = '';
-  let authCreatedNow = false;
-
-  const signUpR = await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true }),
-  });
-  const signUpD = await signUpR.json();
-
-  if (signUpD.idToken) {
-    idToken = signUpD.idToken;
-    authCreatedNow = true;
-  } else if (signUpD.error?.message?.includes('EMAIL_EXISTS')) {
-    const existingR = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
-    const existingD = await existingR.json();
-    senhaTemp = existingD.fields?.senhaTemp?.stringValue || existingD.fields?.senha?.stringValue || '';
-    console.log(`Usuário já existe: ${email}. Reaproveitando senha temporária existente.`);
-  } else if (signUpD.error) {
-    console.log('Auth create err:', signUpD.error.message);
-  }
-
-  if (!senhaTemp) {
-    // Evita salvar uma senha aleatória que não existe no Firebase Auth.
-    senhaTemp = '';
+  try {
+    const r = await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true }),
+    });
+    const d = await r.json();
+    idToken = d.idToken || '';
+  } catch (e) {
+    console.log('Usuário já existe, continuando...');
   }
 
   // Salva no Firestore
+  const key = emailToKey(email);
   const url = `${FS}/acessos_autorizados/${key}?key=${FB_KEY}`;
   await fetch(url, {
     method: 'PATCH',
@@ -177,7 +162,7 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
   });
 
   // Envia email de boas-vindas com senha temporária
-  if (authCreatedNow && idToken) {
+  if (idToken) {
     await fetch(`${AUTH_URL}:sendOobCode?key=${FB_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

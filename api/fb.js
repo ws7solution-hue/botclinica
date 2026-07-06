@@ -329,23 +329,12 @@ module.exports = async (req, res) => {
 
     // ── BOT CONFIG: get ──────────────────────────────────────
     if (action === "getBotConfig") {
-      const { docId, clinicId } = payload || {};
-      const path = docId || (clinicId ? `clinic_settings_${emailToKey(clinicId)}/bot` : "clinic_config/main");
-      const r = await fetch(`${FS}/${path}?key=${API_KEY}`);
+      const r = await fetch(`${FS}/clinic_config/main?key=${API_KEY}`);
       const d = await r.json();
       if (d.error || !d.fields) return res.status(200).json({ config: null });
-
-      // Formato antigo: clinic_config/main.botConfig = JSON string
       const raw = d.fields?.botConfig?.stringValue;
-      if (raw) {
-        try { return res.status(200).json({ config: JSON.parse(raw) }); }
-        catch(e) { return res.status(200).json({ config: null }); }
-      }
-
-      // Formato novo: clinic_settings_<email>/bot com campos planos
-      const config = {};
-      Object.keys(d.fields || {}).forEach(k => { config[k] = parseFirestoreValue(d.fields[k]); });
-      return res.status(200).json({ config });
+      try { return res.status(200).json({ config: JSON.parse(raw) }); }
+      catch(e) { return res.status(200).json({ config: null }); }
     }
 
     // ── BOT CONFIG: save ─────────────────────────────────────
