@@ -210,7 +210,7 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onSave }: P
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Overlay background */}
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" 
@@ -218,7 +218,7 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onSave }: P
       />
       
       {/* Modal box */}
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto" style={{maxHeight: 'calc(100vh - 32px)', overflowY: 'auto'}}>
         <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-800 font-sans flex items-center gap-2">
             <User className="w-5 h-5 text-[#1A6FA8]" />
