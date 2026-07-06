@@ -232,6 +232,39 @@ export default function App() {
     localStorage.setItem('atendia_user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
 
+  // Detecta redirect pós-pagamento
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    if (payment === 'success') {
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => addSystemLog('success', '🎉 Pagamento confirmado! Bem-vindo ao AtendIA. Configure sua clínica em Configurações.'), 1500);
+    }
+  }, []);
+
+  // Verifica firstAccess para usuários já logados (ex: redirect pós-pagamento)
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+    if (localStorage.getItem('atendia_password_set')) return;
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+
+    // Busca direto do Firestore se é primeiro acesso
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'checkFirstAccess', payload: { email } }),
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.firstAccess === true && d.idToken) {
+        setFirstAccessIdToken(d.idToken);
+        setShowFirstAccess(true);
+      }
+    })
+    .catch(() => {});
+  }, [isLoggedIn]);
+
   // Synchronize Firestore Data for non-demo users
   React.useEffect(() => {
     if (!isLoggedIn) return;
@@ -781,6 +814,11 @@ export default function App() {
               setActiveTab={setActiveTab}
               currentPlan={currentPlan}
               clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
+              onUpdateProfile={(clinicName, phone) => {
+                const updated = { ...userProfile, clinicName, phone };
+                setUserProfile(updated);
+                localStorage.setItem('atendia_user_profile', JSON.stringify(updated));
+              }}
             />
           )}
         </main>
