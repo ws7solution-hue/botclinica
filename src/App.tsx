@@ -854,7 +854,7 @@ export default function App() {
               doctors={doctors}
               setActiveTab={setActiveTab}
               currentPlan={currentPlan}
-              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || localStorage.getItem('atendia_user_profile') ? JSON.parse(localStorage.getItem('atendia_user_profile') || '{}').email || '' : ''}
               onUpdateProfile={(clinicName, phone) => {
                 const updated = { ...userProfile, clinicName, phone };
                 setUserProfile(updated);
