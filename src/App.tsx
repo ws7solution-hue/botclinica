@@ -34,6 +34,7 @@ import {
 
 import { 
   fbListDoctors, 
+  fbGetBotConfig,
   fbSaveDoctor, 
   fbDeleteDoctor, 
   fbListAppointments, 
@@ -227,7 +228,26 @@ export default function App() {
     }
   };
 
-  // Sincroniza email no localStorage sempre que userProfile mudar
+  // Carrega configurações do bot do Firestore quando logado
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+    const email = userProfile.email || localStorage.getItem('atendia_email') || '';
+    if (!email || email === DEMO_EMAIL) return;
+    const key = email.toLowerCase().replace(/[@.]/g, '_');
+    fbGetBotConfig(`clinic_settings_${key}/bot`)
+      .then((config: any) => {
+        if (config && (config.clinicName || config.phone || config.welcomeMessage)) {
+          setBotSettings((prev: any) => ({
+            ...prev,
+            ...(config.clinicName && { clinicName: config.clinicName }),
+            ...(config.phone && { phone: config.phone }),
+            ...(config.welcomeMessage && { welcomeMessage: config.welcomeMessage }),
+            ...(config.aiTone && { aiTone: config.aiTone }),
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [isLoggedIn, userProfile.email]);
   React.useEffect(() => {
     if (userProfile.email) {
       localStorage.setItem('atendia_email', userProfile.email);
