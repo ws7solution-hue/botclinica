@@ -251,6 +251,7 @@ export default function App() {
       })
       .then(r => r.json())
       .then(async d => {
+        console.log('getSession response:', JSON.stringify({email: d.email, hasPassword: !!d.senhaTemp, plano: d.plano}));
         if (d.email && d.senhaTemp) {
           const lr = await fetch('/api/fb', {
             method: 'POST',
@@ -261,6 +262,7 @@ export default function App() {
             }),
           });
           const ld = await lr.json();
+          console.log('login response:', JSON.stringify({ok: ld.ok, error: ld.error}));
           if (ld.ok) {
             if (d.plano) localStorage.setItem('atendia_plan', d.plano);
             handleLoginSuccess({
