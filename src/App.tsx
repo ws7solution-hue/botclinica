@@ -714,11 +714,11 @@ export default function App() {
   // Count unread chats for the sidebar badge
   const unreadChatsCount = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   if (!isLoggedIn) {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#F0F2F5] text-slate-700 antialiased font-sans">
