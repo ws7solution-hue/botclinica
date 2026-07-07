@@ -227,6 +227,13 @@ export default function App() {
     }
   };
 
+  // Sincroniza email no localStorage sempre que userProfile mudar
+  React.useEffect(() => {
+    if (userProfile.email) {
+      localStorage.setItem('atendia_email', userProfile.email);
+    }
+  }, [userProfile.email]);
+
   // Save profile to localStorage whenever it changes
   React.useEffect(() => {
     localStorage.setItem('atendia_user_profile', JSON.stringify(userProfile));
@@ -854,7 +861,7 @@ export default function App() {
               doctors={doctors}
               setActiveTab={setActiveTab}
               currentPlan={currentPlan}
-              clinicId={userProfile.email || localStorage.getItem('atendia_email') || localStorage.getItem('atendia_user_profile') ? JSON.parse(localStorage.getItem('atendia_user_profile') || '{}').email || '' : ''}
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
               onUpdateProfile={(clinicName, phone) => {
                 const updated = { ...userProfile, clinicName, phone };
                 setUserProfile(updated);
