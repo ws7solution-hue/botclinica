@@ -197,49 +197,6 @@ export default function SettingsPanel({
           </div>
 
           <form onSubmit={handleSaveConfig} className="p-6 space-y-5">
-            
-            {/* Clinic details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
-                  Nome Comercial da Clínica
-                </label>
-                <input
-                  id="settings-clinic-name"
-                  type="text"
-                  value={clinicName}
-                  onChange={(e) => setClinicName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
-                  Número de WhatsApp da Clínica
-                </label>
-                <div className="relative">
-                  <Smartphone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="settings-phone"
-                    type="text"
-                    value={phone}
-                    onChange={(e) => {
-                      // Máscara: (XX) XXXXX-XXXX
-                      const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
-                      let masked = '';
-                      if (digits.length === 0) masked = '';
-                      else if (digits.length <= 2) masked = `(${digits}`;
-                      else if (digits.length <= 7) masked = `(${digits.slice(0,2)}) ${digits.slice(2)}`;
-                      else masked = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
-                      setPhone(masked);
-                    }}
-                    placeholder="(31) 99105-8485"
-                    className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 font-sans mt-1">Número que os pacientes usam para contato. O bot informará este número se solicitado.</p>
-              </div>
-            </div>
 
             {/* WhatsApp Embedded Signup */}
             <div>
