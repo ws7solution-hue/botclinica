@@ -197,7 +197,33 @@ export default function App() {
     const email = (profile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
     localStorage.setItem('atendia_email', email);
     localStorage.setItem('atendia_logged_in', 'true');
-    setUserProfile({ ...profile, email });
+
+    // Busca perfil salvo do Firestore antes de sobrescrever
+    const key = email.toLowerCase().replace(/[@.]/g, '_');
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'getBotConfig',
+        payload: { docId: `clinic_settings_${key}/profile` }
+      }),
+    })
+    .then(r => r.json())
+    .then((savedProfile: any) => {
+      setUserProfile({
+        ...profile,
+        email,
+        ...(savedProfile?.clinicName && { clinicName: savedProfile.clinicName }),
+        ...(savedProfile?.name && { name: savedProfile.name }),
+        ...(savedProfile?.role && { role: savedProfile.role }),
+        ...(savedProfile?.avatarUrl && { avatarUrl: savedProfile.avatarUrl }),
+        ...(savedProfile?.accountType && { accountType: savedProfile.accountType }),
+      });
+    })
+    .catch(() => {
+      setUserProfile({ ...profile, email });
+    });
+
     setIsLoggedIn(true);
 
     // LoginScreen já salvou o plano real (vindo do Firestore via fbLogin) em localStorage('atendia_plan').
