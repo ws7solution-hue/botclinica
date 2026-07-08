@@ -797,8 +797,8 @@ export default function App() {
           onLogout={() => {
             setIsLoggedIn(false);
             localStorage.removeItem('atendia_logged_in');
-            localStorage.removeItem('atendia_email');
             localStorage.removeItem('atendia_password_set');
+            // Mantém email e perfil no localStorage para restaurar na próxima sessão
             setDoctors([]);
             setAppointments([]);
             setConversations([]);
