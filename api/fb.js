@@ -329,12 +329,20 @@ module.exports = async (req, res) => {
 
     // ── BOT CONFIG: get ──────────────────────────────────────
     if (action === "getBotConfig") {
-      const r = await fetch(`${FS}/clinic_config/main?key=${API_KEY}`);
+      const { docId } = payload || {};
+      const path = docId || "clinic_config/main";
+      const r = await fetch(`${FS}/${path}?key=${API_KEY}`);
       const d = await r.json();
-      if (d.error || !d.fields) return res.status(200).json({ config: null });
-      const raw = d.fields?.botConfig?.stringValue;
-      try { return res.status(200).json({ config: JSON.parse(raw) }); }
-      catch(e) { return res.status(200).json({ config: null }); }
+      if (d.error || !d.fields) return res.status(200).json(null);
+      // Retorna campos diretos do documento
+      const result = {};
+      Object.entries(d.fields || {}).forEach(([k, v]) => {
+        if (v.stringValue !== undefined) result[k] = v.stringValue;
+        else if (v.booleanValue !== undefined) result[k] = v.booleanValue;
+        else if (v.integerValue !== undefined) result[k] = parseInt(v.integerValue);
+        else if (v.doubleValue !== undefined) result[k] = parseFloat(v.doubleValue);
+      });
+      return res.status(200).json(Object.keys(result).length > 0 ? result : null);
     }
 
     // ── BOT CONFIG: save ─────────────────────────────────────
