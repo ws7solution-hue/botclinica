@@ -234,6 +234,32 @@ export default function App() {
     const email = userProfile.email || localStorage.getItem('atendia_email') || '';
     if (!email || email === DEMO_EMAIL) return;
     const key = email.toLowerCase().replace(/[@.]/g, '_');
+
+    // Busca perfil da clínica no Firestore
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'getBotConfig',
+        payload: { docId: `clinic_settings_${key}/profile` }
+      }),
+    })
+    .then(r => r.json())
+    .then((profileData: any) => {
+      if (profileData && (profileData.clinicName || profileData.name)) {
+        setUserProfile(prev => ({
+          ...prev,
+          ...(profileData.clinicName && { clinicName: profileData.clinicName }),
+          ...(profileData.name && { name: profileData.name }),
+          ...(profileData.role && { role: profileData.role }),
+          ...(profileData.avatarUrl && { avatarUrl: profileData.avatarUrl }),
+          ...(profileData.accountType && { accountType: profileData.accountType }),
+        }));
+      }
+    })
+    .catch(() => {});
+
+    // Busca configs do bot
     fbGetBotConfig(`clinic_settings_${key}/bot`)
       .then((config: any) => {
         if (config && (config.clinicName || config.phone || config.welcomeMessage)) {
@@ -1192,9 +1218,9 @@ export default function App() {
           onSave={(updated) => {
             setUserProfile(updated);
             addSystemLog('success', `Perfil de usuário atualizado: ${updated.name} (${updated.role}).`);
-            // Salva nome da clínica no Firestore pra o bot ler
-            const email = userProfile.email || localStorage.getItem('atendia_email') || '';
-            if (email && updated.clinicName) {
+            // Salva perfil no Firestore
+            const email = updated.email || localStorage.getItem('atendia_email') || '';
+            if (email) {
               const key = email.toLowerCase().replace(/[@.]/g, '_');
               fetch('/api/fb', {
                 method: 'POST',
@@ -1202,11 +1228,31 @@ export default function App() {
                 body: JSON.stringify({
                   action: 'saveBotConfig',
                   payload: {
-                    docId: `clinic_settings_${key}/bot`,
-                    config: { clinicName: updated.clinicName }
+                    docId: `clinic_settings_${key}/profile`,
+                    config: {
+                      clinicName: updated.clinicName || '',
+                      name: updated.name || '',
+                      role: updated.role || '',
+                      avatarUrl: updated.avatarUrl || '',
+                      accountType: updated.accountType || 'clinic',
+                    }
                   }
                 }),
               }).catch(() => {});
+              // Também salva clinicName no bot config
+              if (updated.clinicName) {
+                fetch('/api/fb', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'saveBotConfig',
+                    payload: {
+                      docId: `clinic_settings_${key}/bot`,
+                      config: { clinicName: updated.clinicName }
+                    }
+                  }),
+                }).catch(() => {});
+              }
             }
           }}
         />
