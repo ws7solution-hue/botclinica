@@ -111,7 +111,7 @@ export async function fbSaveClinicSettings(settings: Record<string, unknown>, cl
 // ── BOT CONFIG ──
 export async function fbGetBotConfig(docId: string) {
   const d = await post('getBotConfig', { docId });
-  return d.config || null;
+  return d || null;
 }
 
 export async function fbSaveBotConfig(docId: string, config: Record<string, unknown>) {
