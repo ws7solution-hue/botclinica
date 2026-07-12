@@ -72,10 +72,8 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     if (!hasSupport || !email) return;
     const interval = setInterval(async () => {
       const d = await callApi('getSupportTickets', { email });
-      const total = (d.tickets || []).reduce((s: number, t: Ticket) =>
-        s + t.messages.filter(m => m.role === 'agent').length, 0
-      );
-      setUnread(prev => total > prev ? total : prev);
+      const list: Ticket[] = d.tickets || [];
+      setUnread(computeUnread(list));
     }, 30000);
     return () => clearInterval(interval);
   }, [email, hasSupport]);
@@ -89,10 +87,42 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     return r.json();
   }
 
+  // BUGFIX: a lógica antiga somava TODAS as mensagens de agente de TODOS os
+  // tickets (inclusive já resolvidos há dias) e nunca diminuía de verdade —
+  // por isso a notificação reaparecia sozinha minutos depois de fechar o
+  // chat, mesmo para chamados já concluídos. Agora só contamos mensagens
+  // realmente novas (que o cliente ainda não viu) em tickets NÃO resolvidos,
+  // usando o localStorage pra lembrar quantas mensagens já foram vistas em
+  // cada ticket.
+  function getSeenCounts(): Record<string, number> {
+    try {
+      return JSON.parse(localStorage.getItem(`support_seen_${email}`) || '{}');
+    } catch {
+      return {};
+    }
+  }
+  function markAllSeen(list: Ticket[]) {
+    const seen: Record<string, number> = {};
+    list.forEach(t => {
+      seen[t.id] = t.messages.filter(m => m.role === 'agent').length;
+    });
+    localStorage.setItem(`support_seen_${email}`, JSON.stringify(seen));
+  }
+  function computeUnread(list: Ticket[]): number {
+    const seen = getSeenCounts();
+    return list.reduce((sum, t) => {
+      if (t.status === 'resolvido') return sum; // concluído: não notifica mais
+      const agentCount = t.messages.filter(m => m.role === 'agent').length;
+      const seenCount = seen[t.id] || 0;
+      return sum + Math.max(0, agentCount - seenCount);
+    }, 0);
+  }
+
   async function loadTickets() {
     const d = await callApi('getSupportTickets', { email });
     const t = d.tickets || [];
     setTickets(t);
+    if (open) markAllSeen(t);
     // Atualiza ticket ativo se estiver aberto
     if (activeTicket) {
       const updated = t.find((x: Ticket) => x.id === activeTicket.id);
@@ -157,7 +187,14 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     <div className="fixed bottom-6 right-6 z-50">
       {/* Botão flutuante */}
       <button
-        onClick={() => { setOpen(v => !v); setUnread(0); resetInactivityTimer(); }}
+        onClick={() => {
+          setOpen(v => {
+            const next = !v;
+            if (next) { markAllSeen(tickets); setUnread(0); }
+            return next;
+          });
+          resetInactivityTimer();
+        }}
         className="w-14 h-14 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-full shadow-2xl flex items-center justify-center transition-all relative"
       >
         {open ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
@@ -181,8 +218,12 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
                 <p className="text-blue-200 text-xs font-sans">Respondemos em até 2h</p>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white">
-              <ChevronDown className="w-5 h-5" />
+            <button
+              onClick={() => setOpen(false)}
+              className="text-white/70 hover:text-white p-1 hover:bg-white/10 rounded-lg transition-colors"
+              title="Fechar"
+            >
+              <X className="w-5 h-5" />
             </button>
           </div>
 
