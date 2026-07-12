@@ -13,6 +13,53 @@ const ENDPOINTS = {
   refreshToken: `https://securetoken.googleapis.com/v1/token?key=${API_KEY}`,
 };
 
+// ── BUGFIX CRÍTICO: PATCH no Firestore sem "updateMask" APAGA todos os campos
+// do documento que não estiverem presentes naquela chamada específica (a REST
+// API do Firestore trata PATCH sem updateMask como substituição total do
+// documento, não como merge). Isso já havia sido notado manualmente em UM
+// lugar do código (ver "saveDoctor" mais abaixo), mas não nos outros ~24
+// pontos que fazem PATCH no Firestore neste arquivo — causando bugs como
+// campos de conversa (status, patientPhone, etc.) sendo apagados sempre que
+// outro trecho do código atualiza só parte dos campos.
+//
+// Em vez de editar cada uma das chamadas individualmente (alto risco de
+// esquecer alguma), interceptamos aqui o fetch global: toda vez que for um
+// PATCH para o Firestore com um corpo { fields: {...} }, adicionamos
+// automaticamente um updateMask.fieldPaths para cada campo enviado, fazendo
+// o Firestore atualizar (merge) só esses campos, preservando o resto do
+// documento intacto.
+const _originalFetch = global.fetch;
+global.fetch = function patchedFetch(input, opts) {
+  try {
+    const urlStr = typeof input === 'string' ? input : (input && input.url);
+    if (
+      opts &&
+      opts.method === 'PATCH' &&
+      typeof urlStr === 'string' &&
+      urlStr.startsWith(FS) &&
+      !urlStr.includes('updateMask.fieldPaths') &&
+      typeof opts.body === 'string'
+    ) {
+      const parsedBody = JSON.parse(opts.body);
+      if (parsedBody && parsedBody.fields && typeof parsedBody.fields === 'object') {
+        const fieldNames = Object.keys(parsedBody.fields);
+        if (fieldNames.length > 0) {
+          const maskParams = fieldNames
+            .map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`)
+            .join('&');
+          const separator = urlStr.includes('?') ? '&' : '?';
+          const newUrl = `${urlStr}${separator}${maskParams}`;
+          return _originalFetch(newUrl, opts);
+        }
+      }
+    }
+  } catch (e) {
+    // Se algo der errado ao tentar montar o updateMask, segue com a
+    // requisição original em vez de quebrar a chamada.
+  }
+  return _originalFetch(input, opts);
+};
+
 // Obtém token de serviço do admin (conta de email/senha embutida apenas para operações admin)
 // Alternativa sem service account: usa o próprio token do usuário ou API key
 async function fsReq(path, opts = {}, token = null) {
