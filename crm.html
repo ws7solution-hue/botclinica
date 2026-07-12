@@ -352,7 +352,18 @@ async function loadAll(){
   supportInterval = setInterval(async()=>{
     await loadTickets();
     updateSupportBadge();
-    if(currentPage === 'suporte') refreshSupportList();
+    if(currentPage === 'suporte') {
+      refreshSupportList();
+      // BUGFIX: sem isso, a conversa aberta na tela nunca atualizava sozinha
+      // (era preciso sair e abrir de novo pra ver mensagens novas do
+      // cliente). Agora, se houver um ticket ativo, re-renderiza o chat
+      // dele a cada poll — isso também garante o scroll automático pro
+      // final sempre que chega mensagem nova.
+      if(activeTicket){
+        const t = tickets.find(x=>x.id===activeTicket);
+        if(t) renderTicketChat(t);
+      }
+    }
   }, 10000);
 }
 
@@ -691,6 +702,7 @@ function renderTicketChat(ticket){
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline btn-sm" onclick="resolveTicket('${ticket.id}')">✅ Resolver</button>
+        <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="deleteTicket('${ticket.id}')">🗑️ Excluir</button>
       </div>
     </div>
     <div class="support-messages" id="chat-msgs">
@@ -733,6 +745,15 @@ async function resolveTicket(ticketId){
   const ticket = tickets.find(t=>t.id===ticketId);
   if(ticket){ ticket.status='resolvido'; ticket.updatedAt=new Date().toISOString(); }
   toast('✅ Chamado resolvido!');
+  renderSuporte();
+}
+
+async function deleteTicket(ticketId){
+  if(!confirm('Tem certeza que deseja excluir este chamado? Essa ação não pode ser desfeita.')) return;
+  await api('deleteSupportTicket',{id:ticketId});
+  tickets = tickets.filter(t=>t.id!==ticketId);
+  if(activeTicket===ticketId) activeTicket=null;
+  toast('🗑️ Chamado excluído.');
   renderSuporte();
 }
 
