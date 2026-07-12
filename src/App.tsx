@@ -238,9 +238,17 @@ export default function App() {
       setAppointments(prev => prev.length === 0 ? INITIAL_APPOINTMENTS : prev);
       setDoctors(prev => prev.length === 0 ? INITIAL_DOCTORS : prev);
     } else {
-      setConversations([]);
-      setAppointments([]);
-      setDoctors([]);
+      // BUGFIX: setConversations/setAppointments/setDoctors "normais" fazem um
+      // diff com o estado anterior e DELETAM do Firestore qualquer item que
+      // não esteja na lista nova. Resetar para [] usando essas versões
+      // apagava de verdade todos os médicos/consultas/conversas da clínica
+      // sempre que o login rodava com dados antigos ainda na memória. Usamos
+      // aqui as versões "cruas" (sem diff/delete), que só limpam a tela —
+      // os useEffect de sincronização repopulam com os dados reais do
+      // Firestore logo em seguida.
+      setRawConversations([]);
+      setRawAppointments([]);
+      setRawDoctors([]);
     }
 
     addSystemLog('success', `Bem-vindo de volta, ${profile.accountType === 'clinic' ? (profile.clinicName || profile.name) : (profile.doctorName || profile.name)}! Login efetuado.`);
@@ -825,9 +833,12 @@ export default function App() {
             localStorage.removeItem('atendia_logged_in');
             localStorage.removeItem('atendia_password_set');
             // Mantém email e perfil no localStorage para restaurar na próxima sessão
-            setDoctors([]);
-            setAppointments([]);
-            setConversations([]);
+            // BUGFIX: mesma correção do login — usar as versões cruas
+            // (sem diff/delete) para não apagar os dados reais da clínica
+            // no Firestore só porque o usuário clicou em "Sair".
+            setRawDoctors([]);
+            setRawAppointments([]);
+            setRawConversations([]);
             addSystemLog('info', 'Sessão encerrada com sucesso.');
           }}
         />
