@@ -56,6 +56,16 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      // BUGFIX: o projeto nunca teve um HTML de entrada de verdade para o
+      // Vite processar o app React — o index.html da raiz é a landing page
+      // estática. Sem isso, "vite build" usava o HTML errado como entrada,
+      // gerando um bundle minúsculo (só a landing) em vez do painel React
+      // completo. Aqui apontamos explicitamente para src/index.html.
+      rollupOptions: {
+        input: path.resolve(__dirname, 'src/index.html'),
+      },
+    },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
