@@ -66,7 +66,7 @@ export default function SettingsPanel({
   const [allowDirectDoctorScheduling, setAllowDirectDoctorScheduling] = useState(botSettings.allowDirectDoctorScheduling);
   const [enableAutoReminders, setEnableAutoReminders] = useState(botSettings.enableAutoReminders);
   const [daysBeforeAppointmentForReminder, setDaysBeforeAppointmentForReminder] = useState(botSettings.daysBeforeAppointmentForReminder);
-  
+
   // Premium specific states
   const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(currentPlan === 'premium');
   const [enableDelayAlerts, setEnableDelayAlerts] = useState(currentPlan === 'premium');
@@ -75,6 +75,22 @@ export default function SettingsPanel({
   const [rules, setRules] = useState<Rule[]>(botSettings.rulesList);
   const [newTrigger, setNewTrigger] = useState('');
   const [newAction, setNewAction] = useState('');
+
+  // BUGFIX: sincroniza os campos locais quando botSettings é atualizado
+  // de forma assíncrona (ex: após o fetch do Firestore terminar depois do
+  // mount inicial). Sem isso, a tela ficava presa nos valores padrão
+  // (INITIAL_BOT_SETTINGS) mesmo depois dos dados reais chegarem, e um
+  // "Salvar" nesse estado sobrescrevia a configuração real da clínica.
+  React.useEffect(() => {
+    setClinicName(botSettings.clinicName);
+    setPhone(botSettings.phone);
+    setWelcomeMessage(botSettings.welcomeMessage);
+    setAiTone(botSettings.aiTone);
+    setAllowDirectDoctorScheduling(botSettings.allowDirectDoctorScheduling);
+    setEnableAutoReminders(botSettings.enableAutoReminders);
+    setDaysBeforeAppointmentForReminder(botSettings.daysBeforeAppointmentForReminder);
+    setRules(botSettings.rulesList);
+  }, [botSettings]);
 
   // Specialty management states
   const [newSpecialty, setNewSpecialty] = useState('');
