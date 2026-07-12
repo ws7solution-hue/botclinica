@@ -1028,6 +1028,14 @@ module.exports = async (req, res) => {
       return res.status(200).json({ tickets });
     }
 
+    // ── SUPORTE: excluir ticket ────────────────────────
+    if (action === "deleteSupportTicket") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "ID obrigatório" });
+      await fsReq(`support_tickets/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
