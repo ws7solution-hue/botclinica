@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, ChevronDown, Plus } from 'lucide-react';
+import { MessageCircle, X, Send, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { AtendiaPlan } from '../types';
 
 interface SupportChatProps {
@@ -155,6 +155,16 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     await loadTickets();
   }
 
+  async function deleteTicket(ticketId: string) {
+    if (!window.confirm('Tem certeza que deseja excluir este chamado? Essa ação não pode ser desfeita.')) return;
+    await callApi('deleteSupportTicket', { id: ticketId });
+    setTickets(prev => prev.filter(t => t.id !== ticketId));
+    if (activeTicket?.id === ticketId) {
+      setActiveTicket(null);
+      setView('list');
+    }
+  }
+
   function fmtTime(s: string) {
     if (!s) return '';
     const d = new Date(s);
@@ -256,7 +266,7 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
                   <div
                     key={t.id}
                     onClick={() => { setActiveTicket(t); setView('chat'); }}
-                    className="px-4 py-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
+                    className="px-4 py-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors group"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs font-bold text-slate-800 font-sans truncate flex-1">{t.title}</p>
@@ -267,6 +277,13 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
                       }`}>
                         {t.status === 'resolvido' ? 'Resolvido' : t.status === 'andamento' ? 'Em andamento' : 'Aberto'}
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteTicket(t.id); }}
+                        className="ml-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                        title="Excluir chamado"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                     <p className="text-xs text-slate-500 font-sans truncate">
                       {t.messages[t.messages.length - 1]?.text || 'Aguardando resposta...'}
@@ -316,6 +333,13 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
                 }`}>
                   {activeTicket.status === 'resolvido' ? 'Resolvido' : activeTicket.status === 'andamento' ? 'Em andamento' : 'Aberto'}
                 </span>
+                <button
+                  onClick={() => deleteTicket(activeTicket.id)}
+                  className="text-slate-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Excluir chamado"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
                 {activeTicket.messages.map((m, i) => (
