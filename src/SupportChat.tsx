@@ -37,6 +37,13 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
   const [unread, setUnread] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // BUGFIX: o polling (setInterval) é criado uma única vez quando o chat
+  // abre, e "congela" o valor de activeTicket daquele momento (geralmente
+  // null, já que o usuário ainda não tinha escolhido um ticket). Sem essa
+  // ref, a conversa nunca era atualizada em tempo real depois de abrir um
+  // ticket específico — só ao fechar e abrir o widget de novo.
+  const activeTicketRef = useRef<Ticket | null>(null);
+  useEffect(() => { activeTicketRef.current = activeTicket; }, [activeTicket]);
 
   // Auto-fechar após 5 minutos de inatividade
   const resetInactivityTimer = () => {
@@ -123,9 +130,10 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     const t = d.tickets || [];
     setTickets(t);
     if (open) markAllSeen(t);
-    // Atualiza ticket ativo se estiver aberto
-    if (activeTicket) {
-      const updated = t.find((x: Ticket) => x.id === activeTicket.id);
+    // Atualiza ticket ativo se estiver aberto (usando a ref, não o closure)
+    const current = activeTicketRef.current;
+    if (current) {
+      const updated = t.find((x: Ticket) => x.id === current.id);
       if (updated) setActiveTicket(updated);
     }
   }
