@@ -693,6 +693,15 @@ function refreshSupportList(){
 function renderTicketChat(ticket){
   const chatArea = document.getElementById('support-chat-area');
   if(!chatArea) return;
+  // BUGFIX: o polling automático re-renderiza a conversa inteira a cada
+  // 10s, o que recriava o campo de digitar do zero — apagando qualquer
+  // texto que o atendente já estivesse escrevendo. Aqui guardamos o valor
+  // e a posição do cursor antes de re-renderizar, e restauramos depois.
+  const prevInput = document.getElementById('agent-msg');
+  const prevValue = prevInput ? prevInput.value : '';
+  const hadFocus = !!prevInput && document.activeElement === prevInput;
+  const selStart = prevInput ? prevInput.selectionStart : null;
+  const selEnd = prevInput ? prevInput.selectionEnd : null;
   const msgs = ticket.messages||[];
   chatArea.innerHTML=`
     <div class="support-chat-header">
@@ -724,6 +733,15 @@ function renderTicketChat(ticket){
       <input type="text" id="agent-msg" placeholder="Digite sua resposta..." onkeydown="if(event.key==='Enter')sendAgentMsg('${ticket.id}')"/>
       <button class="btn btn-primary" onclick="sendAgentMsg('${ticket.id}')">Enviar →</button>
     </div>`;
+  // Restaura o texto/foco que o atendente estava digitando
+  const newInput = document.getElementById('agent-msg');
+  if(newInput && prevValue){
+    newInput.value = prevValue;
+    if(hadFocus){
+      newInput.focus();
+      if(selStart!=null) newInput.setSelectionRange(selStart, selEnd);
+    }
+  }
   // Scroll to bottom
   setTimeout(()=>{ const el=document.getElementById('chat-msgs'); if(el) el.scrollTop=el.scrollHeight; },100);
 }
