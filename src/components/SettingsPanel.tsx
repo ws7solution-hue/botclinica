@@ -30,6 +30,7 @@ interface SettingsProps {
   botSettings: {
     clinicName: string;
     phone: string;
+    clinicAddress?: string;
     welcomeMessage: string;
     allowDirectDoctorScheduling: boolean;
     enableAutoReminders: boolean;
@@ -63,6 +64,7 @@ export default function SettingsPanel({
   // Local form states
   const [clinicName, setClinicName] = useState(botSettings.clinicName);
   const [phone, setPhone] = useState(botSettings.phone);
+  const [clinicAddress, setClinicAddress] = useState(botSettings.clinicAddress || '');
   const [welcomeMessage, setWelcomeMessage] = useState(botSettings.welcomeMessage);
   const [aiTone, setAiTone] = useState(botSettings.aiTone);
   const [allowDirectDoctorScheduling, setAllowDirectDoctorScheduling] = useState(botSettings.allowDirectDoctorScheduling);
@@ -77,6 +79,23 @@ export default function SettingsPanel({
   const [rules, setRules] = useState<Rule[]>(botSettings.rulesList);
   const [newTrigger, setNewTrigger] = useState('');
   const [newAction, setNewAction] = useState('');
+
+  // BUGFIX: sincroniza os campos locais quando botSettings é atualizado
+  // de forma assíncrona (ex: após o fetch do Firestore terminar depois do
+  // mount inicial). Sem isso, a tela ficava presa nos valores padrão
+  // (INITIAL_BOT_SETTINGS) mesmo depois dos dados reais chegarem, e um
+  // "Salvar" nesse estado sobrescrevia a configuração real da clínica.
+  React.useEffect(() => {
+    setClinicName(botSettings.clinicName);
+    setPhone(botSettings.phone);
+    setClinicAddress(botSettings.clinicAddress || '');
+    setWelcomeMessage(botSettings.welcomeMessage);
+    setAiTone(botSettings.aiTone);
+    setAllowDirectDoctorScheduling(botSettings.allowDirectDoctorScheduling);
+    setEnableAutoReminders(botSettings.enableAutoReminders);
+    setDaysBeforeAppointmentForReminder(botSettings.daysBeforeAppointmentForReminder);
+    setRules(botSettings.rulesList);
+  }, [botSettings]);
 
   // Specialty management states
   const [newSpecialty, setNewSpecialty] = useState('');
@@ -140,6 +159,15 @@ export default function SettingsPanel({
               welcomeMessage,
               aiTone,
               phone,
+              clinicAddress,
+              // BUGFIX: esses campos ficavam só no estado local da tela,
+              // nunca eram salvos de verdade no Firestore — por isso o bot
+              // (e agora o N8N) nunca conseguia enxergar as regras de
+              // palavra-chave nem essas preferências configuradas aqui.
+              allowDirectDoctorScheduling,
+              enableAutoReminders,
+              daysBeforeAppointmentForReminder,
+              rulesList: rules,
             }
           }
         }),
@@ -150,6 +178,25 @@ export default function SettingsPanel({
     // Atualiza o perfil no estado do React para persistir no localStorage
     if (onUpdateProfile) onUpdateProfile(clinicName, phone);
     alert("Configurações atualizadas com sucesso!");
+  };
+
+  // BUGFIX: adicionar/excluir regra só atualizava o estado local (React),
+  // nunca salvava de verdade no Firestore — as regras "somem" ao recarregar
+  // a página, e o bot/N8N nunca tinha acesso a elas. Agora persistimos
+  // imediatamente sempre que uma regra é adicionada ou removida.
+  const persistRules = (updatedRules: Rule[]) => {
+    if (!clinicId) return;
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveBotConfig',
+        payload: {
+          docId: `clinic_settings_${clinicId.toLowerCase().replace(/[@.]/g, '_')}/bot`,
+          config: { rulesList: updatedRules },
+        },
+      }),
+    }).catch(() => {});
   };
 
   // Add keyword trigger rule
@@ -163,7 +210,8 @@ export default function SettingsPanel({
       ...prev,
       rulesList: updatedRules
     }));
-    
+    persistRules(updatedRules);
+
     onAddSystemLog('success', `Adicionada regra de disparo de palavra-chave: "${newTrigger.trim()}"`);
     setNewTrigger('');
     setNewAction('');
@@ -177,6 +225,7 @@ export default function SettingsPanel({
       ...prev,
       rulesList: updatedRules
     }));
+    persistRules(updatedRules);
     onAddSystemLog('warning', `Regra de palavra-chave deletada: "${triggerName}"`);
   };
 
@@ -207,6 +256,24 @@ export default function SettingsPanel({
                 clinicId={clinicId || ''}
                 onAddSystemLog={onAddSystemLog}
               />
+            </div>
+
+            {/* Endereço da Clínica */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
+                Endereço da Clínica
+              </label>
+              <input
+                type="text"
+                id="settings-clinic-address"
+                value={clinicAddress}
+                onChange={(e) => setClinicAddress(e.target.value)}
+                className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+                placeholder="Ex: Rua das Flores, 123 - Centro, Belo Horizonte - MG"
+              />
+              <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                Usado pelo assistente virtual para informar a localização da clínica aos pacientes.
+              </p>
             </div>
 
             {/* AI Welcome Message Textarea */}
