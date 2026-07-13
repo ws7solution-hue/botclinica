@@ -381,13 +381,13 @@ module.exports = async (req, res) => {
       const r = await fetch(`${FS}/${path}?key=${API_KEY}`);
       const d = await r.json();
       if (d.error || !d.fields) return res.status(200).json(null);
-      // Retorna campos diretos do documento
+      // BUGFIX: o parse manual antigo só entendia string/boolean/integer/
+      // double — um campo do tipo array (como rulesList) virava undefined
+      // sempre, mesmo já salvo corretamente no Firestore. Agora usamos o
+      // parseFirestoreValue genérico, que já suporta arrays e objetos.
       const result = {};
       Object.entries(d.fields || {}).forEach(([k, v]) => {
-        if (v.stringValue !== undefined) result[k] = v.stringValue;
-        else if (v.booleanValue !== undefined) result[k] = v.booleanValue;
-        else if (v.integerValue !== undefined) result[k] = parseInt(v.integerValue);
-        else if (v.doubleValue !== undefined) result[k] = parseFloat(v.doubleValue);
+        result[k] = parseFirestoreValue(v);
       });
       return res.status(200).json(Object.keys(result).length > 0 ? result : null);
     }
@@ -397,12 +397,12 @@ module.exports = async (req, res) => {
       const { docId, config, clinicId } = payload;
       // Suporta tanto docId explícito quanto clinicId
       const path = docId || (clinicId ? `clinic_settings_${emailToKey(clinicId)}/bot` : "clinic_config/main");
-      const fields = {};
-      Object.entries(config || {}).forEach(([k, v]) => {
-        if (typeof v === 'string') fields[k] = { stringValue: v };
-        else if (typeof v === 'boolean') fields[k] = { booleanValue: v };
-        else if (typeof v === 'number') fields[k] = { doubleValue: v };
-      });
+      // BUGFIX: o mapeamento antigo só tratava string/boolean/number — um
+      // campo do tipo array (como rulesList, as regras de palavra-chave)
+      // era silenciosamente ignorado e nunca chegava a ser salvo no
+      // Firestore. Agora usamos o helper genérico toFsFields, que já
+      // suporta arrays e objetos aninhados corretamente.
+      const fields = toFsFields(config || {});
       const url = `${FS}/${path}?key=${API_KEY}`;
       const r = await fetch(url, {
         method: "PATCH",
