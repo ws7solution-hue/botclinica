@@ -40,16 +40,26 @@ export default function HumanAlert({ conversations, onGoToChat, onDismiss }: Hum
     } catch (e) {}
 
     // Notificação do navegador
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification('🚨 AtendIA — Atendimento Humano Solicitado!', {
-          body: `${pendingChats[0]?.patientName || 'Paciente'} está aguardando você!`,
-          icon: '/favicon.ico',
-          requireInteraction: true,
-        });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission();
+    // BUGFIX: em alguns navegadores/tablets (principalmente WebViews Android
+    // mais antigos), "new Notification(...)" pode lançar um erro mesmo
+    // quando "Notification" existe em window — isso derrubava o app inteiro
+    // com tela branca no momento exato em que um cliente pedia atendimento.
+    try {
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('🚨 AtendIA — Atendimento Humano Solicitado!', {
+            body: `${pendingChats[0]?.patientName || 'Paciente'} está aguardando você!`,
+            icon: '/favicon.ico',
+            requireInteraction: true,
+          });
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().catch(() => {});
+        }
       }
+    } catch (e) {
+      // Alguns navegadores/tablets não suportam Notification de verdade,
+      // mesmo reportando que a API existe. Ignora e segue — o alerta visual
+      // na tela e o som já cumprem o papel de avisar o atendente.
     }
   }, [pendingChats.length]);
 
