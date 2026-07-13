@@ -137,6 +137,7 @@ export default function SettingsPanel({
       ...prev,
       clinicName,
       phone,
+      clinicAddress,
       welcomeMessage,
       aiTone,
       allowDirectDoctorScheduling,
