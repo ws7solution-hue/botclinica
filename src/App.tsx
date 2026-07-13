@@ -301,8 +301,17 @@ export default function App() {
             ...prev,
             ...(config.clinicName && { clinicName: config.clinicName }),
             ...(config.phone && { phone: config.phone }),
+            ...(config.clinicAddress !== undefined && { clinicAddress: config.clinicAddress }),
             ...(config.welcomeMessage && { welcomeMessage: config.welcomeMessage }),
             ...(config.aiTone && { aiTone: config.aiTone }),
+            // BUGFIX: esses campos eram salvos (depois da correção do
+            // saveBotConfig) mas nunca eram lidos de volta aqui — a tela
+            // sempre voltava a mostrar os valores padrão de fábrica,
+            // mesmo com dados reais já salvos no Firestore.
+            ...(config.allowDirectDoctorScheduling !== undefined && { allowDirectDoctorScheduling: config.allowDirectDoctorScheduling }),
+            ...(config.enableAutoReminders !== undefined && { enableAutoReminders: config.enableAutoReminders }),
+            ...(config.daysBeforeAppointmentForReminder !== undefined && { daysBeforeAppointmentForReminder: config.daysBeforeAppointmentForReminder }),
+            ...(config.rulesList && { rulesList: config.rulesList }),
           }));
         }
       })

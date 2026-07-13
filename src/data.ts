@@ -324,6 +324,7 @@ export const INITIAL_SYSTEM_LOGS: SystemLogs[] = [
 export const INITIAL_BOT_SETTINGS = {
   clinicName: 'Clínica BotClínica Viva+',
   phone: '+55 (11) 98765-4321',
+  clinicAddress: '',
   welcomeMessage: 'Olá! Seja muito bem-vindo à Clínica BotClínica Viva+ 🏥. Eu sou a AtendIA, sua assistente virtual de agendamentos. Como posso te ajudar hoje?',
   allowDirectDoctorScheduling: true,
   enableAutoReminders: true,
