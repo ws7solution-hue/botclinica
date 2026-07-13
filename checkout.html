@@ -323,6 +323,18 @@ footer a{color:var(--blue)}
       btn.disabled = false;
     }
   }
+
+  // Abre o modal automaticamente se a URL vier com ?plano=starter (etc),
+  // usado pelos links que a Luna (bot de vendas) manda no WhatsApp — assim
+  // o cliente já cai direto no formulário do plano certo, sem precisar
+  // escolher de novo na página.
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const plano = params.get('plano');
+    if (plano && PLAN_LABELS[plano]) {
+      startCheckout(plano);
+    }
+  })();
 </script>
 </body>
 </html>
