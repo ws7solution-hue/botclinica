@@ -4,6 +4,8 @@
     { "source": "/app/assets/:path*", "destination": "/app/assets/:path*" },
     { "source": "/app",               "destination": "/app/index.html" },
     { "source": "/app/:path*",        "destination": "/app/index.html" },
+    { "source": "/prontuario",        "destination": "/app/index.html" },
+    { "source": "/prontuario/:path*", "destination": "/app/index.html" },
     { "source": "/checkout",          "destination": "/checkout.html" },
     { "source": "/admin",             "destination": "/admin.html" },
     { "source": "/crm",               "destination": "/crm.html" },
