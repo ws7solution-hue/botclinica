@@ -1107,6 +1107,32 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    if (action === "getFinanceiroConfig") {
+      const { clinicId } = payload;
+      const col = `financeiro_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(`${col}/config`);
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json({});
+      const result = {};
+      Object.entries(d.fields).forEach(([k, v]) => {
+        if (k !== "pinHash") result[k] = parseFirestoreValue(v);
+      });
+      return res.status(200).json(result);
+    }
+
+    if (action === "setFinanceiroConfig") {
+      const { clinicId, config } = payload;
+      const col = `financeiro_${emailToKey(clinicId || "")}`;
+      const r = await fetch(`${FS}/${col}/config?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: toFsFields(config || {}) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
