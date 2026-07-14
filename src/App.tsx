@@ -8,6 +8,7 @@ import DoctorsPanel from './components/DoctorsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import ProntuarioPanel from './components/ProntuarioPanel';
+import FinanceiroPanel from './components/FinanceiroPanel';
 import FirstAccessModal from './components/FirstAccessModal';
 import SupportChat from './components/SupportChat';
 import HumanAlert from './components/HumanAlert';
@@ -939,6 +940,15 @@ export default function App() {
               conversations={conversations}
               doctors={doctors}
               currentPlan={currentPlan}
+              onAddSystemLog={addSystemLog}
+            />
+          )}
+
+          {activeTab === 'financeiro' && (
+            <FinanceiroPanel
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
+              doctors={doctors}
+              appointments={appointments}
               onAddSystemLog={addSystemLog}
             />
           )}

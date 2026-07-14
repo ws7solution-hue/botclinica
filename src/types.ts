@@ -89,7 +89,7 @@ export interface UserProfile {
   firstAccess?: boolean;
 }
 
-export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario';
+export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario' | 'financeiro';
 
 export type AtendiaPlan = 'starter' | 'profissional' | 'clinica' | 'premium';
 

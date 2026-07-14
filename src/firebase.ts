@@ -194,3 +194,25 @@ export async function sendReply(to: string, text: string, convId: string) {
   });
   return r.json();
 }
+
+// ── FINANCEIRO ──
+export async function fbCheckFinanceiroPin(clinicId: string, pin: string): Promise<{ hasPin: boolean; valid: boolean }> {
+  return post('checkFinanceiroPin', { clinicId, pin });
+}
+
+export async function fbSetFinanceiroPin(clinicId: string, pin: string) {
+  return post('setFinanceiroPin', { clinicId, pin });
+}
+
+export async function fbListFinanceiroEntries(clinicId: string): Promise<any[]> {
+  const d = await post('listFinanceiroEntries', { clinicId });
+  return Array.isArray(d) ? d : [];
+}
+
+export async function fbSaveFinanceiroEntry(clinicId: string, entry: any) {
+  return post('saveFinanceiroEntry', { clinicId, entry });
+}
+
+export async function fbDeleteFinanceiroEntry(clinicId: string, id: string) {
+  return post('deleteFinanceiroEntry', { clinicId, id });
+}
