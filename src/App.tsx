@@ -950,6 +950,7 @@ export default function App() {
               doctors={doctors}
               appointments={appointments}
               conversations={conversations}
+              currentPlan={currentPlan}
               onAddSystemLog={addSystemLog}
             />
           )}
