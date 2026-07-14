@@ -216,3 +216,11 @@ export async function fbSaveFinanceiroEntry(clinicId: string, entry: any) {
 export async function fbDeleteFinanceiroEntry(clinicId: string, id: string) {
   return post('deleteFinanceiroEntry', { clinicId, id });
 }
+
+export async function fbGetFinanceiroConfig(clinicId: string): Promise<any> {
+  return post('getFinanceiroConfig', { clinicId });
+}
+
+export async function fbSetFinanceiroConfig(clinicId: string, config: any) {
+  return post('setFinanceiroConfig', { clinicId, config });
+}
