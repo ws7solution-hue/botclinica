@@ -7,7 +7,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Doctor, Appointment, Conversation } from '../types';
+import { Doctor, Appointment, Conversation, AtendiaPlan } from '../types';
+import LockOverlay from './LockOverlay';
 import {
   fbCheckFinanceiroPin, fbSetFinanceiroPin, fbListFinanceiroEntries,
   fbSaveFinanceiroEntry, fbDeleteFinanceiroEntry
@@ -29,6 +30,7 @@ interface FinanceiroPanelProps {
   doctors: Doctor[];
   appointments: Appointment[];
   conversations: Conversation[];
+  currentPlan: AtendiaPlan;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
 }
 
@@ -55,7 +57,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function FinanceiroPanel({ clinicId, doctors, appointments, conversations, onAddSystemLog }: FinanceiroPanelProps) {
+export default function FinanceiroPanel({ clinicId, doctors, appointments, conversations, currentPlan, onAddSystemLog }: FinanceiroPanelProps) {
   const [crmSearch, setCrmSearch] = useState('');
   const [selectedPatientPhone, setSelectedPatientPhone] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
@@ -304,6 +306,15 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   };
 
   // ── TELA DE PIN ─────────────────────────────────────────────────────────
+  // Bloqueio: Financeiro/CRM é exclusivo do plano Premium
+  if (currentPlan !== 'premium') {
+    return (
+      <div className="p-4 md:p-6 relative min-h-[calc(100vh-60px)]">
+        <LockOverlay requiredPlan="premium" featureName="Financeiro / CRM" />
+      </div>
+    );
+  }
+
   if (checkingPin) {
     return <div className="p-8 text-center text-slate-400 font-sans text-sm">Carregando...</div>;
   }
