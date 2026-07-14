@@ -8,6 +8,7 @@ import {
   BarChart3,
   Bot,
   Activity,
+  Wallet,
   CircleDot,
   Edit2,
   LogOut
@@ -41,6 +42,7 @@ export default function Sidebar({
     { id: 'calendar' as SidebarTab, label: 'Agenda', icon: Calendar },
     { id: 'doctors' as SidebarTab, label: 'Médicos', icon: Users },
     { id: 'prontuario' as SidebarTab, label: 'Prontuário', icon: Activity },
+    { id: 'financeiro' as SidebarTab, label: 'Financeiro', icon: Wallet },
     { id: 'reports' as SidebarTab, label: 'Relatórios', icon: BarChart3 },
     { id: 'settings' as SidebarTab, label: 'Configurações', icon: Settings },
   ];
