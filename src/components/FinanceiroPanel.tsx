@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Lock, Plus, Trash2, TrendingUp, TrendingDown, DollarSign,
-  Download, Calendar, Repeat, X, ShieldCheck
+  Download, Calendar, Repeat, X, ShieldCheck, Search, Users, Phone
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Doctor, Appointment } from '../types';
+import { Doctor, Appointment, Conversation } from '../types';
 import {
   fbCheckFinanceiroPin, fbSetFinanceiroPin, fbListFinanceiroEntries,
   fbSaveFinanceiroEntry, fbDeleteFinanceiroEntry
@@ -28,6 +28,7 @@ interface FinanceiroPanelProps {
   clinicId: string;
   doctors: Doctor[];
   appointments: Appointment[];
+  conversations: Conversation[];
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
 }
 
@@ -54,7 +55,9 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function FinanceiroPanel({ clinicId, doctors, appointments, onAddSystemLog }: FinanceiroPanelProps) {
+export default function FinanceiroPanel({ clinicId, doctors, appointments, conversations, onAddSystemLog }: FinanceiroPanelProps) {
+  const [crmSearch, setCrmSearch] = useState('');
+  const [selectedPatientPhone, setSelectedPatientPhone] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [pinInput, setPinInput] = useState('');
@@ -64,7 +67,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, onAdd
 
   const [entries, setEntries] = useState<FinanceiroEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'receitas' | 'despesas' | 'relatorios'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'crm' | 'receitas' | 'despesas' | 'relatorios'>('overview');
 
   // Filtros de data (usados no relatório e na exportação)
   const [dateFrom, setDateFrom] = useState(() => {
@@ -203,6 +206,69 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, onAdd
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [receitasNoPeriodo]);
 
+  // ── CRM: funil de pacientes, lista e histórico comercial ─────────────────
+  const patientsCrm = useMemo(() => {
+    const byPhone: Record<string, {
+      name: string; phone: string; category: string;
+      appointmentsCount: number; totalSpent: number;
+      hasFuture: boolean; hasPast: boolean; lastContact: string;
+    }> = {};
+
+    (conversations || []).forEach((c) => {
+      if (!c.patientPhone) return;
+      if (!byPhone[c.patientPhone]) {
+        byPhone[c.patientPhone] = {
+          name: c.patientName || c.patientPhone, phone: c.patientPhone,
+          category: c.category || 'Contato', appointmentsCount: 0, totalSpent: 0,
+          hasFuture: false, hasPast: false, lastContact: c.lastMessageTime || '',
+        };
+      }
+    });
+
+    const todayStr = todayISO();
+    (appointments || []).forEach((a: any) => {
+      if (a.status === 'canceled' || a.status === 'cancelled') return;
+      const phone = a.patientPhone;
+      if (!phone) return;
+      if (!byPhone[phone]) {
+        byPhone[phone] = {
+          name: a.patientName || phone, phone, category: 'Agendamento',
+          appointmentsCount: 0, totalSpent: 0, hasFuture: false, hasPast: false, lastContact: '',
+        };
+      }
+      const doctor = doctors.find((d) => d.name === a.doctorName || d.id === a.doctorId);
+      const fee = doctor ? Number((doctor as any).consultationFee || (doctor as any).price || 0) : 0;
+      byPhone[phone].appointmentsCount += 1;
+      byPhone[phone].totalSpent += fee;
+      if (a.date >= todayStr) byPhone[phone].hasFuture = true;
+      if (a.date < todayStr) byPhone[phone].hasPast = true;
+    });
+
+    return Object.values(byPhone).map((p) => {
+      let stage: 'lead' | 'agendado' | 'atendido' | 'recorrente';
+      if (p.appointmentsCount === 0) stage = 'lead';
+      else if (p.appointmentsCount >= 2) stage = 'recorrente';
+      else if (p.hasFuture) stage = 'agendado';
+      else stage = 'atendido';
+      return { ...p, stage };
+    });
+  }, [conversations, appointments, doctors]);
+
+  const crmFiltered = useMemo(() => {
+    const term = crmSearch.trim().toLowerCase();
+    if (!term) return patientsCrm;
+    return patientsCrm.filter((p) => p.name.toLowerCase().includes(term) || p.phone.includes(term));
+  }, [patientsCrm, crmSearch]);
+
+  const funilColumns: { key: 'lead' | 'agendado' | 'atendido' | 'recorrente'; label: string; color: string }[] = [
+    { key: 'lead', label: 'Lead', color: 'bg-slate-100 text-slate-600' },
+    { key: 'agendado', label: 'Agendado', color: 'bg-amber-100 text-amber-700' },
+    { key: 'atendido', label: 'Atendido', color: 'bg-blue-100 text-blue-700' },
+    { key: 'recorrente', label: 'Recorrente', color: 'bg-emerald-100 text-emerald-700' },
+  ];
+
+  const selectedPatient = patientsCrm.find((p) => p.phone === selectedPatientPhone) || null;
+
   const handleSaveEntry = async () => {
     const category = formCategory === '__custom__' ? formCustomCategory.trim() : formCategory;
     if (!category || !formAmount || !formDate) {
@@ -310,6 +376,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, onAdd
       <div className="flex gap-1 border-b border-slate-200 print:hidden">
         {[
           { id: 'overview', label: 'Visão Geral' },
+          { id: 'crm', label: 'CRM / Pacientes' },
           { id: 'receitas', label: 'Receitas' },
           { id: 'despesas', label: 'Despesas' },
           { id: 'relatorios', label: 'Relatórios' },
@@ -360,6 +427,112 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, onAdd
               <Bar dataKey="despesa" name="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {activeSubTab === 'crm' && (
+        <div className="space-y-4">
+          {/* Funil Kanban */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {funilColumns.map((col) => {
+              const patients = crmFiltered.filter((p) => p.stage === col.key);
+              return (
+                <div key={col.key} className="bg-white rounded-xl border border-slate-200 p-3">
+                  <div className={`inline-block text-[10px] font-bold px-2 py-1 rounded-full mb-2 font-sans ${col.color}`}>
+                    {col.label} ({patients.length})
+                  </div>
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                    {patients.map((p) => (
+                      <button
+                        key={p.phone}
+                        onClick={() => setSelectedPatientPhone(p.phone)}
+                        className="w-full text-left bg-slate-50 hover:bg-slate-100 rounded-lg p-2 transition-colors"
+                      >
+                        <p className="text-xs font-bold text-slate-700 font-sans truncate">{p.name}</p>
+                        <p className="text-[10px] text-slate-400 font-sans">{p.appointmentsCount} consulta(s)</p>
+                      </button>
+                    ))}
+                    {patients.length === 0 && <p className="text-[10px] text-slate-300 font-sans text-center py-3">Vazio</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Busca + Lista completa */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Search className="w-4 h-4 text-slate-400" />
+              <input
+                value={crmSearch}
+                onChange={(e) => setCrmSearch(e.target.value)}
+                placeholder="Buscar paciente por nome ou telefone..."
+                className="flex-1 text-xs p-2 border border-slate-200 rounded-lg font-sans"
+              />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-1 max-h-96 overflow-y-auto">
+                {crmFiltered.map((p) => (
+                  <button
+                    key={p.phone}
+                    onClick={() => setSelectedPatientPhone(p.phone)}
+                    className={`w-full text-left flex items-center justify-between p-2.5 rounded-lg border text-xs font-sans transition-colors ${
+                      selectedPatientPhone === p.phone ? 'border-[#1A6FA8] bg-blue-50' : 'border-slate-100 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center">
+                        <Users className="w-3.5 h-3.5 text-slate-500" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-700">{p.name}</p>
+                        <p className="text-slate-400">{p.phone}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${funilColumns.find((c) => c.key === p.stage)?.color}`}>
+                      {funilColumns.find((c) => c.key === p.stage)?.label}
+                    </span>
+                  </button>
+                ))}
+                {crmFiltered.length === 0 && <p className="text-xs text-slate-400 font-sans text-center py-6">Nenhum paciente encontrado.</p>}
+              </div>
+
+              {/* Painel de detalhe / histórico comercial */}
+              <div className="border border-slate-100 rounded-lg p-4">
+                {!selectedPatient ? (
+                  <p className="text-xs text-slate-400 font-sans text-center py-8">Selecione um paciente pra ver o histórico comercial.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-full bg-[#1A6FA8] text-white flex items-center justify-center font-bold text-sm">
+                        {selectedPatient.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800 font-sans">{selectedPatient.name}</p>
+                        <p className="text-xs text-slate-400 font-sans flex items-center gap-1"><Phone className="w-3 h-3" />{selectedPatient.phone}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-slate-50 rounded-lg p-2.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase font-sans">Consultas</p>
+                        <p className="text-base font-bold text-slate-700 font-sans">{selectedPatient.appointmentsCount}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg p-2.5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase font-sans">Total gasto</p>
+                        <p className="text-base font-bold text-emerald-600 font-sans">{formatBRL(selectedPatient.totalSpent)}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase font-sans mb-1">Estágio no funil</p>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${funilColumns.find((c) => c.key === selectedPatient.stage)?.color}`}>
+                        {funilColumns.find((c) => c.key === selectedPatient.stage)?.label}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
