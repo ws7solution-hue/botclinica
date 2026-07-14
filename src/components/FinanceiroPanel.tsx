@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Lock, Plus, Trash2, TrendingUp, TrendingDown, DollarSign,
-  Download, Calendar, Repeat, X, ShieldCheck, Search, Users, Phone
+  Download, Calendar, Repeat, X, ShieldCheck, Search, Users, Phone,
+  Target, AlertTriangle, FileSpreadsheet, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,7 +12,8 @@ import { Doctor, Appointment, Conversation, AtendiaPlan } from '../types';
 import LockOverlay from './LockOverlay';
 import {
   fbCheckFinanceiroPin, fbSetFinanceiroPin, fbListFinanceiroEntries,
-  fbSaveFinanceiroEntry, fbDeleteFinanceiroEntry
+  fbSaveFinanceiroEntry, fbDeleteFinanceiroEntry,
+  fbGetFinanceiroConfig, fbSetFinanceiroConfig
 } from '../firebase';
 
 interface FinanceiroEntry {
@@ -69,6 +71,9 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
 
   const [entries, setEntries] = useState<FinanceiroEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
+  const [metaMensal, setMetaMensal] = useState<number>(0);
+  const [editingMeta, setEditingMeta] = useState(false);
+  const [metaInput, setMetaInput] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'crm' | 'receitas' | 'despesas' | 'relatorios'>('overview');
 
   // Filtros de data (usados no relatório e na exportação)
@@ -104,7 +109,19 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
       setEntries(list.filter((e) => e && e.type));
       setLoadingEntries(false);
     }).catch(() => setLoadingEntries(false));
+    fbGetFinanceiroConfig(clinicId).then((cfg) => {
+      if (cfg && cfg.metaMensal) setMetaMensal(Number(cfg.metaMensal));
+    }).catch(() => {});
   }, [unlocked, clinicId]);
+
+  const handleSaveMeta = async () => {
+    const value = parseFloat(metaInput.replace(',', '.'));
+    if (!value || value <= 0) return;
+    setMetaMensal(value);
+    setEditingMeta(false);
+    await fbSetFinanceiroConfig(clinicId, { metaMensal: value });
+    onAddSystemLog('success', `Meta mensal definida: ${formatBRL(value)}`);
+  };
 
   const handleUnlock = async () => {
     setPinError('');
@@ -161,6 +178,87 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   const totalDespesas = despesasNoPeriodo.reduce((s, e) => s + Number(e.amount || 0), 0);
   const lucro = totalReceitas - totalDespesas;
   const ticketMedio = receitasNoPeriodo.length > 0 ? totalReceitas / receitasNoPeriodo.length : 0;
+
+  // ── 1) Comparação mês a mês (período anterior de mesma duração) ─────────
+  const periodComparison = useMemo(() => {
+    const from = new Date(dateFrom + 'T12:00:00');
+    const to = new Date(dateTo + 'T12:00:00');
+    const durationDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
+    const prevTo = new Date(from.getTime() - 86400000);
+    const prevFrom = new Date(prevTo.getTime() - (durationDays - 1) * 86400000);
+    const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const prevFromStr = toISO(prevFrom), prevToStr = toISO(prevTo);
+    const prevReceitas = allReceitas.filter((e) => e.date >= prevFromStr && e.date <= prevToStr).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const prevDespesas = allDespesas.filter((e) => e.date >= prevFromStr && e.date <= prevToStr).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const pct = (curr: number, prev: number) => prev === 0 ? (curr > 0 ? 100 : 0) : ((curr - prev) / prev) * 100;
+    return {
+      receitaPct: pct(totalReceitas, prevReceitas),
+      despesaPct: pct(totalDespesas, prevDespesas),
+      lucroPct: pct(lucro, prevReceitas - prevDespesas),
+    };
+  }, [dateFrom, dateTo, allReceitas, allDespesas, totalReceitas, totalDespesas, lucro]);
+
+  // ── 2) Alerta de despesa fora do padrão (mês atual vs média 3 meses anteriores) ──
+  const despesaAlertas = useMemo(() => {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthKeys: string[] = [];
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    const byCategoryMonth: Record<string, Record<string, number>> = {};
+    allDespesas.forEach((e) => {
+      const mk = (e.date || '').slice(0, 7);
+      if (!byCategoryMonth[e.category]) byCategoryMonth[e.category] = {};
+      byCategoryMonth[e.category][mk] = (byCategoryMonth[e.category][mk] || 0) + Number(e.amount || 0);
+    });
+    const alerts: { category: string; current: number; avg: number; pct: number }[] = [];
+    Object.entries(byCategoryMonth).forEach(([cat, months]) => {
+      const current = months[currentMonthKey] || 0;
+      const pastValues = monthKeys.map((mk) => months[mk] || 0);
+      const avg = pastValues.reduce((s, v) => s + v, 0) / (pastValues.filter((v) => v > 0).length || 1);
+      if (avg > 0 && current > avg * 1.3) {
+        alerts.push({ category: cat, current, avg, pct: ((current - avg) / avg) * 100 });
+      }
+    });
+    return alerts;
+  }, [allDespesas]);
+
+  // ── 3) Fluxo de caixa projetado (saldo até o fim do mês atual) ───────────
+  const fluxoProjetado = useMemo(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const lastDayStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+    const firstDayStr = `${monthKey}-01`;
+    const receitasMes = allReceitas.filter((e) => e.date >= firstDayStr && e.date <= lastDayStr).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const despesasFixasMes = allDespesas.filter((e) => (e.date || '').slice(0, 7) === monthKey).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const despesasRecorrentesAnteriores = allDespesas
+      .filter((e) => e.recurring && (e.date || '').slice(0, 7) < monthKey)
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+    return {
+      saldoProjetado: receitasMes - despesasFixasMes - despesasRecorrentesAnteriores,
+      receitasMes, despesasMes: despesasFixasMes + despesasRecorrentesAnteriores,
+    };
+  }, [allReceitas, allDespesas]);
+
+  const metaProgress = metaMensal > 0 ? Math.min(100, (totalReceitas / metaMensal) * 100) : 0;
+
+  // ── 5) Exportar CSV ───────────────────────────────────────────────────
+  const handleExportCSV = () => {
+    const rows = [['Tipo', 'Categoria', 'Descrição', 'Valor', 'Data']];
+    receitasNoPeriodo.forEach((e: any) => rows.push(['Receita', e.category, e.description || '', String(e.amount).replace('.', ','), e.date]));
+    despesasNoPeriodo.forEach((e) => rows.push(['Despesa', e.category, e.description || '', String(e.amount).replace('.', ','), e.date]));
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `financeiro_${dateFrom}_a_${dateTo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Gráfico: últimos 6 meses receita x despesa
   const last6MonthsChart = useMemo(() => {
@@ -378,7 +476,10 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
           <span className="text-xs text-slate-400">até</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-2 font-sans" />
           <button onClick={handleExportPDF} className="flex items-center gap-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-sans">
-            <Download className="w-3.5 h-3.5" /> Exportar PDF
+            <Download className="w-3.5 h-3.5" /> PDF
+          </button>
+          <button onClick={handleExportCSV} className="flex items-center gap-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-sans">
+            <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
           </button>
         </div>
       </div>
@@ -409,14 +510,26 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-emerald-600 mb-1"><TrendingUp className="w-4 h-4" /><span className="text-[10px] font-bold uppercase font-sans">Receitas</span></div>
           <p className="text-lg font-bold text-slate-800 font-sans">{formatBRL(totalReceitas)}</p>
+          <p className={`text-[10px] font-sans flex items-center gap-0.5 mt-0.5 ${periodComparison.receitaPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {periodComparison.receitaPct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {Math.abs(periodComparison.receitaPct).toFixed(0)}% vs período anterior
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-red-500 mb-1"><TrendingDown className="w-4 h-4" /><span className="text-[10px] font-bold uppercase font-sans">Despesas</span></div>
           <p className="text-lg font-bold text-slate-800 font-sans">{formatBRL(totalDespesas)}</p>
+          <p className={`text-[10px] font-sans flex items-center gap-0.5 mt-0.5 ${periodComparison.despesaPct <= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {periodComparison.despesaPct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {Math.abs(periodComparison.despesaPct).toFixed(0)}% vs período anterior
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className={`flex items-center gap-2 mb-1 ${lucro >= 0 ? 'text-[#1A6FA8]' : 'text-red-500'}`}><DollarSign className="w-4 h-4" /><span className="text-[10px] font-bold uppercase font-sans">Lucro Líquido</span></div>
           <p className="text-lg font-bold text-slate-800 font-sans">{formatBRL(lucro)}</p>
+          <p className={`text-[10px] font-sans flex items-center gap-0.5 mt-0.5 ${periodComparison.lucroPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {periodComparison.lucroPct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {Math.abs(periodComparison.lucroPct).toFixed(0)}% vs período anterior
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-slate-500 mb-1"><Calendar className="w-4 h-4" /><span className="text-[10px] font-bold uppercase font-sans">Ticket Médio</span></div>
@@ -424,20 +537,78 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
         </div>
       </div>
 
+
       {activeSubTab === 'overview' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h3 className="text-sm font-bold text-slate-700 font-sans mb-4">Receita x Despesa (últimos 6 meses)</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={last6MonthsChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => formatBRL(v)} />
-              <Legend />
-              <Bar dataKey="receita" name="Receita" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="despesa" name="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="space-y-4">
+          {/* Alerta de despesa fora do padrão */}
+          {despesaAlertas.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-amber-700 mb-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-xs font-bold font-sans">Atenção: despesas acima do padrão este mês</span>
+              </div>
+              <ul className="space-y-1">
+                {despesaAlertas.map((a) => (
+                  <li key={a.category} className="text-[11px] text-amber-800 font-sans">
+                    <strong>{a.category}</strong> subiu {a.pct.toFixed(0)}% em relação à média dos últimos meses ({formatBRL(a.current)} vs média de {formatBRL(a.avg)})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Meta mensal */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-slate-700"><Target className="w-4 h-4" /><span className="text-xs font-bold font-sans">Meta de Receita Mensal</span></div>
+                <button onClick={() => { setEditingMeta(true); setMetaInput(String(metaMensal || '')); }} className="text-[10px] font-bold text-[#1A6FA8] font-sans print:hidden">
+                  {metaMensal > 0 ? 'Editar' : '+ Definir meta'}
+                </button>
+              </div>
+              {editingMeta ? (
+                <div className="flex items-center gap-2">
+                  <input value={metaInput} onChange={(e) => setMetaInput(e.target.value)} placeholder="Ex: 15000" className="flex-1 text-xs p-2 border border-slate-200 rounded-lg font-sans" />
+                  <button onClick={handleSaveMeta} className="text-xs font-bold bg-[#1A6FA8] text-white px-3 py-2 rounded-lg font-sans">Salvar</button>
+                </div>
+              ) : metaMensal > 0 ? (
+                <>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 mb-1.5">
+                    <div className="bg-[#1A6FA8] h-2.5 rounded-full transition-all" style={{ width: `${metaProgress}%` }} />
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-sans">{formatBRL(totalReceitas)} de {formatBRL(metaMensal)} ({metaProgress.toFixed(0)}%)</p>
+                </>
+              ) : (
+                <p className="text-xs text-slate-400 font-sans">Nenhuma meta definida ainda.</p>
+              )}
+            </div>
+
+            {/* Fluxo de caixa projetado */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-slate-700 mb-2"><Calendar className="w-4 h-4" /><span className="text-xs font-bold font-sans">Fluxo de Caixa Projetado (mês atual)</span></div>
+              <p className={`text-lg font-bold font-sans ${fluxoProjetado.saldoProjetado >= 0 ? 'text-[#1A6FA8]' : 'text-red-500'}`}>
+                {formatBRL(fluxoProjetado.saldoProjetado)}
+              </p>
+              <p className="text-[11px] text-slate-400 font-sans mt-1">
+                Considera receitas de agendamentos já confirmados + despesas recorrentes deste mês.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h3 className="text-sm font-bold text-slate-700 font-sans mb-4">Receita x Despesa (últimos 6 meses)</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={last6MonthsChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => formatBRL(v)} />
+                <Legend />
+                <Bar dataKey="receita" name="Receita" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="despesa" name="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
