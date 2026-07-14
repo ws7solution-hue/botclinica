@@ -30,7 +30,7 @@ export interface Doctor {
   name: string;
   specialty: string;
   crm: string;
-  rating: number;
+  rating?: number;
   avatarUrl: string;
   schedules: string[];
   consultationFee: number;
