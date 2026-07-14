@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Search, 
-  Star, 
   Clock, 
   Coins, 
   Plus, 
@@ -305,7 +304,6 @@ export default function DoctorsPanel({
         name: formName,
         specialty: formSpecialty,
         crm: formCrm,
-        rating: 4.8,
         avatarUrl: formAvatarUrl,
         schedules: schedulesString,
         consultationFee: Number(formConsultationFee),
@@ -643,22 +641,9 @@ export default function DoctorsPanel({
                       {doc.crm}
                     </p>
 
-                    {/* Star quality indicator */}
-                    <div className="flex items-center gap-1 mt-2 text-amber-500 text-xs font-bold font-sans">
-                      <div className="flex items-center">
-                        {[1, 2, 3, 4, 5].map((star) => {
-                          const ratingVal = doc.rating || 4.8;
-                          const filled = star <= Math.round(ratingVal);
-                          return (
-                            <Star 
-                              key={star} 
-                              className={`w-3 h-3 ${filled ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} 
-                            />
-                          );
-                        })}
-                      </div>
-                      <span className="ml-1 text-slate-700">{doc.rating || 4.8}</span>
-                      <span className="text-slate-400 font-normal">({doc.activePatientsCount || 0} Atendimentos)</span>
+                    {/* Contagem de atendimentos (dado real, sem avaliação por estrelas) */}
+                    <div className="flex items-center gap-1 mt-2 text-slate-400 text-xs font-sans">
+                      <span>{doc.activePatientsCount || 0} Atendimentos</span>
                     </div>
                   </div>
                 </div>

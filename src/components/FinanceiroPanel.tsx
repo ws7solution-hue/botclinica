@@ -74,7 +74,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   const [metaMensal, setMetaMensal] = useState<number>(0);
   const [editingMeta, setEditingMeta] = useState(false);
   const [metaInput, setMetaInput] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'crm' | 'receitas' | 'despesas' | 'relatorios'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'crm' | 'medicos' | 'receitas' | 'despesas' | 'relatorios'>('overview');
 
   // Filtros de data (usados no relatório e na exportação)
   const [dateFrom, setDateFrom] = useState(() => {
@@ -244,6 +244,24 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   }, [allReceitas, allDespesas]);
 
   const metaProgress = metaMensal > 0 ? Math.min(100, (totalReceitas / metaMensal) * 100) : 0;
+
+  // ── Ranking de médicos: receita, nº de consultas, ticket médio ──────────
+  const rankingMedicos = useMemo(() => {
+    const map: Record<string, { name: string; specialty: string; count: number; total: number }> = {};
+    receitasNoPeriodo.forEach((e: any) => {
+      const name = e.description?.split(' — ')[1] || 'Outros';
+      if (!map[name]) {
+        const doctor = doctors.find((d) => d.name === name);
+        map[name] = { name, specialty: (doctor as any)?.specialty || '', count: 0, total: 0 };
+      }
+      map[name].count += 1;
+      map[name].total += Number(e.amount || 0);
+    });
+    const totalGeral = Object.values(map).reduce((s, m) => s + m.total, 0);
+    return Object.values(map)
+      .map((m) => ({ ...m, avgTicket: m.count > 0 ? m.total / m.count : 0, pctOfTotal: totalGeral > 0 ? (m.total / totalGeral) * 100 : 0 }))
+      .sort((a, b) => b.total - a.total);
+  }, [receitasNoPeriodo, doctors]);
 
   // ── 5) Exportar CSV ───────────────────────────────────────────────────
   const handleExportCSV = () => {
@@ -489,6 +507,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
         {[
           { id: 'overview', label: 'Visão Geral' },
           { id: 'crm', label: 'CRM / Pacientes' },
+          { id: 'medicos', label: 'Médicos' },
           { id: 'receitas', label: 'Receitas' },
           { id: 'despesas', label: 'Despesas' },
           { id: 'relatorios', label: 'Relatórios' },
@@ -715,6 +734,42 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeSubTab === 'medicos' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <h3 className="text-sm font-bold text-slate-700 font-sans mb-4">Ranking de Médicos (por receita no período)</h3>
+          {rankingMedicos.length === 0 ? (
+            <p className="text-xs text-slate-400 font-sans text-center py-8">Nenhuma receita registrada no período selecionado.</p>
+          ) : (
+            <div className="space-y-3">
+              {rankingMedicos.map((m, i) => (
+                <div key={m.name} className="border border-slate-100 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-sans ${
+                        i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-slate-200 text-slate-600' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'
+                      }`}>{i + 1}º</span>
+                      <div>
+                        <p className="text-xs font-bold text-slate-700 font-sans">{m.name}</p>
+                        {m.specialty && <p className="text-[10px] text-slate-400 font-sans">{m.specialty}</p>}
+                      </div>
+                    </div>
+                    <p className="text-sm font-bold text-emerald-600 font-sans">{formatBRL(m.total)}</p>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2 mb-2">
+                    <div className="bg-[#1A6FA8] h-2 rounded-full" style={{ width: `${m.pctOfTotal}%` }} />
+                  </div>
+                  <div className="flex items-center gap-4 text-[10px] text-slate-500 font-sans">
+                    <span>{m.count} consulta(s)</span>
+                    <span>Ticket médio: {formatBRL(m.avgTicket)}</span>
+                    <span>{m.pctOfTotal.toFixed(0)}% da receita total</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
