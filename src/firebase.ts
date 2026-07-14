@@ -224,3 +224,12 @@ export async function fbGetFinanceiroConfig(clinicId: string): Promise<any> {
 export async function fbSetFinanceiroConfig(clinicId: string, config: any) {
   return post('setFinanceiroConfig', { clinicId, config });
 }
+
+// ── PORTAL DO MÉDICO ──
+export async function fbCheckDoctorPin(clinicId: string, doctorId: string, pin: string): Promise<{ hasPin: boolean; valid: boolean }> {
+  return post('checkDoctorPin', { clinicId, doctorId, pin });
+}
+
+export async function fbSetDoctorPin(clinicId: string, doctorId: string, pin: string) {
+  return post('setDoctorPin', { clinicId, doctorId, pin });
+}
