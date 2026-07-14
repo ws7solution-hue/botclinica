@@ -1,4 +1,8 @@
 // Vercel serverless function — proxy Firebase REST
+const crypto = require("crypto");
+function hashPin(pin) {
+  return crypto.createHash("sha256").update(String(pin)).digest("hex");
+}
 
 const API_KEY    = "AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew";
 const PROJECT_ID = "botclinica-60b6f";
@@ -1033,6 +1037,73 @@ module.exports = async (req, res) => {
       const { id } = payload;
       if (!id) return res.status(400).json({ error: "ID obrigatório" });
       await fsReq(`support_tickets/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── FINANCEIRO: PIN de acesso (separado da senha de login) ────────────
+    if (action === "checkFinanceiroPin") {
+      const { clinicId, pin } = payload;
+      const col = `financeiro_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(`${col}/config`);
+      const d = await r.json();
+      if (d.error || !d.fields) {
+        // Nunca configurado ainda — sinaliza pro frontend pedir criação de PIN
+        return res.status(200).json({ hasPin: false, valid: false });
+      }
+      const storedHash = d.fields.pinHash?.stringValue || "";
+      const valid = storedHash === hashPin(pin);
+      return res.status(200).json({ hasPin: true, valid });
+    }
+
+    if (action === "setFinanceiroPin") {
+      const { clinicId, pin } = payload;
+      if (!pin || String(pin).length < 4) return res.status(400).json({ error: "PIN precisa ter ao menos 4 dígitos" });
+      const col = `financeiro_${emailToKey(clinicId || "")}`;
+      const r = await fetch(`${FS}/${col}/config?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { pinHash: { stringValue: hashPin(pin) } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── FINANCEIRO: lançamentos (receitas/despesas) ───────────────────────
+    if (action === "listFinanceiroEntries") {
+      const { clinicId } = payload;
+      const col = `financeiro_entries_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const entries = (d.documents || []).map(doc => {
+        const parsed = parseFirestoreValue({ mapValue: { fields: doc.fields || {} } });
+        return { ...parsed, id: doc.name.split("/").pop() };
+      });
+      return res.status(200).json(entries);
+    }
+
+    if (action === "saveFinanceiroEntry") {
+      const { clinicId, entry } = payload;
+      if (!entry) return res.status(400).json({ error: "entry obrigatório" });
+      const col = `financeiro_entries_${emailToKey(clinicId || "")}`;
+      const entryId = entry.id || `fin_${Date.now()}`;
+      const fullEntry = { ...entry, id: entryId };
+      const r = await fetch(`${FS}/${col}/${entryId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: toFsFields(fullEntry) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json(fullEntry);
+    }
+
+    if (action === "deleteFinanceiroEntry") {
+      const { clinicId, id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      const col = `financeiro_entries_${emailToKey(clinicId || "")}`;
+      await fsReq(`${col}/${id}`, { method: "DELETE" });
       return res.status(200).json({ ok: true });
     }
 
