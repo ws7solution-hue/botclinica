@@ -949,6 +949,7 @@ export default function App() {
               clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
               doctors={doctors}
               appointments={appointments}
+              conversations={conversations}
               onAddSystemLog={addSystemLog}
             />
           )}
