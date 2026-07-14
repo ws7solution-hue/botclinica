@@ -1133,6 +1133,32 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── PORTAL DO MÉDICO: PIN individual (separado do PIN do financeiro) ──
+    if (action === "checkDoctorPin") {
+      const { clinicId, doctorId, pin } = payload;
+      const col = `doctors_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(`${col}/${doctorId}`);
+      const d = await r.json();
+      if (d.error || !d.fields) return res.status(200).json({ hasPin: false, valid: false });
+      const storedHash = d.fields.doctorPinHash?.stringValue || "";
+      if (!storedHash) return res.status(200).json({ hasPin: false, valid: false });
+      return res.status(200).json({ hasPin: true, valid: storedHash === hashPin(pin) });
+    }
+
+    if (action === "setDoctorPin") {
+      const { clinicId, doctorId, pin } = payload;
+      if (!pin || String(pin).length < 4) return res.status(400).json({ error: "PIN precisa ter ao menos 4 dígitos" });
+      const col = `doctors_${emailToKey(clinicId || "")}`;
+      const r = await fetch(`${FS}/${col}/${doctorId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { doctorPinHash: { stringValue: hashPin(pin) } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
