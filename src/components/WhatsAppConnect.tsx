@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw } from 'lucide-react';
+import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw, ShieldCheck } from 'lucide-react';
 
 const WA_SERVICE = 'https://api.botclinica.com.br/wa';
 
@@ -215,6 +215,23 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
           <><Smartphone className="w-4 h-4" /> Conectar WhatsApp via QR Code</>
         )}
       </button>
+
+      {/* Conexão via API Oficial da Meta — sem risco de banimento de número */}
+      <div className="relative py-1">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+        <div className="relative flex justify-center"><span className="bg-white px-2 text-[10px] text-slate-400 font-sans">ou</span></div>
+      </div>
+      <a
+        href="https://business.facebook.com/messaging/whatsapp/onboard/?app_id=1350636587005556&config_id=1698558158077812&extras=%7B%22version%22%3A%22v4%22%2C%22sessionInfoVersion%22%3A%223%22%2C%22featureType%22%3A%22whatsapp_business_app_onboarding%22%7D&redirect_uri=https%3A%2F%2Fbotclinica.com.br%2Fapp"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold text-sm rounded-xl transition-colors font-sans"
+      >
+        <ShieldCheck className="w-4 h-4" /> Conectar WhatsApp Oficial (Recomendado)
+      </a>
+      <p className="text-[10px] text-slate-400 font-sans text-center px-2">
+        Conexão via API oficial da Meta — sem risco de bloqueio do número. Você será direcionado ao site da Meta para conectar o WhatsApp Business da sua clínica.
+      </p>
     </div>
   );
 }
