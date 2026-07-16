@@ -221,6 +221,11 @@ export async function fbGetFinanceiroConfig(clinicId: string): Promise<any> {
   return post('getFinanceiroConfig', { clinicId });
 }
 
+export async function fbGetPlano(email: string): Promise<string> {
+  const r = await post('getPlano', { email });
+  return r?.plano || 'starter';
+}
+
 export async function fbSetFinanceiroConfig(clinicId: string, config: any) {
   return post('setFinanceiroConfig', { clinicId, config });
 }
