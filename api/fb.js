@@ -1159,6 +1159,43 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    if (action === "listAdminConversations") {
+      const { source } = payload; // 'suporte' ou 'vendas'
+      const col = `admin_conversations_${source}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const items = (d.documents || []).map((doc) => {
+        const parsed = parseFirestoreValue({ mapValue: { fields: doc.fields || {} } });
+        return { ...parsed, id: doc.name.split("/").pop() };
+      });
+      return res.status(200).json(items);
+    }
+
+    if (action === "updateAdminConversationStatus") {
+      const { source, phone, status } = payload;
+      const col = `admin_conversations_${source}`;
+      const r = await fetch(`${FS}/${col}/${phone}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { status: { stringValue: status } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === "listWaSuporteConversations") {
+      const r = await fsReq("conversations_suporte");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const list = (d.documents || []).map(doc => {
+        const parsed = parseFirestoreValue({ mapValue: { fields: doc.fields || {} } });
+        return { ...parsed, id: doc.name.split("/").pop() };
+      });
+      return res.status(200).json(list);
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
