@@ -3,7 +3,7 @@ import { Lock, ShieldCheck, User, Clock, Phone, FileText, Save, LogOut } from 'l
 import { Doctor, Appointment, ProntuarioEntry, PatientProfile } from '../types';
 import {
   fbListDoctors, fbListAppointments, fbCheckDoctorPin, fbSetDoctorPin,
-  fbListProntuario, fbSaveProntuarioEntry, fbGetPatientProfile
+  fbListProntuario, fbSaveProntuarioEntry, fbGetPatientProfile, fbGetPlano
 } from '../firebase';
 
 function todayISO() {
@@ -23,6 +23,7 @@ export default function DoctorPortalApp() {
   const [pinError, setPinError] = useState('');
   const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+  const [planBlocked, setPlanBlocked] = useState(false);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Appointment | null>(null);
@@ -38,7 +39,14 @@ export default function DoctorPortalApp() {
   const handleSubmitEmail = async () => {
     if (!clinicEmail.trim()) return;
     setLoading(true);
+    setPlanBlocked(false);
     try {
+      const plano = await fbGetPlano(clinicId);
+      if (plano !== 'premium') {
+        setPlanBlocked(true);
+        setLoading(false);
+        return;
+      }
       const list = await fbListDoctors(clinicId);
       if (list.length === 0) {
         setPinError('Nenhum médico encontrado para esse e-mail de clínica. Confirme o e-mail com a recepção.');
@@ -139,6 +147,22 @@ export default function DoctorPortalApp() {
 
   // ── TELA: EMAIL DA CLÍNICA ─────────────────────────────────────────────
   if (step === 'email') {
+    if (planBlocked) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 w-full max-w-sm text-center">
+            <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-6 h-6 text-amber-500" />
+            </div>
+            <h1 className="text-lg font-bold text-slate-800 font-sans mb-1">Recurso Premium</h1>
+            <p className="text-xs text-slate-500 font-sans mb-6">
+              O Portal do Médico é exclusivo do plano <strong>Premium</strong>. Fale com a administração da clínica pra fazer upgrade do plano.
+            </p>
+            <button onClick={() => setPlanBlocked(false)} className="w-full text-xs font-bold text-[#1A6FA8] font-sans">← Tentar outro e-mail</button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 w-full max-w-sm text-center">
