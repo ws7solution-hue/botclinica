@@ -1196,6 +1196,43 @@ module.exports = async (req, res) => {
       return res.status(200).json(list);
     }
 
+    if (action === "listScheduleBlocks") {
+      const { clinicId } = payload;
+      const col = `schedule_blocks_${emailToKey(clinicId || "")}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const list = (d.documents || []).map(doc => {
+        const parsed = parseFirestoreValue({ mapValue: { fields: doc.fields || {} } });
+        return { ...parsed, id: doc.name.split("/").pop() };
+      });
+      return res.status(200).json(list);
+    }
+
+    if (action === "saveScheduleBlock") {
+      const { clinicId, block } = payload;
+      if (!block) return res.status(400).json({ error: "block obrigatório" });
+      const col = `schedule_blocks_${emailToKey(clinicId || "")}`;
+      const blockId = block.id || `block_${Date.now()}`;
+      const fullBlock = { ...block, id: blockId };
+      const r = await fetch(`${FS}/${col}/${blockId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: toFsFields(fullBlock) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json(fullBlock);
+    }
+
+    if (action === "deleteScheduleBlock") {
+      const { clinicId, id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      const col = `schedule_blocks_${emailToKey(clinicId || "")}`;
+      await fsReq(`${col}/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
