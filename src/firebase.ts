@@ -226,6 +226,20 @@ export async function fbGetPlano(email: string): Promise<string> {
   return r?.plano || 'starter';
 }
 
+// ── BLOQUEIO DE AGENDA DO MÉDICO ──
+export async function fbListScheduleBlocks(clinicId: string): Promise<any[]> {
+  const d = await post('listScheduleBlocks', { clinicId });
+  return Array.isArray(d) ? d : [];
+}
+
+export async function fbSaveScheduleBlock(clinicId: string, block: any) {
+  return post('saveScheduleBlock', { clinicId, block });
+}
+
+export async function fbDeleteScheduleBlock(clinicId: string, id: string) {
+  return post('deleteScheduleBlock', { clinicId, id });
+}
+
 export async function fbSetFinanceiroConfig(clinicId: string, config: any) {
   return post('setFinanceiroConfig', { clinicId, config });
 }
