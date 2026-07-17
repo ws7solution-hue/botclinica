@@ -513,7 +513,7 @@ export default function App() {
     const currentDayNum = today.getDay(); // 0 is Sunday, 6 is Saturday
     
     let diff = targetDayNum - currentDayNum;
-    if (diff <= 0) {
+    if (diff < 0) {
       diff += 7; // Next week's occurrence
     }
     
