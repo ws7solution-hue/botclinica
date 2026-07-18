@@ -526,7 +526,13 @@ export default function App() {
     
     const resultDate = new Date(today);
     resultDate.setDate(today.getDate() + diff);
-    return resultDate.toISOString().split('T')[0];
+    // BUGFIX: toISOString() converte pra UTC, o que "adianta" a data depois
+    // das ~21h no Brasil (UTC-3). Usamos os componentes locais da data em
+    // vez disso, pra não pular de dia errado.
+    const y = resultDate.getFullYear();
+    const m = String(resultDate.getMonth() + 1).padStart(2, '0');
+    const d = String(resultDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   // Helper to format date as DD/MM/YYYY
