@@ -161,6 +161,8 @@ export default function ChatPanel({
   clinicId
 }: ChatPanelProps) {
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
+  const [searchName, setSearchName] = useState('');
+  const [filterDate, setFilterDate] = useState('');
   const [replyText, setReplyText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -327,8 +329,21 @@ export default function ChatPanel({
 
   // Filter conversations
   const filteredConversations = conversations.filter(c => {
-    if (filter === 'all') return true;
-    return c.status === filter;
+    if (filter !== 'all' && c.status !== filter) return false;
+    if (searchName.trim()) {
+      const q = searchName.trim().toLowerCase();
+      const matchesName = (c.patientName || '').toLowerCase().includes(q);
+      const matchesPhone = (c.patientPhone || '').includes(q);
+      if (!matchesName && !matchesPhone) return false;
+    }
+    if (filterDate) {
+      const updatedAt = (c as any).updatedAt;
+      if (!updatedAt) return false;
+      const convDate = new Date(updatedAt);
+      const convDateStr = `${convDate.getFullYear()}-${String(convDate.getMonth() + 1).padStart(2, '0')}-${String(convDate.getDate()).padStart(2, '0')}`;
+      if (convDateStr !== filterDate) return false;
+    }
+    return true;
   });
 
   return (
@@ -342,6 +357,32 @@ export default function ChatPanel({
           <h3 className="text-sm font-bold text-slate-800 font-sans mb-3">
             Fila de Atendimento
           </h3>
+
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              placeholder="Buscar por nome ou telefone..."
+              className="flex-1 text-xs px-3 py-2 border border-slate-200 rounded-lg font-sans focus:outline-none focus:ring-1 focus:ring-[#1A6FA8]"
+            />
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="text-xs px-2 py-2 border border-slate-200 rounded-lg font-sans focus:outline-none focus:ring-1 focus:ring-[#1A6FA8]"
+              title="Filtrar por data"
+            />
+            {filterDate && (
+              <button
+                onClick={() => setFilterDate('')}
+                className="text-[10px] text-slate-400 hover:text-slate-600 font-sans shrink-0"
+                title="Limpar filtro de data"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           
           {/* Quick Filter tabs */}
           <div className="flex flex-wrap gap-1">
@@ -391,7 +432,7 @@ export default function ChatPanel({
                       {chat.patientName}
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                      {chat.lastMessageTime}
+                      {(chat as any).updatedAt ? new Date((chat as any).updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' : ''}{chat.lastMessageTime}
                     </span>
                   </div>
 
