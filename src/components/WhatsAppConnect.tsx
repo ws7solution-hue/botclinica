@@ -187,11 +187,11 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     <div className="space-y-3">
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-start gap-3">
-          <Smartphone className="w-5 h-5 text-[#1A6FA8] flex-shrink-0 mt-0.5" />
+          <ShieldCheck className="w-5 h-5 text-[#1A6FA8] flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-xs font-bold text-slate-700 font-sans">Conecte o WhatsApp da sua clínica</p>
             <p className="text-[11px] text-slate-500 font-sans mt-1">
-              Escaneie um QR Code com o WhatsApp do número da clínica. Qualquer chip funciona — sem burocracia.
+              Conexão via API oficial da Meta — sem risco de bloqueio do número. Nossa equipe faz a ativação pra você em poucos minutos.
             </p>
           </div>
         </div>
@@ -204,34 +204,14 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         </div>
       )}
 
-      <button
-        onClick={handleConnect}
-        disabled={status === 'loading'}
-        className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#1EB958] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-colors font-sans"
-      >
-        {status === 'loading' ? (
-          <><Loader className="w-4 h-4 animate-spin" /> Gerando QR Code...</>
-        ) : (
-          <><Smartphone className="w-4 h-4" /> Conectar WhatsApp via QR Code</>
-        )}
-      </button>
-
-      {/* Conexão via API Oficial da Meta — sem risco de banimento de número */}
-      <div className="relative py-1">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
-        <div className="relative flex justify-center"><span className="bg-white px-2 text-[10px] text-slate-400 font-sans">ou</span></div>
-      </div>
       <a
-        href="https://business.facebook.com/messaging/whatsapp/onboard/?app_id=1350636587005556&config_id=1698558158077812&extras=%7B%22version%22%3A%22v4%22%2C%22sessionInfoVersion%22%3A%223%22%2C%22featureType%22%3A%22whatsapp_business_app_onboarding%22%7D&redirect_uri=https%3A%2F%2Fbotclinica.com.br%2Fapp"
+        href={`https://wa.me/553191030288?text=${encodeURIComponent('Falar com atendente para ativar meu WhatsApp no painel.')}`}
         target="_blank"
         rel="noopener noreferrer"
         className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold text-sm rounded-xl transition-colors font-sans"
       >
-        <ShieldCheck className="w-4 h-4" /> Conectar WhatsApp Oficial (Recomendado)
+        <ShieldCheck className="w-4 h-4" /> Solicitar Conexão Oficial (Recomendado)
       </a>
-      <p className="text-[10px] text-slate-400 font-sans text-center px-2">
-        Conexão via API oficial da Meta — sem risco de bloqueio do número. Você será direcionado ao site da Meta para conectar o WhatsApp Business da sua clínica.
-      </p>
     </div>
   );
 }
