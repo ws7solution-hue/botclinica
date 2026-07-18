@@ -16,7 +16,6 @@ type Step = 'email' | 'pickDoctor' | 'pin' | 'home';
 
 export default function DoctorPortalApp() {
   const [step, setStep] = useState<Step>('email');
-  const [restoringSession, setRestoringSession] = useState(true);
   const [clinicEmail, setClinicEmail] = useState(localStorage.getItem('doctorPortal_clinicEmail') || '');
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -82,14 +81,6 @@ export default function DoctorPortalApp() {
     setStep('pin');
   };
 
-  const saveSession = (doctor: Doctor) => {
-    localStorage.setItem('doctorPortal_session', JSON.stringify({
-      clinicEmail: clinicId,
-      doctorId: doctor.id,
-      timestamp: Date.now(),
-    }));
-  };
-
   const handleUnlock = async () => {
     if (!selectedDoctor) return;
     setPinError('');
@@ -97,13 +88,11 @@ export default function DoctorPortalApp() {
       if (pinInput.length < 4) { setPinError('O PIN precisa ter ao menos 4 dígitos.'); return; }
       if (pinInput !== pinConfirm) { setPinError('Os PINs não coincidem.'); return; }
       await fbSetDoctorPin(clinicId, selectedDoctor.id, pinInput);
-      saveSession(selectedDoctor);
       setStep('home');
       return;
     }
     const r = await fbCheckDoctorPin(clinicId, selectedDoctor.id, pinInput);
     if (r.valid) {
-      saveSession(selectedDoctor);
       setStep('home');
     } else {
       setPinError('PIN incorreto.');
@@ -186,48 +175,9 @@ export default function DoctorPortalApp() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('doctorPortal_session');
     setStep('email'); setSelectedDoctor(null); setPinInput(''); setPinConfirm('');
     setAppointments([]); setSelectedPatient(null);
   };
-
-  // ── Restaura sessão salva ao carregar a página (evita pedir PIN de novo
-  // toda vez que der F5) — sessão válida por 12 horas.
-  useEffect(() => {
-    const raw = localStorage.getItem('doctorPortal_session');
-    if (!raw) { setRestoringSession(false); return; }
-    try {
-      const session = JSON.parse(raw);
-      const twelveHours = 12 * 60 * 60 * 1000;
-      if (!session.clinicEmail || !session.doctorId || Date.now() - session.timestamp > twelveHours) {
-        localStorage.removeItem('doctorPortal_session');
-        setRestoringSession(false);
-        return;
-      }
-      setClinicEmail(session.clinicEmail);
-      fbListDoctors(session.clinicEmail).then((list) => {
-        const doc = list.find((d) => d.id === session.doctorId);
-        if (doc) {
-          setDoctors(list);
-          setSelectedDoctor(doc);
-          setStep('home');
-        } else {
-          localStorage.removeItem('doctorPortal_session');
-        }
-        setRestoringSession(false);
-      }).catch(() => setRestoringSession(false));
-    } catch {
-      setRestoringSession(false);
-    }
-  }, []);
-
-  if (restoringSession) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-xs text-slate-400 font-sans">Carregando...</p>
-      </div>
-    );
-  }
 
   // ── TELA: EMAIL DA CLÍNICA ─────────────────────────────────────────────
   if (step === 'email') {
