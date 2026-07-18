@@ -42,7 +42,7 @@ export function AtendimentosHojeModal({
 
   // Format today's date for display
   const todayDate = new Date();
-  const todayStr = todayDate.toISOString().split('T')[0];
+  const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
   const formattedToday = todayDate.toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: 'numeric',
