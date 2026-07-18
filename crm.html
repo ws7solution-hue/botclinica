@@ -323,6 +323,7 @@ let currentPage = 'dashboard';
 function doLogin(){
   const pwd = document.getElementById('pwd').value;
   if(pwd === CRM_PWD){
+    localStorage.setItem('crm_session', JSON.stringify({ loggedIn: true, timestamp: Date.now() }));
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='block';
     loadAll();
@@ -332,12 +333,32 @@ function doLogin(){
   }
 }
 function doLogout(){
+  localStorage.removeItem('crm_session');
   document.getElementById('login').style.display='flex';
   document.getElementById('app').style.display='none';
   document.getElementById('pwd').value='';
   if(supportInterval) clearInterval(supportInterval);
 }
 document.getElementById('pwd').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+// Restaura sessão salva (evita pedir senha de novo a cada F5) — válida por 24h
+(function restoreCrmSession(){
+  try{
+    const raw = localStorage.getItem('crm_session');
+    if(!raw) return;
+    const session = JSON.parse(raw);
+    const twentyFourHours = 24*60*60*1000;
+    if(!session.loggedIn || Date.now() - session.timestamp > twentyFourHours){
+      localStorage.removeItem('crm_session');
+      return;
+    }
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    const savedPage = localStorage.getItem('crm_currentPage');
+    if(savedPage) currentPage = savedPage;
+    loadAll();
+  }catch(e){}
+})();
 
 // API
 async function api(action, payload){
@@ -456,6 +477,7 @@ function updateSupportBadge(){
 // NAV
 function goTo(page){
   currentPage = page;
+  localStorage.setItem('crm_currentPage', page);
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const map = {dashboard:0,clientes:1,suporte:2,wa_suporte:3,wa_vendas:4,financeiro:5,alertas:6,config:7};
   const btns = document.querySelectorAll('.nav-btn');

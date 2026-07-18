@@ -153,6 +153,7 @@ function doLogin(){
   var pwd = document.getElementById('pwd-inp').value;
   if(pwd === ADMIN_PWD){
     authed = true;
+    localStorage.setItem('admin_session', JSON.stringify({ loggedIn: true, timestamp: Date.now() }));
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-screen').style.display='flex';
     loadClients();
@@ -166,10 +167,29 @@ function doLogin(){
 function doLogout(){
   authed=false;
   clients=[];
+  localStorage.removeItem('admin_session');
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app-screen').style.display='none';
   document.getElementById('pwd-inp').value='';
 }
+
+// Restaura sessão salva (evita pedir senha de novo a cada F5) — válida por 24h
+(function restoreAdminSession(){
+  try{
+    var raw = localStorage.getItem('admin_session');
+    if(!raw) return;
+    var session = JSON.parse(raw);
+    var twentyFourHours = 24*60*60*1000;
+    if(!session.loggedIn || Date.now() - session.timestamp > twentyFourHours){
+      localStorage.removeItem('admin_session');
+      return;
+    }
+    authed = true;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-screen').style.display='flex';
+    loadClients();
+  }catch(e){}
+})();
 
 // ── API ──
 async function call(action, payload){
