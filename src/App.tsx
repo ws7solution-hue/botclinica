@@ -648,6 +648,30 @@ export default function App() {
 
     setAppointments(prev => [newAppointment, ...prev]);
     addSystemLog('success', `Consulta agendada via painel: ${newAppointment.patientName} com ${newAppointment.doctorName} na ${getDayLabel(modalDayOfWeek)} (${formatDateBR(computedDate)}) às ${modalTime}.`);
+
+    // BUGFIX: consultas marcadas manualmente pelo painel não criavam uma
+    // conversa correspondente — e o Prontuário só lista pacientes a partir
+    // das conversas. Agora criamos/atualizamos a conversa também, pra esse
+    // paciente aparecer no Prontuário.
+    const existingConv = conversations.find(c => c.patientPhone === newAppointment.patientPhone);
+    if (!existingConv) {
+      const nowTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setConversations(prev => [
+        {
+          id: newAppointment.patientPhone.replace(/[^a-zA-Z0-9]/g, '_'),
+          patientName: newAppointment.patientName,
+          patientPhone: newAppointment.patientPhone,
+          status: 'resolved',
+          lastMessage: `Consulta agendada com ${newAppointment.doctorName}`,
+          lastMessageTime: nowTime,
+          unreadCount: 0,
+          avatarColor: 'bg-blue-500',
+          category: 'Agendamento',
+          messages: [],
+        },
+        ...prev,
+      ]);
+    }
     
     // Reset modal state
     setQuickAddOpen(false);
