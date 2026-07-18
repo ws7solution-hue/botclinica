@@ -41,7 +41,8 @@ import {
   fbListAppointments, 
   fbSaveAppointment, 
   fbListConversations, 
-  fbSaveConversation 
+  fbSaveConversation,
+  fbListScheduleBlocks
 } from './firebase';
 
 import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, CalendarCheck } from 'lucide-react';
@@ -438,6 +439,15 @@ export default function App() {
     };
   }, [isLoggedIn, userProfile.email]);
 
+  const [scheduleBlocks, setScheduleBlocks] = useState<any[]>([]);
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+    const clinicId = email.replace(/[@.]/g, '_');
+    fbListScheduleBlocks(clinicId).then(setScheduleBlocks).catch(() => {});
+  }, [isLoggedIn, userProfile.email]);
+
   React.useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -536,6 +546,17 @@ export default function App() {
     return `${y}-${m}-${d}`;
   };
 
+  // Verifica se um horário específico está dentro de um bloqueio de agenda
+  // cadastrado pelo médico (dia todo ou intervalo de horário).
+  const isTimeBlocked = (doctorId: string, date: string, time: string): boolean => {
+    return scheduleBlocks.some((b) => {
+      if (b.doctorId !== doctorId || b.date !== date) return false;
+      if (b.allDay) return true;
+      if (!b.startTime || !b.endTime) return false;
+      return time >= b.startTime && time < b.endTime;
+    });
+  };
+
   // Helper to format date as DD/MM/YYYY
   const formatDateBR = (dateStr: string): string => {
     if (!dateStr) return '';
@@ -630,6 +651,11 @@ export default function App() {
 
     if (isOccupied) {
       alert("Desculpe, este horário acabou de ser ocupado. Por favor, selecione outro horário disponível.");
+      return;
+    }
+
+    if (isTimeBlocked(doctor.id, computedDate, modalTime)) {
+      alert("Este médico bloqueou a agenda nesse dia/horário. Por favor, escolha outro horário ou data.");
       return;
     }
 
@@ -1283,15 +1309,17 @@ export default function App() {
                                    appt.doctorName.toLowerCase().includes(selectedDoc.name.split(' ')[1]?.toLowerCase() || selectedDoc.name.toLowerCase()));
                                 return sameDate && sameTime && notCanceled && sameDoc;
                               });
+                              const isBlocked = isTimeBlocked(selectedDoc.id, computedDate, slotTime);
+                              const isUnavailable = isOccupied || isBlocked;
 
                               return (
                                 <option 
                                   key={slotTime} 
                                   value={slotTime} 
-                                  disabled={isOccupied}
-                                  className={isOccupied ? 'text-slate-350 line-through bg-slate-50' : 'text-slate-850 font-semibold'}
+                                  disabled={isUnavailable}
+                                  className={isUnavailable ? 'text-slate-350 line-through bg-slate-50' : 'text-slate-850 font-semibold'}
                                 >
-                                  {slotTime} {isOccupied ? '(Ocupado)' : '(Livre)'}
+                                  {slotTime} {isBlocked ? '(Bloqueado pelo médico)' : isOccupied ? '(Ocupado)' : '(Livre)'}
                                 </option>
                               );
                             });
