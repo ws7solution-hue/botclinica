@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw } from 'lucide-react';
+import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw, ShieldCheck } from 'lucide-react';
 
 const WA_SERVICE = 'https://api.botclinica.com.br/wa';
 
@@ -187,11 +187,11 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     <div className="space-y-3">
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-start gap-3">
-          <Smartphone className="w-5 h-5 text-[#1A6FA8] flex-shrink-0 mt-0.5" />
+          <ShieldCheck className="w-5 h-5 text-[#1A6FA8] flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-xs font-bold text-slate-700 font-sans">Conecte o WhatsApp da sua clínica</p>
             <p className="text-[11px] text-slate-500 font-sans mt-1">
-              Escaneie um QR Code com o WhatsApp do número da clínica. Qualquer chip funciona — sem burocracia.
+              Conexão via API oficial da Meta — sem risco de bloqueio do número. Nossa equipe faz a ativação pra você em poucos minutos.
             </p>
           </div>
         </div>
@@ -204,17 +204,14 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         </div>
       )}
 
-      <button
-        onClick={handleConnect}
-        disabled={status === 'loading'}
-        className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#1EB958] disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-colors font-sans"
+      <a
+        href={`https://wa.me/5531910302880?text=${encodeURIComponent('Falar com atendente para ativar meu WhatsApp no painel.')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold text-sm rounded-xl transition-colors font-sans"
       >
-        {status === 'loading' ? (
-          <><Loader className="w-4 h-4 animate-spin" /> Gerando QR Code...</>
-        ) : (
-          <><Smartphone className="w-4 h-4" /> Conectar WhatsApp via QR Code</>
-        )}
-      </button>
+        <ShieldCheck className="w-4 h-4" /> Solicitar Conexão Oficial (Recomendado)
+      </a>
     </div>
   );
 }
