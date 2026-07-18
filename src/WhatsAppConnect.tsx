@@ -205,7 +205,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
       )}
 
       <a
-        href={`https://wa.me/5531910302880?text=${encodeURIComponent('Falar com atendente para ativar meu WhatsApp no painel.')}`}
+        href={`https://wa.me/553191030288?text=${encodeURIComponent('Falar com atendente para ativar meu WhatsApp no painel.')}`}
         target="_blank"
         rel="noopener noreferrer"
         className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold text-sm rounded-xl transition-colors font-sans"
