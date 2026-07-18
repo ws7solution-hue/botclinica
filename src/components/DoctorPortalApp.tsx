@@ -12,10 +12,27 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function addDaysISO(dateStr: string, days: number) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatDayLabel(dateStr: string) {
+  const today = todayISO();
+  if (dateStr === today) return 'Hoje';
+  if (dateStr === addDaysISO(today, 1)) return 'Amanhã';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const weekday = date.toLocaleDateString('pt-BR', { weekday: 'short' });
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1, 3)} ${d}/${m}`;
+}
+
 type Step = 'email' | 'pickDoctor' | 'pin' | 'home';
 
 export default function DoctorPortalApp() {
   const [step, setStep] = useState<Step>('email');
+  const [restoringSession, setRestoringSession] = useState(true);
   const [clinicEmail, setClinicEmail] = useState(localStorage.getItem('doctorPortal_clinicEmail') || '');
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -27,6 +44,7 @@ export default function DoctorPortalApp() {
   const [planBlocked, setPlanBlocked] = useState(false);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedAgendaDate, setSelectedAgendaDate] = useState(todayISO());
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<any[]>([]);
   const [blockDate, setBlockDate] = useState(todayISO());
@@ -81,6 +99,14 @@ export default function DoctorPortalApp() {
     setStep('pin');
   };
 
+  const saveSession = (doctor: Doctor) => {
+    localStorage.setItem('doctorPortal_session', JSON.stringify({
+      clinicEmail: clinicId,
+      doctorId: doctor.id,
+      timestamp: Date.now(),
+    }));
+  };
+
   const handleUnlock = async () => {
     if (!selectedDoctor) return;
     setPinError('');
@@ -88,11 +114,13 @@ export default function DoctorPortalApp() {
       if (pinInput.length < 4) { setPinError('O PIN precisa ter ao menos 4 dígitos.'); return; }
       if (pinInput !== pinConfirm) { setPinError('Os PINs não coincidem.'); return; }
       await fbSetDoctorPin(clinicId, selectedDoctor.id, pinInput);
+      saveSession(selectedDoctor);
       setStep('home');
       return;
     }
     const r = await fbCheckDoctorPin(clinicId, selectedDoctor.id, pinInput);
     if (r.valid) {
+      saveSession(selectedDoctor);
       setStep('home');
     } else {
       setPinError('PIN incorreto.');
@@ -106,7 +134,7 @@ export default function DoctorPortalApp() {
         setAppointments(
           list
             .filter((a) => (a.doctorId === selectedDoctor.id || a.doctorName === selectedDoctor.name) && a.status !== 'canceled')
-            .filter((a) => a.date === todayISO())
+            .filter((a) => a.date === selectedAgendaDate)
             .sort((a, b) => a.time.localeCompare(b.time))
         );
       });
@@ -117,7 +145,7 @@ export default function DoctorPortalApp() {
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
-  }, [step, selectedDoctor, clinicId]);
+  }, [step, selectedDoctor, clinicId, selectedAgendaDate]);
 
   const handleSaveBlock = async () => {
     if (!selectedDoctor || !blockDate) return;
@@ -143,12 +171,12 @@ export default function DoctorPortalApp() {
   };
 
   const nowTime = new Date().toTimeString().slice(0, 5);
-  const nextPatientIndex = appointments.findIndex((a) => a.time >= nowTime);
+  const nextPatientIndex = selectedAgendaDate === todayISO() ? appointments.findIndex((a) => a.time >= nowTime) : -1;
 
   const openPatient = async (appt: Appointment) => {
     setSelectedPatient(appt);
     setComplaint(''); setConduct(''); setPrescription('');
-    const patientId = appt.patientPhone.replace(/[^a-zA-Z0-9]/g, '_');
+    const patientId = appt.patientPhone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
     const [profile, entries] = await Promise.all([
       fbGetPatientProfile(clinicId, patientId),
       fbListProntuario(clinicId, patientId),
@@ -161,7 +189,7 @@ export default function DoctorPortalApp() {
     if (!selectedPatient || !selectedDoctor) return;
     if (!complaint.trim() && !conduct.trim()) return;
     setSavingEvolution(true);
-    const patientId = selectedPatient.patientPhone.replace(/[^a-zA-Z0-9]/g, '_');
+    const patientId = selectedPatient.patientPhone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
     const entry = {
       date: new Date().toLocaleDateString('pt-BR'),
       doctorName: selectedDoctor.name,
@@ -175,9 +203,48 @@ export default function DoctorPortalApp() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('doctorPortal_session');
     setStep('email'); setSelectedDoctor(null); setPinInput(''); setPinConfirm('');
     setAppointments([]); setSelectedPatient(null);
   };
+
+  // ── Restaura sessão salva ao carregar a página (evita pedir PIN de novo
+  // toda vez que der F5) — sessão válida por 12 horas.
+  useEffect(() => {
+    const raw = localStorage.getItem('doctorPortal_session');
+    if (!raw) { setRestoringSession(false); return; }
+    try {
+      const session = JSON.parse(raw);
+      const twelveHours = 12 * 60 * 60 * 1000;
+      if (!session.clinicEmail || !session.doctorId || Date.now() - session.timestamp > twelveHours) {
+        localStorage.removeItem('doctorPortal_session');
+        setRestoringSession(false);
+        return;
+      }
+      setClinicEmail(session.clinicEmail);
+      fbListDoctors(session.clinicEmail).then((list) => {
+        const doc = list.find((d) => d.id === session.doctorId);
+        if (doc) {
+          setDoctors(list);
+          setSelectedDoctor(doc);
+          setStep('home');
+        } else {
+          localStorage.removeItem('doctorPortal_session');
+        }
+        setRestoringSession(false);
+      }).catch(() => setRestoringSession(false));
+    } catch {
+      setRestoringSession(false);
+    }
+  }, []);
+
+  if (restoringSession) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-xs text-slate-400 font-sans">Carregando...</p>
+      </div>
+    );
+  }
 
   // ── TELA: EMAIL DA CLÍNICA ─────────────────────────────────────────────
   if (step === 'email') {
@@ -306,14 +373,32 @@ export default function DoctorPortalApp() {
       <div className="p-4 grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
         {/* Agenda do dia */}
         <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {/* Seletor de dias */}
+          <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 -mx-1 px-1">
+            {Array.from({ length: 7 }).map((_, i) => {
+              const dateStr = addDaysISO(todayISO(), i);
+              const isSelected = dateStr === selectedAgendaDate;
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => setSelectedAgendaDate(dateStr)}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold font-sans transition-colors ${
+                    isSelected ? 'bg-[#1A6FA8] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {formatDayLabel(dateStr)}
+                </button>
+              );
+            })}
+          </div>
           <h2 className="text-sm font-bold text-slate-700 font-sans mb-3 flex items-center justify-between">
-            Agenda de Hoje ({appointments.length})
+            Agenda de {formatDayLabel(selectedAgendaDate)} ({appointments.length})
             <button onClick={() => setShowBlockModal(true)} className="flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700">
               <CalendarOff className="w-3.5 h-3.5" /> Bloquear Agenda
             </button>
           </h2>
           <div className="space-y-2 max-h-[70vh] overflow-y-auto">
-            {appointments.length === 0 && <p className="text-xs text-slate-400 font-sans text-center py-8">Nenhum agendamento hoje.</p>}
+            {appointments.length === 0 && <p className="text-xs text-slate-400 font-sans text-center py-8">Nenhum agendamento nesse dia.</p>}
             {appointments.map((a, i) => (
               <button
                 key={a.id}
