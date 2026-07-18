@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
-  Star, 
   Clock, 
   Coins, 
   Plus, 
@@ -18,6 +17,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Calendar,
+  CalendarOff,
   DollarSign,
   AlertTriangle,
   BookOpen,
@@ -26,7 +26,7 @@ import {
   Upload
 } from 'lucide-react';
 import { Doctor, AtendiaPlan } from '../types';
-import { fbSaveDoctor, fbDeleteDoctor } from '../firebase';
+import { fbSaveDoctor, fbDeleteDoctor, fbListScheduleBlocks, fbSaveScheduleBlock, fbDeleteScheduleBlock } from '../firebase';
 
 interface DoctorsPanelProps {
   doctors: Doctor[];
@@ -73,6 +73,45 @@ export default function DoctorsPanel({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
+
+  // ── Bloqueio de agenda ──
+  const [blockingDoctor, setBlockingDoctor] = useState<Doctor | null>(null);
+  const [scheduleBlocks, setScheduleBlocks] = useState<any[]>([]);
+  const [blockDate, setBlockDate] = useState('');
+  const [blockAllDay, setBlockAllDay] = useState(true);
+  const [blockStartTime, setBlockStartTime] = useState('');
+  const [blockEndTime, setBlockEndTime] = useState('');
+  const [blockReason, setBlockReason] = useState('');
+
+  useEffect(() => {
+    if (!clinicId) return;
+    fbListScheduleBlocks(clinicId).then(setScheduleBlocks).catch(() => {});
+  }, [clinicId]);
+
+  const handleSaveBlock = async () => {
+    if (!blockingDoctor || !blockDate || !clinicId) return;
+    const block = {
+      id: `block_${Date.now()}`,
+      doctorId: blockingDoctor.id,
+      doctorName: blockingDoctor.name,
+      date: blockDate,
+      allDay: blockAllDay,
+      startTime: blockAllDay ? '' : blockStartTime,
+      endTime: blockAllDay ? '' : blockEndTime,
+      reason: blockReason,
+      createdAt: new Date().toISOString(),
+    };
+    await fbSaveScheduleBlock(clinicId, block);
+    setScheduleBlocks((prev) => [...prev, block]);
+    onAddSystemLog('success', `Bloqueio de agenda criado: ${blockingDoctor.name} em ${blockDate}${blockAllDay ? ' (dia todo)' : ` (${blockStartTime}-${blockEndTime})`}`);
+    setBlockDate(''); setBlockAllDay(true); setBlockStartTime(''); setBlockEndTime(''); setBlockReason('');
+  };
+
+  const handleDeleteBlock = async (id: string) => {
+    if (!clinicId) return;
+    await fbDeleteScheduleBlock(clinicId, id);
+    setScheduleBlocks((prev) => prev.filter((b) => b.id !== id));
+  };
   
   // Form active tab
   const [formActiveTab, setFormActiveTab] = useState<'basic' | 'bot_config' | 'bot_behavior'>('basic');
@@ -305,7 +344,6 @@ export default function DoctorsPanel({
         name: formName,
         specialty: formSpecialty,
         crm: formCrm,
-        rating: 4.8,
         avatarUrl: formAvatarUrl,
         schedules: schedulesString,
         consultationFee: Number(formConsultationFee),
@@ -643,22 +681,9 @@ export default function DoctorsPanel({
                       {doc.crm}
                     </p>
 
-                    {/* Star quality indicator */}
-                    <div className="flex items-center gap-1 mt-2 text-amber-500 text-xs font-bold font-sans">
-                      <div className="flex items-center">
-                        {[1, 2, 3, 4, 5].map((star) => {
-                          const ratingVal = doc.rating || 4.8;
-                          const filled = star <= Math.round(ratingVal);
-                          return (
-                            <Star 
-                              key={star} 
-                              className={`w-3 h-3 ${filled ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} 
-                            />
-                          );
-                        })}
-                      </div>
-                      <span className="ml-1 text-slate-700">{doc.rating || 4.8}</span>
-                      <span className="text-slate-400 font-normal">({doc.activePatientsCount || 0} Atendimentos)</span>
+                    {/* Contagem de atendimentos (dado real, sem avaliação por estrelas) */}
+                    <div className="flex items-center gap-1 mt-2 text-slate-400 text-xs font-sans">
+                      <span>{doc.activePatientsCount || 0} Atendimentos</span>
                     </div>
                   </div>
                 </div>
@@ -723,8 +748,15 @@ export default function DoctorsPanel({
                       </span>
                     </div>
 
-                    {/* Edit/Delete Actions */}
+                    {/* Edit/Delete/Block Actions */}
                     <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setBlockingDoctor(doc)}
+                        className="p-1.5 hover:bg-amber-50 text-slate-500 hover:text-amber-600 rounded-md transition-colors cursor-pointer"
+                        title="Bloquear Agenda"
+                      >
+                        <CalendarOff className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleOpenEditModal(doc)}
                         className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-md transition-colors cursor-pointer"
@@ -1349,6 +1381,76 @@ export default function DoctorsPanel({
               >
                 Excluir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Bloqueio de Agenda */}
+      {blockingDoctor && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200/80 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarOff className="w-4 h-4 text-amber-600" />
+                  <h4 className="text-sm font-bold text-slate-800 font-sans">Bloquear Agenda — Dr(a). {blockingDoctor.name}</h4>
+                </div>
+                <button onClick={() => setBlockingDoctor(null)}><X className="w-4 h-4 text-slate-400" /></button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase font-sans mb-1">Data</label>
+                  <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full text-xs p-2.5 border border-slate-200 rounded-lg font-sans" />
+                </div>
+                <label className="flex items-center gap-2 text-xs font-sans text-slate-600">
+                  <input type="checkbox" checked={blockAllDay} onChange={(e) => setBlockAllDay(e.target.checked)} />
+                  Bloquear o dia todo
+                </label>
+                {!blockAllDay && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase font-sans mb-1">Das</label>
+                      <input type="time" value={blockStartTime} onChange={(e) => setBlockStartTime(e.target.value)} className="w-full text-xs p-2.5 border border-slate-200 rounded-lg font-sans" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase font-sans mb-1">Até</label>
+                      <input type="time" value={blockEndTime} onChange={(e) => setBlockEndTime(e.target.value)} className="w-full text-xs p-2.5 border border-slate-200 rounded-lg font-sans" />
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase font-sans mb-1">Motivo (opcional)</label>
+                  <input value={blockReason} onChange={(e) => setBlockReason(e.target.value)} placeholder="Ex: Imprevisto, congresso, etc." className="w-full text-xs p-2.5 border border-slate-200 rounded-lg font-sans" />
+                </div>
+                <button
+                  onClick={handleSaveBlock}
+                  disabled={!blockDate || (!blockAllDay && (!blockStartTime || !blockEndTime))}
+                  className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-bold py-2.5 rounded-lg text-xs font-sans"
+                >
+                  Adicionar Bloqueio
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-[10px] font-bold text-slate-500 uppercase font-sans mb-2">Bloqueios ativos deste médico</p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {scheduleBlocks.filter((b) => b.doctorId === blockingDoctor.id).length === 0 && (
+                    <p className="text-xs text-slate-400 font-sans text-center py-3">Nenhum bloqueio cadastrado.</p>
+                  )}
+                  {scheduleBlocks.filter((b) => b.doctorId === blockingDoctor.id).map((b) => (
+                    <div key={b.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-xs font-sans">
+                      <div>
+                        <span className="font-bold text-slate-700">{b.date}</span>
+                        <span className="text-slate-500 ml-1.5">{b.allDay ? '(dia todo)' : `(${b.startTime}-${b.endTime})`}</span>
+                        {b.reason && <p className="text-[10px] text-slate-400">{b.reason}</p>}
+                      </div>
+                      <button onClick={() => handleDeleteBlock(b.id)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
