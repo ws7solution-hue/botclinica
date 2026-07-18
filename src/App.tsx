@@ -508,6 +508,7 @@ export default function App() {
   const [modalPatientPhone, setModalPatientPhone] = useState('');
   const [modalDoctorId, setModalDoctorId] = useState('');
   const [modalDayOfWeek, setModalDayOfWeek] = useState('');
+  const [modalSpecificDate, setModalSpecificDate] = useState<string | null>(null);
   const [modalTime, setModalTime] = useState('');
 
   // Get upcoming YYYY-MM-DD date for a given Portuguese weekday abbreviation
@@ -617,7 +618,7 @@ export default function App() {
     const doctor = doctors.find(d => d.id === modalDoctorId);
     if (!doctor) return;
 
-    const computedDate = getNextDateForDayOfWeek(modalDayOfWeek);
+    const computedDate = modalSpecificDate || getNextDateForDayOfWeek(modalDayOfWeek);
 
     // Double check availability
     const isOccupied = appointments.some(appt => 
@@ -674,7 +675,7 @@ export default function App() {
     }
     
     // Reset modal state
-    setQuickAddOpen(false);
+    setQuickAddOpen(false); setModalSpecificDate(null);
   };
   
   // Simulated Alert modal banner state
@@ -713,6 +714,7 @@ export default function App() {
   const handleOpenQuickAppointment = () => {
     setPrefilledPatientName('');
     setPrefilledPatientPhone('');
+    setModalSpecificDate(null);
     setQuickAddOpen(true);
   };
 
@@ -720,6 +722,25 @@ export default function App() {
   const handleOpenQuickAppointmentWithPatient = (name: string, phone: string) => {
     setPrefilledPatientName(name);
     setPrefilledPatientPhone(phone);
+    setModalSpecificDate(null);
+    setQuickAddOpen(true);
+  };
+
+  // Helper: Trigger quick scheduler pre-filled com uma data específica
+  // (usado quando o usuário clica num dia do calendário e depois em
+  // "Agendar Nova Consulta" — evita ter que escolher "dia da semana" de
+  // novo e recalcular a data, que é onde os bugs de fuso horário
+  // costumavam acontecer).
+  const handleOpenQuickAppointmentForDate = (date: string) => {
+    setPrefilledPatientName('');
+    setPrefilledPatientPhone('');
+    setModalSpecificDate(date);
+    // Calcula o dia da semana correspondente, só pra reaproveitar a
+    // lógica já existente de filtrar horários disponíveis por dia.
+    const dayKeysByNum = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const [y, m, d] = date.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    setModalDayOfWeek(dayKeysByNum[dateObj.getDay()]);
     setQuickAddOpen(true);
   };
 
@@ -946,6 +967,7 @@ export default function App() {
               doctors={doctors}
               onAddSystemLog={addSystemLog}
               setQuickAddOpen={setQuickAddOpen}
+              onOpenQuickAppointmentForDate={handleOpenQuickAppointmentForDate}
               currentPlan={currentPlan}
             />
           )}
@@ -1095,7 +1117,7 @@ export default function App() {
             {/* Overlay background */}
             <div 
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" 
-              onClick={() => setQuickAddOpen(false)}
+              onClick={() => { setQuickAddOpen(false); setModalSpecificDate(null); }}
             />
             
             {/* Modal box */}
@@ -1106,7 +1128,7 @@ export default function App() {
                   Marcar Nova Consulta Médica
                 </h3>
                 <button 
-                  onClick={() => setQuickAddOpen(false)}
+                  onClick={() => { setQuickAddOpen(false); setModalSpecificDate(null); }}
                   className="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -1189,6 +1211,14 @@ export default function App() {
                 </div>
 
                 {/* Day of week & Time grid */}
+                {modalSpecificDate && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-[#1A6FA8]" />
+                    <span className="text-[11px] font-bold text-[#1A6FA8] font-sans">
+                      Consulta será marcada para {formatDateBR(modalSpecificDate)} (data escolhida no calendário)
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   {/* Day of the week selector */}
                   <div>
@@ -1241,7 +1271,7 @@ export default function App() {
                             const selectedDoc = doctors.find(d => d.id === modalDoctorId);
                             if (!selectedDoc) return null;
                             const slots = getDoctorTimeSlots(selectedDoc);
-                            const computedDate = getNextDateForDayOfWeek(modalDayOfWeek);
+                            const computedDate = modalSpecificDate || getNextDateForDayOfWeek(modalDayOfWeek);
 
                             return slots.map(slotTime => {
                               const isOccupied = appointments.some(appt => {
@@ -1286,7 +1316,7 @@ export default function App() {
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50 -mx-5 -mb-5 p-4">
                   <button
                     type="button"
-                    onClick={() => setQuickAddOpen(false)}
+                    onClick={() => { setQuickAddOpen(false); setModalSpecificDate(null); }}
                     className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
                   >
                     Cancelar

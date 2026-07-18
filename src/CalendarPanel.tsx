@@ -28,6 +28,7 @@ interface CalendarPanelProps {
   doctors: Doctor[];
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
   setQuickAddOpen: (open: boolean) => void;
+  onOpenQuickAppointmentForDate?: (date: string) => void;
   currentPlan: AtendiaPlan;
 }
 
@@ -37,6 +38,7 @@ export default function CalendarPanel({
   doctors,
   onAddSystemLog,
   setQuickAddOpen,
+  onOpenQuickAppointmentForDate,
   currentPlan
 }: CalendarPanelProps) {
   if (currentPlan === 'starter') {
@@ -146,7 +148,7 @@ export default function CalendarPanel({
 
   const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  const today = new Date().toISOString().split('T')[0];
+  const todayObj = new Date(); const today = `${todayObj.getFullYear()}-${String(todayObj.getMonth()+1).padStart(2,'0')}-${String(todayObj.getDate()).padStart(2,'0')}`;
 
   // Filtered appointments
   const filteredAppointments = appointments.filter(appt => {
@@ -280,7 +282,13 @@ export default function CalendarPanel({
         {/* Add Appointment Trigger Button */}
         <button
           id="btn-trigger-schedule-modal"
-          onClick={() => setQuickAddOpen(true)}
+          onClick={() => {
+            if (selectedDay && onOpenQuickAppointmentForDate) {
+              onOpenQuickAppointmentForDate(selectedDay);
+            } else {
+              setQuickAddOpen(true);
+            }
+          }}
           className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer self-stretch md:self-auto"
         >
           <Plus className="w-4 h-4" />
