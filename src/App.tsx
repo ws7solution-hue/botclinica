@@ -49,7 +49,14 @@ import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, Ca
 export const DEMO_EMAIL = 'contato@botclinica.com.br';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<SidebarTab>('overview');
+  const [activeTab, setActiveTab] = useState<SidebarTab>(() => {
+    const saved = localStorage.getItem('atendia_activeTab');
+    return (saved as SidebarTab) || 'overview';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('atendia_activeTab', activeTab);
+  }, [activeTab]);
   
   // Real-time State containers
   const [conversations, setRawConversations] = useState<Conversation[]>(() => {
