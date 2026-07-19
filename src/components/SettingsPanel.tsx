@@ -101,6 +101,52 @@ export default function SettingsPanel({
   const [newSpecialty, setNewSpecialty] = useState('');
   const [specialtyToDelete, setSpecialtyToDelete] = useState<string | null>(null);
 
+  // ── Troca de plano (proration) ────────────────────────────────────────────
+  const [planoParaTrocar, setPlanoParaTrocar] = useState<AtendiaPlan | null>(null);
+  const [trocandoPlano, setTrocandoPlano] = useState(false);
+  const [resultadoTrocaPlano, setResultadoTrocaPlano] = useState<{ ok: boolean; mensagem: string } | null>(null);
+
+  const PLANOS_INFO: { id: AtendiaPlan; nome: string; preco: number }[] = [
+    { id: 'starter', nome: 'Starter', preco: 397 },
+    { id: 'profissional', nome: 'Profissional', preco: 597 },
+    { id: 'clinica', nome: 'Clínica', preco: 997 },
+    { id: 'premium', nome: 'Premium', preco: 1497 },
+  ];
+
+  async function handleTrocarPlano(novoPlano: AtendiaPlan) {
+    if (!clinicId) return;
+    setTrocandoPlano(true);
+    setResultadoTrocaPlano(null);
+    try {
+      const resp = await fetch('/api/stripe-change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clinicId, novoPlano }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        setResultadoTrocaPlano({ ok: false, mensagem: data.error || 'Não foi possível trocar de plano.' });
+      } else if (data.semAlteracao) {
+        setResultadoTrocaPlano({ ok: true, mensagem: 'Você já está nesse plano.' });
+      } else {
+        const valor = Number(data.valorProrationReais);
+        const textoValor = valor > 0
+          ? `Será cobrada uma diferença proporcional de R$ ${valor.toFixed(2)} na próxima fatura.`
+          : valor < 0
+          ? `Você receberá um crédito de R$ ${Math.abs(valor).toFixed(2)} na próxima fatura.`
+          : 'Sem diferença de valor a cobrar agora.';
+        setResultadoTrocaPlano({ ok: true, mensagem: `Plano alterado para ${data.novoPlano}! ${textoValor}` });
+        onAddSystemLog?.('success', `Plano alterado para ${data.novoPlano} (${clinicId})`);
+      }
+    } catch (e: any) {
+      setResultadoTrocaPlano({ ok: false, mensagem: 'Erro de conexão ao trocar de plano. Tente novamente.' });
+    } finally {
+      setTrocandoPlano(false);
+      setPlanoParaTrocar(null);
+    }
+  }
+
   // Add specialty
   const handleAddSpecialty = (e: React.FormEvent) => {
     e.preventDefault();
@@ -587,6 +633,61 @@ export default function SettingsPanel({
             </form>
           </div>
 
+          {/* Seu Plano — troca com proration */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-sans">
+              Seu Plano
+            </h3>
+
+            <div className="space-y-2">
+              {PLANOS_INFO.map((p) => {
+                const isAtual = p.id === currentPlan;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isAtual ? 'border-[#1A6FA8] bg-sky-50/60' : 'border-slate-200'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-700 font-sans">{p.nome}</span>
+                        {isAtual && (
+                          <span className="text-[8px] bg-[#1A6FA8] text-white font-bold px-1.5 py-0.2 rounded-sm uppercase tracking-wider font-mono">
+                            Atual
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-sans">
+                        R$ {p.preco.toFixed(2)}/mês
+                      </span>
+                    </div>
+
+                    {!isAtual && (
+                      <button
+                        type="button"
+                        onClick={() => { setPlanoParaTrocar(p.id); setResultadoTrocaPlano(null); }}
+                        className="text-[10px] font-bold text-[#1A6FA8] hover:bg-sky-50 border border-sky-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        {p.preco > (PLANOS_INFO.find(x => x.id === currentPlan)?.preco || 0) ? 'Fazer upgrade' : 'Fazer downgrade'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+              Ao trocar de plano, você paga (ou recebe crédito de) apenas a diferença proporcional pelo tempo restante do ciclo atual — sem precisar cancelar a assinatura.
+            </p>
+
+            {resultadoTrocaPlano && (
+              <div className={`text-xs p-3 rounded-lg font-sans ${resultadoTrocaPlano.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                {resultadoTrocaPlano.mensagem}
+              </div>
+            )}
+          </div>
+
           {/* Quick AI status */}
           <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl text-sky-800 text-xs">
             <h5 className="font-bold flex items-center gap-1.5 font-sans mb-1 text-sky-900">
@@ -601,6 +702,39 @@ export default function SettingsPanel({
         </div>
 
       </div>
+
+      {/* Confirmação de Troca de Plano */}
+      {planoParaTrocar && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200/80 w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 font-sans">
+              Confirmar troca de plano?
+            </h3>
+            <p className="text-xs text-slate-500 font-sans leading-relaxed">
+              Você vai trocar do plano <strong>{PLANOS_INFO.find(p => p.id === currentPlan)?.nome}</strong> para{' '}
+              <strong>{PLANOS_INFO.find(p => p.id === planoParaTrocar)?.nome}</strong>. A diferença proporcional será calculada automaticamente e cobrada (ou creditada) na sua próxima fatura.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPlanoParaTrocar(null)}
+                disabled={trocandoPlano}
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTrocarPlano(planoParaTrocar)}
+                disabled={trocandoPlano}
+                className="px-4 py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50"
+              >
+                {trocandoPlano ? 'Confirmando...' : 'Confirmar troca'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Custom Specialty Deletion Confirmation Modal */}
       {specialtyToDelete && (
