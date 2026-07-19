@@ -30,6 +30,7 @@ interface SettingsProps {
   botSettings: {
     clinicName: string;
     phone: string;
+    clinicAddress?: string;
     welcomeMessage: string;
     allowDirectDoctorScheduling: boolean;
     enableAutoReminders: boolean;
@@ -45,6 +46,7 @@ interface SettingsProps {
   setActiveTab: (tab: SidebarTab) => void;
   currentPlan: AtendiaPlan;
   clinicId?: string;
+  onUpdateProfile?: (clinicName: string, phone: string) => void;
 }
 
 export default function SettingsPanel({ 
@@ -56,17 +58,19 @@ export default function SettingsPanel({
   doctors,
   setActiveTab,
   currentPlan,
-  clinicId
+  clinicId,
+  onUpdateProfile
 }: SettingsProps) {
   // Local form states
   const [clinicName, setClinicName] = useState(botSettings.clinicName);
   const [phone, setPhone] = useState(botSettings.phone);
+  const [clinicAddress, setClinicAddress] = useState(botSettings.clinicAddress || '');
   const [welcomeMessage, setWelcomeMessage] = useState(botSettings.welcomeMessage);
   const [aiTone, setAiTone] = useState(botSettings.aiTone);
   const [allowDirectDoctorScheduling, setAllowDirectDoctorScheduling] = useState(botSettings.allowDirectDoctorScheduling);
   const [enableAutoReminders, setEnableAutoReminders] = useState(botSettings.enableAutoReminders);
   const [daysBeforeAppointmentForReminder, setDaysBeforeAppointmentForReminder] = useState(botSettings.daysBeforeAppointmentForReminder);
-
+  
   // Premium specific states
   const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(currentPlan === 'premium');
   const [enableDelayAlerts, setEnableDelayAlerts] = useState(currentPlan === 'premium');
@@ -84,6 +88,7 @@ export default function SettingsPanel({
   React.useEffect(() => {
     setClinicName(botSettings.clinicName);
     setPhone(botSettings.phone);
+    setClinicAddress(botSettings.clinicAddress || '');
     setWelcomeMessage(botSettings.welcomeMessage);
     setAiTone(botSettings.aiTone);
     setAllowDirectDoctorScheduling(botSettings.allowDirectDoctorScheduling);
@@ -95,6 +100,52 @@ export default function SettingsPanel({
   // Specialty management states
   const [newSpecialty, setNewSpecialty] = useState('');
   const [specialtyToDelete, setSpecialtyToDelete] = useState<string | null>(null);
+
+  // ── Troca de plano (proration) ────────────────────────────────────────────
+  const [planoParaTrocar, setPlanoParaTrocar] = useState<AtendiaPlan | null>(null);
+  const [trocandoPlano, setTrocandoPlano] = useState(false);
+  const [resultadoTrocaPlano, setResultadoTrocaPlano] = useState<{ ok: boolean; mensagem: string } | null>(null);
+
+  const PLANOS_INFO: { id: AtendiaPlan; nome: string; preco: number }[] = [
+    { id: 'starter', nome: 'Starter', preco: 397 },
+    { id: 'profissional', nome: 'Profissional', preco: 597 },
+    { id: 'clinica', nome: 'Clínica', preco: 997 },
+    { id: 'premium', nome: 'Premium', preco: 1497 },
+  ];
+
+  async function handleTrocarPlano(novoPlano: AtendiaPlan) {
+    if (!clinicId) return;
+    setTrocandoPlano(true);
+    setResultadoTrocaPlano(null);
+    try {
+      const resp = await fetch('/api/stripe-change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clinicId, novoPlano }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        setResultadoTrocaPlano({ ok: false, mensagem: data.error || 'Não foi possível trocar de plano.' });
+      } else if (data.semAlteracao) {
+        setResultadoTrocaPlano({ ok: true, mensagem: 'Você já está nesse plano.' });
+      } else {
+        const valor = Number(data.valorProrationReais);
+        const textoValor = valor > 0
+          ? `Será cobrada uma diferença proporcional de R$ ${valor.toFixed(2)} na próxima fatura.`
+          : valor < 0
+          ? `Você receberá um crédito de R$ ${Math.abs(valor).toFixed(2)} na próxima fatura.`
+          : 'Sem diferença de valor a cobrar agora.';
+        setResultadoTrocaPlano({ ok: true, mensagem: `Plano alterado para ${data.novoPlano}! ${textoValor}` });
+        onAddSystemLog?.('success', `Plano alterado para ${data.novoPlano} (${clinicId})`);
+      }
+    } catch (e: any) {
+      setResultadoTrocaPlano({ ok: false, mensagem: 'Erro de conexão ao trocar de plano. Tente novamente.' });
+    } finally {
+      setTrocandoPlano(false);
+      setPlanoParaTrocar(null);
+    }
+  }
 
   // Add specialty
   const handleAddSpecialty = (e: React.FormEvent) => {
@@ -132,6 +183,7 @@ export default function SettingsPanel({
       ...prev,
       clinicName,
       phone,
+      clinicAddress,
       welcomeMessage,
       aiTone,
       allowDirectDoctorScheduling,
@@ -154,6 +206,15 @@ export default function SettingsPanel({
               welcomeMessage,
               aiTone,
               phone,
+              clinicAddress,
+              // BUGFIX: esses campos ficavam só no estado local da tela,
+              // nunca eram salvos de verdade no Firestore — por isso o bot
+              // (e agora o N8N) nunca conseguia enxergar as regras de
+              // palavra-chave nem essas preferências configuradas aqui.
+              allowDirectDoctorScheduling,
+              enableAutoReminders,
+              daysBeforeAppointmentForReminder,
+              rulesList: rules,
             }
           }
         }),
@@ -161,7 +222,28 @@ export default function SettingsPanel({
     }
 
     onAddSystemLog('success', 'Configurações gerais do AtendIA salvas e aplicadas em tempo real.');
+    // Atualiza o perfil no estado do React para persistir no localStorage
+    if (onUpdateProfile) onUpdateProfile(clinicName, phone);
     alert("Configurações atualizadas com sucesso!");
+  };
+
+  // BUGFIX: adicionar/excluir regra só atualizava o estado local (React),
+  // nunca salvava de verdade no Firestore — as regras "somem" ao recarregar
+  // a página, e o bot/N8N nunca tinha acesso a elas. Agora persistimos
+  // imediatamente sempre que uma regra é adicionada ou removida.
+  const persistRules = (updatedRules: Rule[]) => {
+    if (!clinicId) return;
+    fetch('/api/fb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveBotConfig',
+        payload: {
+          docId: `clinic_settings_${clinicId.toLowerCase().replace(/[@.]/g, '_')}/bot`,
+          config: { rulesList: updatedRules },
+        },
+      }),
+    }).catch(() => {});
   };
 
   // Add keyword trigger rule
@@ -175,7 +257,8 @@ export default function SettingsPanel({
       ...prev,
       rulesList: updatedRules
     }));
-    
+    persistRules(updatedRules);
+
     onAddSystemLog('success', `Adicionada regra de disparo de palavra-chave: "${newTrigger.trim()}"`);
     setNewTrigger('');
     setNewAction('');
@@ -189,6 +272,7 @@ export default function SettingsPanel({
       ...prev,
       rulesList: updatedRules
     }));
+    persistRules(updatedRules);
     onAddSystemLog('warning', `Regra de palavra-chave deletada: "${triggerName}"`);
   };
 
@@ -209,40 +293,6 @@ export default function SettingsPanel({
           </div>
 
           <form onSubmit={handleSaveConfig} className="p-6 space-y-5">
-            
-            {/* Clinic details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
-                  Nome Comercial da Clínica
-                </label>
-                <input
-                  id="settings-clinic-name"
-                  type="text"
-                  value={clinicName}
-                  onChange={(e) => setClinicName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
-                  Número de WhatsApp da Clínica
-                </label>
-                <div className="relative">
-                  <Smartphone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="settings-phone"
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+55 (31) 99105-8485"
-                    className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-mono"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 font-sans mt-1">Número que os pacientes usam para contato. O bot informará este número se solicitado.</p>
-              </div>
-            </div>
 
             {/* WhatsApp Embedded Signup */}
             <div>
@@ -253,6 +303,24 @@ export default function SettingsPanel({
                 clinicId={clinicId || ''}
                 onAddSystemLog={onAddSystemLog}
               />
+            </div>
+
+            {/* Endereço da Clínica */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
+                Endereço da Clínica
+              </label>
+              <input
+                type="text"
+                id="settings-clinic-address"
+                value={clinicAddress}
+                onChange={(e) => setClinicAddress(e.target.value)}
+                className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+                placeholder="Ex: Rua das Flores, 123 - Centro, Belo Horizonte - MG"
+              />
+              <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                Usado pelo assistente virtual para informar a localização da clínica aos pacientes.
+              </p>
             </div>
 
             {/* AI Welcome Message Textarea */}
@@ -565,6 +633,61 @@ export default function SettingsPanel({
             </form>
           </div>
 
+          {/* Seu Plano — troca com proration */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-sans">
+              Seu Plano
+            </h3>
+
+            <div className="space-y-2">
+              {PLANOS_INFO.map((p) => {
+                const isAtual = p.id === currentPlan;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isAtual ? 'border-[#1A6FA8] bg-sky-50/60' : 'border-slate-200'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-700 font-sans">{p.nome}</span>
+                        {isAtual && (
+                          <span className="text-[8px] bg-[#1A6FA8] text-white font-bold px-1.5 py-0.2 rounded-sm uppercase tracking-wider font-mono">
+                            Atual
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-sans">
+                        R$ {p.preco.toFixed(2)}/mês
+                      </span>
+                    </div>
+
+                    {!isAtual && (
+                      <button
+                        type="button"
+                        onClick={() => { setPlanoParaTrocar(p.id); setResultadoTrocaPlano(null); }}
+                        className="text-[10px] font-bold text-[#1A6FA8] hover:bg-sky-50 border border-sky-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        {p.preco > (PLANOS_INFO.find(x => x.id === currentPlan)?.preco || 0) ? 'Fazer upgrade' : 'Fazer downgrade'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+              Ao trocar de plano, você paga (ou recebe crédito de) apenas a diferença proporcional pelo tempo restante do ciclo atual — sem precisar cancelar a assinatura.
+            </p>
+
+            {resultadoTrocaPlano && (
+              <div className={`text-xs p-3 rounded-lg font-sans ${resultadoTrocaPlano.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                {resultadoTrocaPlano.mensagem}
+              </div>
+            )}
+          </div>
+
           {/* Quick AI status */}
           <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl text-sky-800 text-xs">
             <h5 className="font-bold flex items-center gap-1.5 font-sans mb-1 text-sky-900">
@@ -579,6 +702,39 @@ export default function SettingsPanel({
         </div>
 
       </div>
+
+      {/* Confirmação de Troca de Plano */}
+      {planoParaTrocar && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200/80 w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 font-sans">
+              Confirmar troca de plano?
+            </h3>
+            <p className="text-xs text-slate-500 font-sans leading-relaxed">
+              Você vai trocar do plano <strong>{PLANOS_INFO.find(p => p.id === currentPlan)?.nome}</strong> para{' '}
+              <strong>{PLANOS_INFO.find(p => p.id === planoParaTrocar)?.nome}</strong>. A diferença proporcional será calculada automaticamente e cobrada (ou creditada) na sua próxima fatura.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPlanoParaTrocar(null)}
+                disabled={trocandoPlano}
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTrocarPlano(planoParaTrocar)}
+                disabled={trocandoPlano}
+                className="px-4 py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50"
+              >
+                {trocandoPlano ? 'Confirmando...' : 'Confirmar troca'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Custom Specialty Deletion Confirmation Modal */}
       {specialtyToDelete && (
