@@ -1,6 +1,5 @@
 // ── BotClínica — Stripe Checkout ─────────────────────────────────────────────
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
 const PRICE_IDS = {
   starter:      'price_1Tq1FORiC3IX8iaz00PLfzrQ',
@@ -80,38 +79,6 @@ module.exports = async (req, res) => {
     }
   }
 
-  // ── Webhook Stripe ────────────────────────────────────────────────────────
-  if (req.method === 'POST' && req.headers['stripe-signature']) {
-    let event;
-    try {
-      const rawBody = await getRawBody(req);
-      event = stripe.webhooks.constructEvent(
-        rawBody,
-        req.headers['stripe-signature'],
-        STRIPE_WEBHOOK_SECRET
-      );
-    } catch (e) {
-      console.error('Webhook signature error:', e.message);
-      return res.status(400).json({ error: `Webhook error: ${e.message}` });
-    }
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const { email, plano, clinicName, adminName } = session.metadata;
-
-      if (email) {
-        try {
-          await activateAccount({ email, plano, clinicName, adminName });
-          console.log(`✅ Conta ativada: ${email} — Plano: ${plano}`);
-        } catch (e) {
-          console.error('Erro ao ativar conta:', e.message);
-        }
-      }
-    }
-
-    return res.status(200).json({ received: true });
-  }
-
   return res.status(405).json({ error: 'Method not allowed' });
 };
 
@@ -171,12 +138,3 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
   }
 }
 
-// ── Helper para raw body (webhook) ───────────────────────────────────────────
-function getRawBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', chunk => { data += chunk; });
-    req.on('end', () => resolve(data));
-    req.on('error', reject);
-  });
-}
