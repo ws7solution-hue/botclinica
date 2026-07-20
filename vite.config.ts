@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
 
@@ -49,6 +50,26 @@ export default defineConfig(() => {
             next();
           });
         }
+      },
+      {
+        // BUGFIX (19/07): como o HTML de entrada é src/index.html, o Vite
+        // gera a saída em app/src/index.html (espelhando a pasta de origem),
+        // mas o vercel.json e o "base: '/app/'" esperam app/index.html na
+        // raiz. Este plugin move o arquivo pro lugar certo após cada build.
+        // Os caminhos de asset no HTML são absolutos (/app/assets/...), então
+        // mover o arquivo de lugar não quebra nenhuma referência.
+        name: 'move-index-html-to-app-root',
+        closeBundle() {
+          const from = path.resolve(__dirname, 'app/src/index.html');
+          const to = path.resolve(__dirname, 'app/index.html');
+          if (fs.existsSync(from)) {
+            fs.renameSync(from, to);
+            const srcDir = path.resolve(__dirname, 'app/src');
+            if (fs.existsSync(srcDir) && fs.readdirSync(srcDir).length === 0) {
+              fs.rmdirSync(srcDir);
+            }
+          }
+        }
       }
     ],
     resolve: {
@@ -57,6 +78,13 @@ export default defineConfig(() => {
       },
     },
     build: {
+      // BUGFIX (19/07): o outDir nunca foi definido, então "vite build"
+      // sempre gerava em dist/ (padrão do Vite) — mas o vercel.json e o
+      // "base: '/app/'" acima esperam os arquivos dentro de app/. Isso fazia
+      // com que o deploy nunca refletisse mudanças novas no código-fonte,
+      // já que app/ ficava com builds antigos, nunca sobrescritos.
+      outDir: path.resolve(__dirname, 'app'),
+      emptyOutDir: true,
       // BUGFIX: o projeto nunca teve um HTML de entrada de verdade para o
       // Vite processar o app React — o index.html da raiz é a landing page
       // estática. Sem isso, "vite build" usava o HTML errado como entrada,
