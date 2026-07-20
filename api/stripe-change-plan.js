@@ -75,7 +75,13 @@ module.exports = async (req, res) => {
     });
 
     const valorProrationCentavos = upcomingInvoice.lines.data
-      .filter(line => line.proration)
+      .filter(line => {
+        const parent = line.parent || {};
+        return (
+          parent.subscription_item_details?.proration === true ||
+          parent.invoice_item_details?.proration === true
+        );
+      })
       .reduce((total, line) => total + line.amount, 0);
 
     // 4. Aplica a troca de fato — Stripe calcula e fatura a diferença
