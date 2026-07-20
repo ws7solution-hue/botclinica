@@ -65,11 +65,13 @@ module.exports = async (req, res) => {
 
     // 3. Pré-visualiza o valor da cobrança proporcional antes de aplicar
     //    (útil para mostrar ao cliente quanto vai ser cobrado agora, se quiser)
-    const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+    const upcomingInvoice = await stripe.invoices.createPreview({
       customer: customer.id,
       subscription: subscription.id,
-      subscription_items: [{ id: currentItem.id, price: novoPriceId }],
-      subscription_proration_behavior: 'create_prorations',
+      subscription_details: {
+        items: [{ id: currentItem.id, price: novoPriceId }],
+        proration_behavior: 'create_prorations',
+      },
     });
 
     const valorProrationCentavos = upcomingInvoice.lines.data
