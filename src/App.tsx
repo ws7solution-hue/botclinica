@@ -995,6 +995,7 @@ export default function App() {
               setQuickAddOpen={setQuickAddOpen}
               onOpenQuickAppointmentForDate={handleOpenQuickAppointmentForDate}
               currentPlan={currentPlan}
+              setActiveTab={setActiveTab}
             />
           )}
 
@@ -1016,6 +1017,7 @@ export default function App() {
               conversations={conversations}
               appointments={appointments}
               doctors={doctors}
+              setActiveTab={setActiveTab}
             />
           )}
 
@@ -1026,6 +1028,7 @@ export default function App() {
               doctors={doctors}
               currentPlan={currentPlan}
               onAddSystemLog={addSystemLog}
+              setActiveTab={setActiveTab}
             />
           )}
 
@@ -1037,6 +1040,7 @@ export default function App() {
               conversations={conversations}
               currentPlan={currentPlan}
               onAddSystemLog={addSystemLog}
+              setActiveTab={setActiveTab}
             />
           )}
 
