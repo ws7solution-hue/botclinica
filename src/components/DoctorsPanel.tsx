@@ -479,29 +479,6 @@ export default function DoctorsPanel({
         </div>
       </div>
 
-      {isLimitReached && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-800 animate-in fade-in duration-300">
-          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-          <div className="flex-1 text-xs">
-            <h4 className="font-bold text-amber-900 font-sans">Limite de Médicos Atingido</h4>
-            <p className="mt-1 font-sans">
-              Seu plano atual (<span className="font-bold">{currentPlan === 'starter' ? '🌱 Starter' : '⭐ Profissional'}</span>) permite cadastrar no máximo <strong className="font-bold">{doctorLimit}</strong> {doctorLimit === 1 ? 'médico' : 'médicos'}. Atualmente você possui <strong className="font-bold">{doctors.length}</strong> médicos cadastrados.
-            </p>
-            <div className="mt-2 text-slate-500">
-              Para adicionar mais médicos especialistas e expandir o atendimento de sua clínica, faça o upgrade da sua assinatura.
-            </div>
-            <div className="mt-2.5">
-              <button
-                type="button"
-                onClick={() => setActiveTab('settings')}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer shadow-sm inline-flex items-center gap-1"
-              >
-                Fazer upgrade agora
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Control header bar */}
       <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
