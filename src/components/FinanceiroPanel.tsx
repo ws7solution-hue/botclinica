@@ -34,6 +34,7 @@ interface FinanceiroPanelProps {
   conversations: Conversation[];
   currentPlan: AtendiaPlan;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
+  setActiveTab?: (tab: any) => void;
 }
 
 const DESPESA_CATEGORIES = [
@@ -59,7 +60,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function FinanceiroPanel({ clinicId, doctors, appointments, conversations, currentPlan, onAddSystemLog }: FinanceiroPanelProps) {
+export default function FinanceiroPanel({ clinicId, doctors, appointments, conversations, currentPlan, onAddSystemLog, setActiveTab }: FinanceiroPanelProps) {
   const [crmSearch, setCrmSearch] = useState('');
   const [selectedPatientPhone, setSelectedPatientPhone] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
@@ -426,7 +427,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   if (currentPlan !== 'premium') {
     return (
       <div className="p-4 md:p-6 relative min-h-[calc(100vh-60px)]">
-        <LockOverlay requiredPlan="premium" featureName="Financeiro / CRM" />
+        <LockOverlay requiredPlan="premium" featureName="Financeiro / CRM" onUpgradeClick={setActiveTab ? () => setActiveTab('settings') : undefined} />
       </div>
     );
   }

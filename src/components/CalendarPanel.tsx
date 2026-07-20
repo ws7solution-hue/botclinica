@@ -29,6 +29,7 @@ interface CalendarPanelProps {
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
   setQuickAddOpen: (open: boolean) => void;
   currentPlan: AtendiaPlan;
+  setActiveTab?: (tab: any) => void;
 }
 
 export default function CalendarPanel({
@@ -37,12 +38,13 @@ export default function CalendarPanel({
   doctors,
   onAddSystemLog,
   setQuickAddOpen,
-  currentPlan
+  currentPlan,
+  setActiveTab
 }: CalendarPanelProps) {
   if (currentPlan === 'starter') {
     return (
       <div className="relative h-[calc(100vh-60px)] min-h-[500px]">
-        <LockOverlay requiredPlan="profissional" featureName="Agenda & Consultas" />
+        <LockOverlay requiredPlan="profissional" featureName="Agenda & Consultas" onUpgradeClick={setActiveTab ? () => setActiveTab('settings') : undefined} />
       </div>
     );
   }

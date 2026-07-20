@@ -33,6 +33,7 @@ interface ProntuarioPanelProps {
   doctors: Doctor[];
   currentPlan: AtendiaPlan;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
+  setActiveTab?: (tab: any) => void;
 }
 
 export default function ProntuarioPanel({ 
@@ -40,7 +41,8 @@ export default function ProntuarioPanel({
   conversations, 
   doctors, 
   currentPlan,
-  onAddSystemLog
+  onAddSystemLog,
+  setActiveTab
 }: ProntuarioPanelProps) {
   
   // Extract unique patients from conversations
@@ -254,7 +256,7 @@ export default function ProntuarioPanel({
     <div className="p-4 md:p-6 space-y-6 relative min-h-[calc(100vh-60px)]">
       {/* Premium Lock protection overlay */}
       {currentPlan !== 'premium' && (
-        <LockOverlay requiredPlan="premium" featureName="Prontuário Eletrônico" />
+        <LockOverlay requiredPlan="premium" featureName="Prontuário Eletrônico" onUpgradeClick={setActiveTab ? () => setActiveTab('settings') : undefined} />
       )}
 
       {/* Main header banner */}

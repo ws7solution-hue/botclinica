@@ -34,18 +34,20 @@ interface ReportsPanelProps {
   conversations: Conversation[];
   appointments: Appointment[];
   doctors: Doctor[];
+  setActiveTab?: (tab: any) => void;
 }
 
 export default function ReportsPanel({ 
   currentPlan,
   conversations,
   appointments,
-  doctors
+  doctors,
+  setActiveTab
 }: ReportsPanelProps) {
   if (currentPlan === 'starter') {
     return (
       <div className="relative h-[calc(100vh-60px)] min-h-[500px]">
-        <LockOverlay requiredPlan="profissional" featureName="Relatórios & Estatísticas" />
+        <LockOverlay requiredPlan="profissional" featureName="Relatórios & Estatísticas" onUpgradeClick={setActiveTab ? () => setActiveTab('settings') : undefined} />
       </div>
     );
   }

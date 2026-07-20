@@ -4,9 +4,10 @@ import { Lock, Sparkles, ArrowUpRight } from 'lucide-react';
 interface LockOverlayProps {
   requiredPlan: 'profissional' | 'clinica' | 'premium';
   featureName: string;
+  onUpgradeClick?: () => void;
 }
 
-export default function LockOverlay({ requiredPlan, featureName }: LockOverlayProps) {
+export default function LockOverlay({ requiredPlan, featureName, onUpgradeClick }: LockOverlayProps) {
   const planNames: Record<string, string> = {
     profissional: 'Profissional',
     clinica: 'Clínica',
@@ -60,15 +61,26 @@ export default function LockOverlay({ requiredPlan, featureName }: LockOverlayPr
         </div>
 
         {/* Action button */}
-        <a 
-          href="https://botclinica.com.br/checkout" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <span>Fazer upgrade para o {displayPlanName}</span>
-          <ArrowUpRight className="w-4 h-4" />
-        </a>
+        {onUpgradeClick ? (
+          <button
+            type="button"
+            onClick={onUpgradeClick}
+            className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <span>Fazer upgrade para o {displayPlanName}</span>
+            <ArrowUpRight className="w-4 h-4" />
+          </button>
+        ) : (
+          <a 
+            href="https://botclinica.com.br/checkout" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <span>Fazer upgrade para o {displayPlanName}</span>
+            <ArrowUpRight className="w-4 h-4" />
+          </a>
+        )}
       </div>
     </div>
   );

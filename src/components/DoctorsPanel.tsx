@@ -491,14 +491,13 @@ export default function DoctorsPanel({
               Para adicionar mais médicos especialistas e expandir o atendimento de sua clínica, faça o upgrade da sua assinatura.
             </div>
             <div className="mt-2.5">
-              <a
-                href="https://botclinica.com.br/checkout"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-lg text-[10px] transition-all cursor-pointer shadow-sm inline-flex items-center gap-1"
               >
                 Fazer upgrade agora
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -1212,14 +1211,13 @@ export default function DoctorsPanel({
                         <p className="text-[10px] text-slate-500 max-w-[280px] leading-tight mb-2">
                           Seu plano <strong className="text-slate-800">🌱 Starter</strong> permite apenas configuração básica (Procedimentos, Convênios e Exames). Faça o upgrade para personalizar regras avançadas de descontos, políticas de desmarcação e orientações clínicas.
                         </p>
-                        <a 
-                          href="https://botclinica.com.br/checkout" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('settings')}
                           className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded text-[10px] transition-colors cursor-pointer"
                         >
                           Fazer upgrade para Profissional
-                        </a>
+                        </button>
                       </div>
                       
                       {/* Greyed out fields */}
