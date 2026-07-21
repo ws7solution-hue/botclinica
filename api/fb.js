@@ -193,6 +193,23 @@ module.exports = async (req, res) => {
     }
 
     // ── ADMIN: liberar/atualizar acesso ──────────────────
+    // ── Salva o telefone de WhatsApp da clínica na coleção central ───────
+    // (usada pelo cloudapi da VPS para casar automaticamente com os
+    // números registrados na WABA compartilhada da Meta)
+    if (action === "saveClinicPhone") {
+      const { clinicId, phone } = payload;
+      if (!clinicId || !phone) return res.status(400).json({ error: "clinicId e phone são obrigatórios" });
+      const key = emailToKey(clinicId);
+      const r = await fetch(`${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=phone&key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { phone: { stringValue: phone } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "setAccess") {
       const { email, plano, senha } = payload;
       if (!email) return res.status(400).json({ error: "Email obrigatório" });
@@ -841,6 +858,20 @@ module.exports = async (req, res) => {
             connectedAt: new Date().toISOString(),
           })}),
         });
+
+        // NOVO: também grava o phoneNumberId na coleção central
+        // "acessos_autorizados" (listável de uma vez só). Diferente do
+        // casamento por número de telefone usado para clínicas com número
+        // adicionado manualmente na WABA compartilhada, aqui o Embedded
+        // Signup já entrega o phoneNumberId exato — não precisa "adivinhar"
+        // casando dígitos, então gravamos ele direto para o cloudapi da VPS
+        // usar com prioridade (mais confiável, já que cada cliente do
+        // Embedded Signup cria sua própria WABA separada da compartilhada).
+        await fetch(`${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=phoneNumberId&key=${API_KEY}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { phoneNumberId: { stringValue: phoneInfo.id } } }),
+        }).catch(() => {});
       }
 
       return res.status(200).json({
