@@ -222,6 +222,23 @@ export default function SettingsPanel({
     }
 
     onAddSystemLog('success', 'Configurações gerais do AtendIA salvas e aplicadas em tempo real.');
+
+    // Salva o telefone também na coleção central "acessos_autorizados" —
+    // diferente de clinic_settings_{emailKey}, essa coleção é listável de
+    // uma vez só (não tem nome dinâmico por clínica), então o cloudapi da
+    // VPS consegue buscar o telefone de TODAS as clínicas para casar
+    // automaticamente com os números registrados na Meta.
+    if (clinicId && phone.trim()) {
+      fetch('/api/fb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveClinicPhone',
+          payload: { clinicId, phone: phone.trim() },
+        }),
+      }).catch(() => {});
+    }
+
     // Atualiza o perfil no estado do React para persistir no localStorage
     if (onUpdateProfile) onUpdateProfile(clinicName, phone);
     alert("Configurações atualizadas com sucesso!");
@@ -320,6 +337,24 @@ export default function SettingsPanel({
               />
               <p className="text-[10px] text-slate-400 mt-1 font-sans">
                 Usado pelo assistente virtual para informar a localização da clínica aos pacientes.
+              </p>
+            </div>
+
+            {/* Número de WhatsApp desta clínica */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
+                Número de WhatsApp desta Clínica
+              </label>
+              <input
+                type="text"
+                id="settings-clinic-whatsapp-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+                placeholder="Ex: +55 31 98215-8450"
+              />
+              <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                O mesmo número que foi cadastrado no WhatsApp Business da Meta para esta clínica. Usado para os botões de confirmar/cancelar consulta funcionarem automaticamente.
               </p>
             </div>
 
