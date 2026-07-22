@@ -15,7 +15,8 @@ import {
   Sparkles,
   CalendarCheck,
   UserCheck,
-  Trash2
+  Trash2,
+  Paperclip
 } from 'lucide-react';
 import { Conversation, Message, Doctor } from '../types';
 import { fbDeleteConversation } from '../firebase';
@@ -326,6 +327,80 @@ export default function ChatPanel({
     }
   };
 
+  // ── Anexar e enviar imagem ──────────────────────────────────────────────
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [sendingImage, setSendingImage] = useState(false);
+
+  const handleAttachImageClick = () => {
+    imageInputRef.current?.click();
+  };
+
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite selecionar o mesmo arquivo de novo depois
+    if (!file || !activeChat) return;
+
+    if (!file.type.startsWith('image/')) {
+      onAddSystemLog('warning', 'Só é possível anexar arquivos de imagem por enquanto.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      onAddSystemLog('warning', 'Imagem muito grande (máximo 5MB).');
+      return;
+    }
+
+    const phone = activeChat.patientPhone ||
+                  activeChat.id.replace(/_/g, '') + '@s.whatsapp.net';
+
+    // Converte pra base64 (usado tanto pra prévia local quanto pro envio)
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string; // ex: data:image/jpeg;base64,AAAA...
+      const base64 = dataUrl.split(',')[1];
+
+      const newMsg: Message = {
+        id: `msg-${Date.now()}`,
+        sender: 'human',
+        text: '',
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        type: 'image',
+        mediaUrl: dataUrl,
+      };
+
+      // Mostra a imagem na conversa imediatamente (otimista)
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeChat.id) {
+          return { ...c, lastMessage: '📷 Imagem', lastMessageTime: newMsg.timestamp, messages: [...c.messages, newMsg] };
+        }
+        return c;
+      }));
+
+      if (!clinicId) {
+        onAddSystemLog('warning', 'WhatsApp não conectado — imagem não enviada ao paciente.');
+        return;
+      }
+
+      setSendingImage(true);
+      const emailKey = clinicId.toLowerCase().replace(/[@.]/g, '_');
+      try {
+        const r = await fetch('https://whatsapp.botclinica.com.br/send-clinic-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clinicId: emailKey, to: phone, imageBase64: base64, mimeType: file.type }),
+        });
+        const d = await r.json();
+        if (!r.ok || d.error) {
+          onAddSystemLog('error', `Erro ao enviar imagem via WhatsApp: ${d.error || 'erro desconhecido'}`);
+        }
+      } catch (err) {
+        onAddSystemLog('error', 'Erro de conexão ao enviar imagem.');
+      } finally {
+        setSendingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Filter conversations
   const filteredConversations = conversations
     .filter(c => {
@@ -618,6 +693,22 @@ export default function ChatPanel({
           <div className="p-4 bg-white border-t border-slate-200">
             {activeChat.status === 'human_active' ? (
               <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelected}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={handleAttachImageClick}
+                  disabled={sendingImage}
+                  title="Anexar imagem"
+                  className="px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 border border-slate-300 rounded-lg flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
                 <input
                   id="chat-input-field"
                   type="text"
