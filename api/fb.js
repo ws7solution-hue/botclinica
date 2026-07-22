@@ -96,6 +96,7 @@ function toFsFields(obj) {
 function parseFirestoreValue(valObj) {
   if (!valObj) return null;
   if ("stringValue" in valObj)  return valObj.stringValue;
+  if ("timestampValue" in valObj) return valObj.timestampValue; // ISO string, ex: "2026-07-22T00:00:00Z"
   if ("booleanValue" in valObj) return valObj.booleanValue;
   if ("doubleValue" in valObj)  return Number(valObj.doubleValue);
   if ("integerValue" in valObj) return Number(valObj.integerValue);
@@ -563,12 +564,25 @@ module.exports = async (req, res) => {
       const d = await r.json();
       const apts = (d.documents || []).map(doc => {
         const f = doc.fields || {};
-        const g = k => f[k]?.stringValue || "";
+        // BUGFIX (22/07): antes só lia f[k]?.stringValue — quebrava silenciosamente
+        // quando um campo vinha salvo como timestampValue (ex: consultas criadas
+        // manualmente pelo app) ou integerValue (ex: telefone salvo como número
+        // em vez de texto). Isso fazia a "date" chegar vazia no frontend mesmo
+        // com a consulta existindo de verdade, e por isso não aparecia a bolinha
+        // verde no calendário. Agora usa o parser genérico + normaliza a data.
+        const g = k => {
+          const v = parseFirestoreValue(f[k]);
+          return v === null || v === undefined ? "" : String(v);
+        };
+        // Normaliza qualquer formato de data pra "AAAA-MM-DD" simples
+        let dateStr = g("date");
+        if (dateStr.includes("T")) dateStr = dateStr.split("T")[0];
+
         return {
           id: doc.name.split("/").pop(),
           patientName: g("patientName"), patientPhone: g("patientPhone"),
           doctorId: g("doctorId"), doctorName: g("doctorName"),
-          specialty: g("specialty"), date: g("date"), time: g("time"),
+          specialty: g("specialty"), date: dateStr, time: g("time"),
           status: g("status") || "pending",
           reminderSent: f.reminderSent?.booleanValue || false,
           reminderStatus: g("reminderStatus") || "none",
