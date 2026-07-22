@@ -167,26 +167,19 @@ export default function ChatPanel({
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
   const [replyText, setReplyText] = useState('');
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
-  const [downloadingImage, setDownloadingImage] = useState(false);
 
-  const handleDownloadImage = async (url: string) => {
-    setDownloadingImage(true);
-    try {
-      const resp = await fetch(url);
-      const blob = await resp.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `imagem-paciente-${Date.now()}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      onAddSystemLog('error', 'Não foi possível baixar a imagem.');
-    } finally {
-      setDownloadingImage(false);
-    }
+  const handleDownloadImage = (url: string) => {
+    // Passa pelo proxy do próprio site (mesma origem) em vez de baixar
+    // direto de whatsapp.botclinica.com.br — isso garante que o download
+    // funcione de verdade (evita CORS e a limitação do navegador de
+    // ignorar o atributo "download" em links de outro domínio).
+    const proxyUrl = `/api/download-image?url=${encodeURIComponent(url)}`;
+    const a = document.createElement('a');
+    a.href = proxyUrl;
+    a.download = `imagem-paciente-${Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -846,11 +839,10 @@ export default function ChatPanel({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleDownloadImage(viewingImageUrl); }}
-            disabled={downloadingImage}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-sm font-bold font-sans cursor-pointer transition-all disabled:opacity-50 shadow-lg"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-sm font-bold font-sans cursor-pointer transition-all shadow-lg"
           >
             <Download className="w-4 h-4" />
-            {downloadingImage ? 'Baixando...' : 'Baixar imagem'}
+            Baixar imagem
           </button>
         </div>
       )}
