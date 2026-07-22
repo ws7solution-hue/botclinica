@@ -202,6 +202,28 @@ export default function App() {
   const [firstAccessIdToken, setFirstAccessIdToken] = useState('');
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
+  // BUGFIX (22/07): o indicador "WhatsApp Online/Offline" era 100%
+  // decorativo — clicar nele só invertia uma variável local, sem checar
+  // nada de verdade. Agora ele consulta o status real do número da clínica
+  // direto na VPS (que por sua vez reflete o que está registrado na Meta).
+  const checkWhatsappStatus = React.useCallback(() => {
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+    const clinicId = email.replace(/[@.]/g, '_');
+
+    fetch(`https://whatsapp.botclinica.com.br/clinic-status?clinicId=${encodeURIComponent(clinicId)}`)
+      .then(r => r.json())
+      .then(d => setWhatsappConnected(Boolean(d.connected)))
+      .catch(() => setWhatsappConnected(false));
+  }, [userProfile.email]);
+
+  React.useEffect(() => {
+    checkWhatsappStatus();
+    const interval = setInterval(checkWhatsappStatus, 30000); // confere a cada 30s
+    return () => clearInterval(interval);
+  }, [isLoggedIn, checkWhatsappStatus]);
+
+
   const handleLoginSuccess = (profile: UserProfile) => {
     const email = (profile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
     localStorage.setItem('atendia_email', email);
@@ -725,15 +747,11 @@ export default function App() {
 
   // Helper: Toggle Whatsapp connection
   const handleToggleWhatsapp = () => {
-    setWhatsappConnected(prev => {
-      const next = !prev;
-      if (next) {
-        addSystemLog('success', 'Canal WhatsApp AtendIA reconectado com sucesso.');
-      } else {
-        addSystemLog('error', 'Conexão com WhatsApp encerrada. Robô pausado.');
-      }
-      return next;
-    });
+    // Antes, isso só invertia um booleano local e mostrava mensagens
+    // fixas de sucesso/erro, sem checar nada de verdade. Agora, o clique
+    // força uma nova checagem real do status na VPS.
+    addSystemLog('info', 'Verificando status real da conexão com o WhatsApp...');
+    checkWhatsappStatus();
   };
 
   // Helper: Trigger quick scheduler popup from anywhere
@@ -1025,6 +1043,7 @@ export default function App() {
             <ProntuarioPanel 
               clinicId={localStorage.getItem('atendia_email')?.toLowerCase().replace(/[@.]/g, '_') || ''}
               conversations={conversations}
+              appointments={appointments}
               doctors={doctors}
               currentPlan={currentPlan}
               onAddSystemLog={addSystemLog}

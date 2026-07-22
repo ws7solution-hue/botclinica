@@ -23,6 +23,7 @@ export interface Conversation {
   category: string; // e.g., 'Agendamento', 'Dúvida', 'Exames', 'Urgência'
   assignedDoctorId?: string;
   messages: Message[];
+  updatedAt?: string;
 }
 
 export interface Doctor {
