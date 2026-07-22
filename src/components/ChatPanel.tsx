@@ -327,10 +327,19 @@ export default function ChatPanel({
   };
 
   // Filter conversations
-  const filteredConversations = conversations.filter(c => {
-    if (filter === 'all') return true;
-    return c.status === filter;
-  });
+  const filteredConversations = conversations
+    .filter(c => {
+      if (filter === 'all') return true;
+      return c.status === filter;
+    })
+    // BUGFIX (22/07): faltava ordenar por atividade recente — sem isso, a
+    // lista aparecia na ordem "crua" do Firestore, e uma conversa antiga
+    // podia ficar presa no topo mesmo com conversas novas chegando depois.
+    .sort((a, b) => {
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return timeB - timeA; // mais recente primeiro
+    });
 
   return (
     <div id="chat-panel" className="flex h-[calc(100vh-70px)] bg-slate-100 overflow-hidden">
