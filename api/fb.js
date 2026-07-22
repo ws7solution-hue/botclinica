@@ -770,6 +770,11 @@ module.exports = async (req, res) => {
           patientName: g("patientName"), patientPhone: g("patientPhone"),
           status: g("status") || "bot",
           lastMessage: g("lastMessage"), lastMessageTime: g("lastMessageTime"),
+          // BUGFIX (22/07): faltava ler o updatedAt de volta — sem ele, o
+          // frontend não tinha como saber qual conversa teve atividade mais
+          // recente, e a lista aparecia na ordem "crua" do Firestore em vez
+          // de mais recente primeiro.
+          updatedAt: parseFirestoreValue(f.updatedAt) || "",
           unreadCount: parseInt(f.unreadCount?.integerValue || f.unreadCount?.doubleValue || "0"),
           avatarColor: g("avatarColor") || "bg-slate-500",
           category: g("category") || "WhatsApp",
