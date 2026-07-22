@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, ChevronDown, Plus } from 'lucide-react';
+import { MessageCircle, X, Send, ChevronDown, Plus, Paperclip } from 'lucide-react';
 import { AtendiaPlan } from '../types';
 
 interface SupportChatProps {
@@ -12,6 +12,8 @@ interface Message {
   role: 'client' | 'agent';
   text: string;
   at: string;
+  type?: 'text' | 'image';
+  mediaUrl?: string; // base64 data URI — sem WhatsApp/Meta envolvido aqui, guardamos direto
 }
 
 interface Ticket {
@@ -123,6 +125,37 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     setActiveTicket(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev);
     await callApi('addSupportMessage', { ticketId: activeTicket.id, message: msg });
     await loadTickets();
+  }
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [sendingImage, setSendingImage] = useState(false);
+
+  async function handleAttachImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !activeTicket) return;
+
+    if (!file.type.startsWith('image/')) return;
+    // Limite conservador: tickets guardam TODAS as mensagens num único campo
+    // de texto no Firestore (limite de 1MB por documento) — por isso o
+    // limite aqui é bem menor que o do WhatsApp (que usa mídia separada).
+    if (file.size > 700 * 1024) {
+      alert('Imagem muito grande. Envie uma imagem de até 700KB.');
+      return;
+    }
+
+    setSendingImage(true);
+    resetInactivityTimer();
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const msg: Message = { role: 'client', text: '', at: new Date().toISOString(), type: 'image', mediaUrl: dataUrl };
+      setActiveTicket(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev);
+      await callApi('addSupportMessage', { ticketId: activeTicket.id, message: msg });
+      await loadTickets();
+      setSendingImage(false);
+    };
+    reader.readAsDataURL(file);
   }
 
   function fmtTime(s: string) {
@@ -284,7 +317,16 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
                         ? 'bg-slate-100 text-slate-800 rounded-tl-none'
                         : 'bg-[#1A6FA8] text-white rounded-tr-none'
                     }`}>
-                      {m.text}
+                      {m.type === 'image' && m.mediaUrl ? (
+                        <img
+                          src={m.mediaUrl}
+                          alt="Imagem anexada"
+                          className="max-w-full max-h-[200px] rounded-lg object-cover cursor-pointer"
+                          onClick={() => window.open(m.mediaUrl, '_blank')}
+                        />
+                      ) : (
+                        m.text
+                      )}
                     </div>
                     <p className="text-[10px] text-slate-400 font-sans mt-0.5 px-1">
                       {m.role === 'agent' ? '🤖 Suporte' : 'Você'} · {fmtTime(m.at)}
@@ -298,6 +340,22 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
               </div>
               {activeTicket.status !== 'resolvido' && (
                 <div className="p-3 border-t border-slate-100 flex gap-2">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAttachImage}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={sendingImage}
+                    title="Anexar imagem (até 700KB)"
+                    className="w-8 h-8 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-lg flex items-center justify-center disabled:opacity-50"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
                   <input
                     type="text"
                     value={newMessage}
