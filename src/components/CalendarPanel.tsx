@@ -58,30 +58,39 @@ export default function CalendarPanel({
 
   const clinicId = localStorage.getItem('atendia_email')?.toLowerCase().replace(/[@.]/g, '_') || '';
 
-  // Toggle Reminder Status to simulate resending
-  const handleTriggerReminder = async (apptId: string) => {
-    setUpdatingApptId(apptId);
+  const CLOUDAPI_BASE = 'https://whatsapp.botclinica.com.br';
+
+  // ── Pop-up de confirmação de consulta (botão Send) ─────────────────────────
+  const [reminderModalAppt, setReminderModalAppt] = useState<Appointment | null>(null);
+  const [reminderMessage, setReminderMessage] = useState('');
+
+  const openReminderModal = (appt: Appointment) => {
+    const dataFormatada = new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR');
+    setReminderMessage(
+      `Olá, ${appt.patientName}! 👋 Lembramos que você tem uma consulta com ${appt.doctorName} no dia ${dataFormatada}, às ${appt.time}.\n\nConfirme sua presença respondendo *Confirmo* ou cancele com *Cancelar*.\n\nAguardamos você! 🏥`
+    );
+    setReminderModalAppt(appt);
+  };
+
+  const handleConfirmSendReminder = async () => {
+    if (!reminderModalAppt) return;
+    const appt = reminderModalAppt;
+    setUpdatingApptId(appt.id);
     try {
-      const appt = appointments.find(a => a.id === apptId);
-      if (!appt) return;
+      const resp = await fetch(`${CLOUDAPI_BASE}/send-clinic-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId, to: appt.patientPhone, text: reminderMessage }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Falha ao enviar mensagem');
 
-      // Envia via Baileys real
-      const email = localStorage.getItem('atendia_email') || '';
-      const msg = `Olá, ${appt.patientName}! 👋 Lembramos que você tem uma consulta com ${appt.doctorName} no dia ${new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR')}, às ${appt.time}.\n\nConfirme sua presença respondendo *Confirmo* ou cancele com *Cancelar*.\n\nAguardamos você! 🏥`;
-
-      if (email) {
-        await fetch(`https://api.botclinica.com.br/wa/send/${encodeURIComponent(email)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: appt.patientPhone, text: msg }),
-        });
-      }
-
-      await fbMarkReminderSent(apptId, clinicId);
-      setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, reminderSent: true, reminderStatus: 'sent' } : a));
-      onAddSystemLog('success', `Lembrete enviado via WhatsApp para ${appt.patientName}.`);
+      await fbMarkReminderSent(appt.id, clinicId);
+      setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, reminderSent: true, reminderStatus: 'sent' } : a));
+      onAddSystemLog('success', `Mensagem de confirmação enviada via WhatsApp para ${appt.patientName}.`);
+      setReminderModalAppt(null);
     } catch (err: any) {
-      onAddSystemLog('error', `Falha ao enviar lembrete: ${err.message}`);
+      onAddSystemLog('error', `Falha ao enviar mensagem: ${err.message}`);
     } finally {
       setUpdatingApptId(null);
     }
@@ -98,30 +107,49 @@ export default function CalendarPanel({
     }
   };
 
-  // Toggle booking status
-  const handleCancelAppointment = async (apptId: string) => {
-    setUpdatingApptId(apptId);
-    try {
-      // 1. Update in backend
-      await fbCancelAppointment(apptId, clinicId);
+  // ── Pop-up de cancelamento de consulta (botão X) ───────────────────────────
+  const [cancelModalAppt, setCancelModalAppt] = useState<Appointment | null>(null);
+  const [cancelMessage, setCancelMessage] = useState('');
 
-      // 2. Update local state
+  const openCancelModal = (appt: Appointment) => {
+    const dataFormatada = new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR');
+    setCancelMessage(
+      `Olá, ${appt.patientName}. Informamos que sua consulta com ${appt.doctorName}, marcada para o dia ${dataFormatada} às ${appt.time}, foi cancelada.\n\nSe quiser remarcar, é só responder por aqui que agendamos um novo horário. 🏥`
+    );
+    setCancelModalAppt(appt);
+  };
+
+  const handleConfirmCancelAppointment = async () => {
+    if (!cancelModalAppt) return;
+    const appt = cancelModalAppt;
+    setUpdatingApptId(appt.id);
+    try {
+      // 1. Atualiza no backend (libera a vaga)
+      await fbCancelAppointment(appt.id, clinicId);
+
+      // 2. Envia a mensagem de verdade pro paciente via WhatsApp
+      const resp = await fetch(`${CLOUDAPI_BASE}/send-clinic-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId, to: appt.patientPhone, text: cancelMessage }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        // A consulta já foi cancelada no sistema; avisamos que só a mensagem falhou.
+        onAddSystemLog('error', `Consulta cancelada, mas a mensagem ao paciente falhou: ${data.error || 'erro desconhecido'}`);
+      } else {
+        onAddSystemLog('warning', `Consulta de ${appt.patientName} cancelada, vaga liberada e paciente avisado via WhatsApp.`);
+      }
+
+      // 3. Atualiza estado local
       setAppointments(prev => prev.map(a => {
-        if (a.id === apptId) {
-          return {
-            ...a,
-            status: 'canceled',
-            reminderStatus: 'canceled_by_patient'
-          };
+        if (a.id === appt.id) {
+          return { ...a, status: 'canceled', reminderStatus: 'canceled_by_patient' };
         }
         return a;
       }));
-      
-      const appt = appointments.find(a => a.id === apptId);
-      if (appt) {
-        onAddSystemLog('warning', `Consulta de ${appt.patientName} cancelada e vaga liberada.`);
-        // TODO: notificar paciente via WhatsApp sobre cancelamento
-      }
+
+      setCancelModalAppt(null);
     } catch (err: any) {
       console.error(err);
       onAddSystemLog('error', `Falha ao cancelar consulta: ${err.message}`);
@@ -375,11 +403,11 @@ export default function CalendarPanel({
                         <>
                           <button
                             disabled={updatingApptId !== null}
-                            onClick={() => handleTriggerReminder(appt.id)}
+                            onClick={() => openReminderModal(appt)}
                             className={`p-1.5 hover:bg-blue-50 text-[#1A6FA8] hover:text-[#135480] rounded-lg border border-slate-200 hover:border-blue-200 transition-all cursor-pointer flex items-center justify-center ${
                               updatingApptId !== null ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
-                            title="Disparar lembrete via WhatsApp"
+                            title="Enviar mensagem de confirmação via WhatsApp"
                           >
                             {updatingApptId === appt.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1A6FA8]" />
@@ -389,7 +417,7 @@ export default function CalendarPanel({
                           </button>
                           <button
                             disabled={updatingApptId !== null}
-                            onClick={() => handleCancelAppointment(appt.id)}
+                            onClick={() => openCancelModal(appt)}
                             className={`p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all cursor-pointer flex items-center justify-center ${
                               updatingApptId !== null ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
@@ -505,6 +533,98 @@ export default function CalendarPanel({
         </div>
 
       </div>
+
+      {/* Pop-up: Enviar mensagem de confirmação de consulta */}
+      {reminderModalAppt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200/80 w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-[#1A6FA8]" />
+              <h3 className="text-sm font-bold text-slate-900 font-sans">
+                Enviar confirmação via WhatsApp
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 font-sans">
+              Mensagem que será enviada para <strong>{reminderModalAppt.patientName}</strong> ({reminderModalAppt.patientPhone}):
+            </p>
+            <textarea
+              value={reminderMessage}
+              onChange={(e) => setReminderMessage(e.target.value)}
+              rows={6}
+              className="w-full text-xs font-sans border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#1A6FA8]/30 resize-none"
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setReminderModalAppt(null)}
+                disabled={updatingApptId !== null}
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSendReminder}
+                disabled={updatingApptId !== null || !reminderMessage.trim()}
+                className="px-4 py-2 bg-[#1A6FA8] hover:bg-[#135480] text-white rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {updatingApptId === reminderModalAppt.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
+                Enviar mensagem
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up: Cancelar consulta e avisar o paciente via WhatsApp */}
+      {cancelModalAppt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200/80 w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-red-600" />
+              <h3 className="text-sm font-bold text-slate-900 font-sans">
+                Cancelar consulta e avisar o paciente
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 font-sans">
+              A consulta será cancelada e esta mensagem será enviada para <strong>{cancelModalAppt.patientName}</strong> ({cancelModalAppt.patientPhone}):
+            </p>
+            <textarea
+              value={cancelMessage}
+              onChange={(e) => setCancelMessage(e.target.value)}
+              rows={6}
+              className="w-full text-xs font-sans border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-300/50 resize-none"
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setCancelModalAppt(null)}
+                disabled={updatingApptId !== null}
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancelAppointment}
+                disabled={updatingApptId !== null || !cancelMessage.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold font-sans cursor-pointer transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {updatingApptId === cancelModalAppt.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5" />
+                )}
+                Cancelar consulta e enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
