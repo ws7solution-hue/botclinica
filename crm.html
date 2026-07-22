@@ -766,21 +766,26 @@ function renderTicketChat(ticket){
       </div>
     </div>
     <div class="support-messages" id="chat-msgs">
-      ${msgs.map(m=>`
+      ${msgs.map(m=>{
+        const bubbleStyle = m.role==='agent'
+          ? 'background:var(--accent);color:#fff;border-bottom-right-radius:3px;'
+          : 'background:var(--card2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px;';
+        const content = (m.type==='image' && m.mediaUrl)
+          ? `<img src="${m.mediaUrl}" alt="Imagem anexada" onclick="window.open('${m.mediaUrl}','_blank')" style="max-width:220px;max-height:220px;border-radius:10px;cursor:pointer;display:block;"/>`
+          : m.text;
+        return `
         <div style="display:flex;flex-direction:column;align-items:${m.role==='agent'?'flex-end':'flex-start'}">
-          <div style="
-            max-width:70%;padding:10px 14px;font-size:13px;line-height:1.5;border-radius:14px;
-            ${m.role==='agent'
-              ? 'background:var(--accent);color:#fff;border-bottom-right-radius:3px;'
-              : 'background:var(--card2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px;'}
-          ">${m.text}</div>
+          <div style="max-width:70%;padding:10px 14px;font-size:13px;line-height:1.5;border-radius:14px;${bubbleStyle}">${content}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:3px;padding:0 2px">
             ${m.role==='agent'?'Você (Suporte)':'👤 '+(ticket.clinicName||ticket.email)} · ${fmtDateTime(m.at)}
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
       ${msgs.length===0?'<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">Aguardando mensagem do cliente...</div>':''}
     </div>
     <div class="support-input">
+      <input type="file" id="ticket-image-input" accept="image/*" style="display:none" onchange="sendAgentImage('${ticket.id}', this)"/>
+      <button class="btn btn-outline btn-sm" title="Anexar imagem (até 700KB)" onclick="document.getElementById('ticket-image-input').click()">📎</button>
       <input type="text" id="agent-msg" placeholder="Digite sua resposta..." onkeydown="if(event.key==='Enter')sendAgentMsg('${ticket.id}')"/>
       <button class="btn btn-primary" onclick="sendAgentMsg('${ticket.id}')">Enviar →</button>
     </div>`;
@@ -807,6 +812,24 @@ async function sendAgentMsg(ticketId){
   // Atualiza local
   const ticket = tickets.find(t=>t.id===ticketId);
   if(ticket){ ticket.messages = [...(ticket.messages||[]), msg]; ticket.updatedAt=msg.at; renderTicketChat(ticket); }
+}
+
+async function sendAgentImage(ticketId, inputEl){
+  const file = inputEl.files?.[0];
+  inputEl.value = '';
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('⚠️ Só é possível anexar imagens.'); return; }
+  if(file.size > 700*1024){ toast('⚠️ Imagem muito grande (máximo 700KB — tickets guardam tudo num único documento).'); return; }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    const msg = { role:'agent', text:'', at: new Date().toISOString(), type:'image', mediaUrl: dataUrl };
+    await api('addSupportMessage',{ticketId, message: msg});
+    const ticket = tickets.find(t=>t.id===ticketId);
+    if(ticket){ ticket.messages = [...(ticket.messages||[]), msg]; ticket.updatedAt=msg.at; renderTicketChat(ticket); }
+  };
+  reader.readAsDataURL(file);
 }
 
 async function resolveTicket(ticketId){
@@ -902,15 +925,24 @@ function renderWaSuporteChat(conversa){
       ${msgs.map(m=>{
         const isMine = m.sender==='human';
         const label = m.sender==='patient' ? '👤 '+(conversa.patientName||conversa.phone) : (m.sender==='human' ? 'Você' : '🤖 Clara (IA)');
+        const bubbleStyle = isMine ? 'background:var(--accent);color:#fff;border-bottom-right-radius:3px;' : 'background:var(--card2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px;';
+        const isImage = m.type === 'image' && m.mediaUrl;
+        const content = isImage
+          ? `<img src="${m.mediaUrl}" alt="Imagem" onclick="openWaImageViewer('${m.mediaUrl}')"
+               style="max-width:220px;max-height:220px;border-radius:10px;cursor:pointer;display:block;${m.text?'margin-bottom:6px;':''}"
+               onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=200&auto=format&fit=crop'"/>
+             ${m.text ? `<div>${m.text}</div>` : ''}`
+          : (m.text || '');
         return `<div style="display:flex;flex-direction:column;align-items:${isMine?'flex-end':'flex-start'}">
-          <div style="max-width:70%;padding:10px 14px;font-size:13px;line-height:1.5;border-radius:14px;
-            ${isMine ? 'background:var(--accent);color:#fff;border-bottom-right-radius:3px;' : 'background:var(--card2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px;'}">${m.text}</div>
+          <div style="max-width:70%;padding:10px 14px;font-size:13px;line-height:1.5;border-radius:14px;${bubbleStyle}">${content}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:3px;padding:0 2px">${label} · ${m.timestamp||''}</div>
         </div>`;
       }).join('')}
       ${msgs.length===0?'<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">Sem mensagens ainda...</div>':''}
     </div>
     <div class="support-input">
+      <input type="file" id="wa-image-input" accept="image/*" style="display:none" onchange="sendWaSuporteImage('${conversa.id}', this)"/>
+      <button class="btn btn-outline btn-sm" title="Anexar imagem" onclick="document.getElementById('wa-image-input').click()">📎</button>
       <input type="text" id="wa-agent-msg" placeholder="Digite pra assumir a conversa..." onkeydown="if(event.key==='Enter')sendWaSuporteMsg('${conversa.id}')"/>
       <button class="btn btn-primary" onclick="sendWaSuporteMsg('${conversa.id}')">Enviar →</button>
     </div>`;
@@ -935,6 +967,60 @@ async function sendWaSuporteMsg(to){
   const c = waSuporteConversas.find(x=>x.id===to);
   if(c) renderWaSuporteChat(c);
   refreshWaSuporteList();
+}
+
+async function sendWaSuporteImage(to, inputEl){
+  const file = inputEl.files?.[0];
+  inputEl.value = '';
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('⚠️ Só é possível anexar imagens.'); return; }
+  if(file.size > 5*1024*1024){ toast('⚠️ Imagem muito grande (máximo 5MB).'); return; }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+    try{
+      await fetch(CLOUDAPI_BASE + '/send-support-image', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ to, imageBase64: base64, mimeType: file.type })
+      });
+    }catch(e){ toast('❌ Erro ao enviar imagem.'); return; }
+    await loadWaSuporteConversas();
+    const c = waSuporteConversas.find(x=>x.id===to);
+    if(c) renderWaSuporteChat(c);
+    refreshWaSuporteList();
+  };
+  reader.readAsDataURL(file);
+}
+
+function openWaImageViewer(url){
+  let overlay = document.getElementById('wa-image-viewer');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'wa-image-viewer';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    overlay.onclick = () => overlay.style.display = 'none';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `
+    <img src="${url}" style="max-width:90%;max-height:80vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.5);" onclick="event.stopPropagation()"/>
+    <button onclick="event.stopPropagation();downloadWaImage('${url}')"
+      style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;background:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">
+      ⬇ Baixar imagem
+    </button>
+    <button onclick="document.getElementById('wa-image-viewer').style.display='none'"
+      style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;">✕</button>
+  `;
+  overlay.style.display = 'flex';
+}
+
+function downloadWaImage(url){
+  const a = document.createElement('a');
+  a.href = '/api/download-image?url=' + encodeURIComponent(url);
+  a.download = 'imagem-paciente-' + Date.now() + '.jpg';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 async function reactivateWaSuporteBot(to){
