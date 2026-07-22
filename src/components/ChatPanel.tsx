@@ -16,7 +16,9 @@ import {
   CalendarCheck,
   UserCheck,
   Trash2,
-  Paperclip
+  Paperclip,
+  X,
+  Download
 } from 'lucide-react';
 import { Conversation, Message, Doctor } from '../types';
 import { fbDeleteConversation } from '../firebase';
@@ -55,7 +57,7 @@ class ErrorBoundary extends React.Component<
 }
 
 // Helper to render message content based on type (text, image, audio, document)
-const renderMessageContent = (msg: Message) => {
+const renderMessageContent = (msg: Message, onImageClick?: (url: string) => void) => {
   const msgType = msg.type || 'text';
   
   // Guard: Ensure text is safely stringified or set to empty if it's an object or null/undefined
@@ -79,7 +81,8 @@ const renderMessageContent = (msg: Message) => {
               src={msg.mediaUrl} 
               alt={displayText || "Imagem recebida"} 
               referrerPolicy="no-referrer"
-              className="max-w-full max-h-[220px] rounded-lg object-cover border border-slate-200/60 shadow-xs"
+              onClick={() => onImageClick?.(msg.mediaUrl!)}
+              className="max-w-full max-h-[220px] rounded-lg object-cover border border-slate-200/60 shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
               onError={(e) => {
                 // Fallback image URL
                 (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=200&auto=format&fit=crop';
@@ -163,6 +166,28 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
   const [replyText, setReplyText] = useState('');
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [downloadingImage, setDownloadingImage] = useState(false);
+
+  const handleDownloadImage = async (url: string) => {
+    setDownloadingImage(true);
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `imagem-paciente-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      onAddSystemLog('error', 'Não foi possível baixar a imagem.');
+    } finally {
+      setDownloadingImage(false);
+    }
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Automatically select first conversation if none is selected
@@ -675,7 +700,7 @@ export default function ChatPanel({
                       : 'bg-emerald-600 text-white rounded-tr-none'
                   }`}>
                     <ErrorBoundary>
-                      {renderMessageContent(msg)}
+                      {renderMessageContent(msg, setViewingImageUrl)}
                     </ErrorBoundary>
                   </div>
 
@@ -794,6 +819,39 @@ export default function ChatPanel({
               <Bookmark className="w-3.5 h-3.5" />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Visualizador de imagem em tela cheia (clique + botão de baixar) */}
+      {viewingImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4"
+          onClick={() => setViewingImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setViewingImageUrl(null)}
+            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2 cursor-pointer transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <img
+            src={viewingImageUrl}
+            alt="Imagem em tela cheia"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[80vh] rounded-lg object-contain shadow-2xl"
+          />
+
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleDownloadImage(viewingImageUrl); }}
+            disabled={downloadingImage}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-sm font-bold font-sans cursor-pointer transition-all disabled:opacity-50 shadow-lg"
+          >
+            <Download className="w-4 h-4" />
+            {downloadingImage ? 'Baixando...' : 'Baixar imagem'}
+          </button>
         </div>
       )}
 
