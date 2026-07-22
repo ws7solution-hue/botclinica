@@ -48,7 +48,11 @@ export default function ProntuarioPanel({
   // Extract unique patients from conversations
   const patientsList = conversations.map(c => ({
     name: c.patientName,
-    phone: c.patientPhone,
+    // BUGFIX (22/07): algumas conversas chegam com patientPhone vazio (bug
+    // no N8N que ainda não preenche esse campo em certos casos). Usamos o
+    // "id" da conversa como alternativa, já que ele é o telefone de verdade
+    // (é o mesmo valor usado como ID do documento no Firestore).
+    phone: c.patientPhone || c.id,
     avatarColor: c.avatarColor || 'bg-slate-500'
   }));
 
