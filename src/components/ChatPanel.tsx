@@ -305,17 +305,18 @@ export default function ChatPanel({
 
     setReplyText('');
 
-    // Envia via Baileys se clinicId disponível
+    // Envia via API oficial do WhatsApp (Cloud API), não mais Baileys
     if (clinicId) {
+      const emailKey = clinicId.toLowerCase().replace(/[@.]/g, '_');
       try {
-        const r = await fetch(`https://api.botclinica.com.br/wa/send/${encodeURIComponent(clinicId)}`, {
+        const r = await fetch('https://whatsapp.botclinica.com.br/send-clinic-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: phone, text }),
+          body: JSON.stringify({ clinicId: emailKey, to: phone, text }),
         });
         const d = await r.json();
-        if (!d.ok) {
-          onAddSystemLog('error', 'Erro ao enviar mensagem via WhatsApp.');
+        if (!r.ok || d.error) {
+          onAddSystemLog('error', `Erro ao enviar mensagem via WhatsApp: ${d.error || 'erro desconhecido'}`);
         }
       } catch (e) {
         onAddSystemLog('error', 'Erro de conexão ao enviar mensagem.');
