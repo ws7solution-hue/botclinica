@@ -905,7 +905,7 @@ function refreshWaSuporteList(){
 function renderWaSuporteList(list){
   if(!list.length) return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma conversa ainda</div>`;
   return [...list].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0)).map(c=>{
-    const statusLbl = {human_needed:'Aguardando você',human_active:'Você está no controle',bot:'IA respondendo'}[c.status]||'IA respondendo';
+    const statusLbl = {human_needed:'Aguardando você',human_active:'Você está no controle',bot:'IA respondendo',resolved:'Resolvido'}[c.status]||'IA respondendo';
     const statusColor = {human_needed:'priority-aberto',human_active:'priority-andamento',bot:'priority-resolvido'}[c.status]||'priority-resolvido';
     return `<div class="support-item${activeWaSuporteConversa===c.id?' active':''}" onclick="openWaSuporteConversa('${c.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -934,6 +934,7 @@ function renderWaSuporteChat(conversa){
   const hadFocus = !!prevInput && document.activeElement === prevInput;
   const msgs = conversa.messages||[];
   const isHumanActive = conversa.status === 'human_active';
+  const isResolved = conversa.status === 'resolved';
   chatArea.innerHTML=`
     <div class="support-chat-header">
       <div>
@@ -942,8 +943,13 @@ function renderWaSuporteChat(conversa){
       </div>
       <div style="display:flex;gap:8px">
         ${isHumanActive
-          ? `<button class="btn btn-outline btn-sm" onclick="reactivateWaSuporteBot('${conversa.id}')">🤖 Devolver pra IA</button>`
-          : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>`}
+          ? `<button class="btn btn-outline btn-sm" onclick="reactivateWaSuporteBot('${conversa.id}')">🤖 Devolver pra IA</button>
+             <button class="btn btn-primary btn-sm" onclick="resolveWaSuporteConversa('${conversa.id}')">✅ Marcar Resolvido</button>`
+          : isResolved
+            ? `<span style="font-size:12px;color:var(--muted);align-self:center">✅ Resolvido</span>
+               <button class="btn btn-outline btn-sm" onclick="assumeWaSuporteConversa('${conversa.id}')">Reabrir e assumir</button>`
+            : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>
+               <button class="btn btn-outline btn-sm" onclick="assumeWaSuporteConversa('${conversa.id}')">🙋 Assumir Conversa</button>`}
       </div>
     </div>
     <div class="support-messages" id="wa-chat-msgs">
@@ -1048,6 +1054,34 @@ function downloadWaImage(url){
   a.remove();
 }
 
+async function assumeWaSuporteConversa(to){
+  try{
+    await fetch(CLOUDAPI_BASE + '/assume-support', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to })
+    });
+    toast('🙋 Você assumiu a conversa.');
+  }catch(e){ toast('❌ Erro ao assumir a conversa.'); return; }
+  await loadWaSuporteConversas();
+  const c = waSuporteConversas.find(x=>x.id===to);
+  if(c) renderWaSuporteChat(c);
+  refreshWaSuporteList();
+}
+
+async function resolveWaSuporteConversa(to){
+  try{
+    await fetch(CLOUDAPI_BASE + '/resolve-support', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to })
+    });
+    toast('✅ Conversa marcada como resolvida.');
+  }catch(e){ toast('❌ Erro ao marcar como resolvida.'); return; }
+  await loadWaSuporteConversas();
+  const c = waSuporteConversas.find(x=>x.id===to);
+  if(c) renderWaSuporteChat(c);
+  refreshWaSuporteList();
+}
+
 async function reactivateWaSuporteBot(to){
   try{
     await fetch(CLOUDAPI_BASE + '/reactivate-support-bot', {
@@ -1095,7 +1129,7 @@ function refreshWaVendasList(){
 function renderWaVendasList(list){
   if(!list.length) return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma conversa ainda</div>`;
   return [...list].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0)).map(c=>{
-    const statusLbl = {human_needed:'Aguardando você',human_active:'Você está no controle',bot:'IA respondendo'}[c.status]||'IA respondendo';
+    const statusLbl = {human_needed:'Aguardando você',human_active:'Você está no controle',bot:'IA respondendo',resolved:'Resolvido'}[c.status]||'IA respondendo';
     const statusColor = {human_needed:'priority-aberto',human_active:'priority-andamento',bot:'priority-resolvido'}[c.status]||'priority-resolvido';
     return `<div class="support-item${activeWaVendasConversa===c.id?' active':''}" onclick="openWaVendasConversa('${c.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -1124,6 +1158,7 @@ function renderWaVendasChat(conversa){
   const hadFocus = !!prevInput && document.activeElement === prevInput;
   const msgs = conversa.messages||[];
   const isHumanActive = conversa.status === 'human_active';
+  const isResolved = conversa.status === 'resolved';
   chatArea.innerHTML=`
     <div class="support-chat-header">
       <div>
@@ -1132,8 +1167,13 @@ function renderWaVendasChat(conversa){
       </div>
       <div style="display:flex;gap:8px">
         ${isHumanActive
-          ? `<button class="btn btn-outline btn-sm" onclick="reactivateWaVendasBot('${conversa.id}')">🤖 Devolver pra IA</button>`
-          : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>`}
+          ? `<button class="btn btn-outline btn-sm" onclick="reactivateWaVendasBot('${conversa.id}')">🤖 Devolver pra IA</button>
+             <button class="btn btn-primary btn-sm" onclick="resolveWaVendasConversa('${conversa.id}')">✅ Marcar Resolvido</button>`
+          : isResolved
+            ? `<span style="font-size:12px;color:var(--muted);align-self:center">✅ Resolvido</span>
+               <button class="btn btn-outline btn-sm" onclick="assumeWaVendasConversa('${conversa.id}')">Reabrir e assumir</button>`
+            : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>
+               <button class="btn btn-outline btn-sm" onclick="assumeWaVendasConversa('${conversa.id}')">🙋 Assumir Conversa</button>`}
       </div>
     </div>
     <div class="support-messages" id="wa-vendas-chat-msgs">
@@ -1206,6 +1246,34 @@ async function sendWaVendasImage(to, inputEl){
     refreshWaVendasList();
   };
   reader.readAsDataURL(file);
+}
+
+async function assumeWaVendasConversa(to){
+  try{
+    await fetch(CLOUDAPI_BASE + '/assume-luna', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to })
+    });
+    toast('🙋 Você assumiu a conversa.');
+  }catch(e){ toast('❌ Erro ao assumir a conversa.'); return; }
+  await loadWaVendasConversas();
+  const c = waVendasConversas.find(x=>x.id===to);
+  if(c) renderWaVendasChat(c);
+  refreshWaVendasList();
+}
+
+async function resolveWaVendasConversa(to){
+  try{
+    await fetch(CLOUDAPI_BASE + '/resolve-luna', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to })
+    });
+    toast('✅ Conversa marcada como resolvida.');
+  }catch(e){ toast('❌ Erro ao marcar como resolvida.'); return; }
+  await loadWaVendasConversas();
+  const c = waVendasConversas.find(x=>x.id===to);
+  if(c) renderWaVendasChat(c);
+  refreshWaVendasList();
 }
 
 async function reactivateWaVendasBot(to){
