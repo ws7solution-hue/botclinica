@@ -77,13 +77,24 @@ export default function CalendarPanel({
     const appt = reminderModalAppt;
     setUpdatingApptId(appt.id);
     try {
+      const dataFormatada = new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR');
       const resp = await fetch(`${CLOUDAPI_BASE}/send-clinic-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinicId, to: appt.patientPhone, text: reminderMessage }),
+        body: JSON.stringify({
+          clinicId, to: appt.patientPhone, text: reminderMessage,
+          // Prontos pra quando o template de confirmação for aprovado —
+          // usados automaticamente se o paciente estiver fora da janela de 24h.
+          templateParams: [appt.patientName, appt.doctorName, dataFormatada, appt.time],
+        }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Falha ao enviar mensagem');
+      if (!resp.ok) {
+        if (data.reason === 'outside_24h_window_no_template') {
+          throw new Error('Esse paciente nunca conversou com a clínica (ou já passou de 24h) e ainda não existe um template aprovado pra esses casos. Peça pra ele mandar uma mensagem primeiro, ou crie um template no WhatsApp Manager.');
+        }
+        throw new Error(data.error || 'Falha ao enviar mensagem');
+      }
 
       await fbMarkReminderSent(appt.id, clinicId);
       setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, reminderSent: true, reminderStatus: 'sent' } : a));
@@ -128,15 +139,22 @@ export default function CalendarPanel({
       await fbCancelAppointment(appt.id, clinicId);
 
       // 2. Envia a mensagem de verdade pro paciente via WhatsApp
+      const dataFormatada = new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR');
       const resp = await fetch(`${CLOUDAPI_BASE}/send-clinic-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinicId, to: appt.patientPhone, text: cancelMessage }),
+        body: JSON.stringify({
+          clinicId, to: appt.patientPhone, text: cancelMessage,
+          templateParams: [appt.patientName, appt.doctorName, dataFormatada, appt.time],
+        }),
       });
       const data = await resp.json();
       if (!resp.ok) {
+        const msg = data.reason === 'outside_24h_window_no_template'
+          ? 'esse paciente nunca conversou com a clínica (ou já passou de 24h) e ainda não existe um template aprovado pra esses casos.'
+          : (data.error || 'erro desconhecido');
         // A consulta já foi cancelada no sistema; avisamos que só a mensagem falhou.
-        onAddSystemLog('error', `Consulta cancelada, mas a mensagem ao paciente falhou: ${data.error || 'erro desconhecido'}`);
+        onAddSystemLog('error', `Consulta cancelada, mas a mensagem ao paciente falhou: ${msg}`);
       } else {
         onAddSystemLog('warning', `Consulta de ${appt.patientName} cancelada, vaga liberada e paciente avisado via WhatsApp.`);
       }
