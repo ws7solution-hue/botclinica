@@ -1246,6 +1246,17 @@ module.exports = async (req, res) => {
       return res.status(200).json(list);
     }
 
+    if (action === "listWaVendasConversations") {
+      const r = await fsReq("conversations_luna");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const list = (d.documents || []).map(doc => {
+        const parsed = parseFirestoreValue({ mapValue: { fields: doc.fields || {} } });
+        return { ...parsed, id: doc.name.split("/").pop() };
+      });
+      return res.status(200).json(list);
+    }
+
     if (action === "listScheduleBlocks") {
       const { clinicId } = payload;
       const col = `schedule_blocks_${emailToKey(clinicId || "")}`;
