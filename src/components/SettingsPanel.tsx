@@ -35,6 +35,7 @@ interface SettingsProps {
     allowDirectDoctorScheduling: boolean;
     enableAutoReminders: boolean;
     daysBeforeAppointmentForReminder: number;
+    informarValorConsulta: boolean;
     aiTone: string;
     rulesList: Rule[];
   };
@@ -68,6 +69,7 @@ export default function SettingsPanel({
   const [welcomeMessage, setWelcomeMessage] = useState(botSettings.welcomeMessage);
   const [aiTone, setAiTone] = useState(botSettings.aiTone);
   const [allowDirectDoctorScheduling, setAllowDirectDoctorScheduling] = useState(botSettings.allowDirectDoctorScheduling);
+  const [informarValorConsulta, setInformarValorConsulta] = useState(botSettings.informarValorConsulta ?? true);
   const [enableAutoReminders, setEnableAutoReminders] = useState(botSettings.enableAutoReminders);
   const [daysBeforeAppointmentForReminder, setDaysBeforeAppointmentForReminder] = useState(botSettings.daysBeforeAppointmentForReminder);
   
@@ -92,6 +94,7 @@ export default function SettingsPanel({
     setWelcomeMessage(botSettings.welcomeMessage);
     setAiTone(botSettings.aiTone);
     setAllowDirectDoctorScheduling(botSettings.allowDirectDoctorScheduling);
+    setInformarValorConsulta(botSettings.informarValorConsulta ?? true);
     setEnableAutoReminders(botSettings.enableAutoReminders);
     setDaysBeforeAppointmentForReminder(botSettings.daysBeforeAppointmentForReminder);
     setRules(botSettings.rulesList);
@@ -189,6 +192,7 @@ export default function SettingsPanel({
       allowDirectDoctorScheduling,
       enableAutoReminders,
       daysBeforeAppointmentForReminder,
+      informarValorConsulta,
       rulesList: rules
     }));
 
@@ -214,6 +218,7 @@ export default function SettingsPanel({
               allowDirectDoctorScheduling,
               enableAutoReminders,
               daysBeforeAppointmentForReminder,
+              informarValorConsulta,
               rulesList: rules,
             }
           }
@@ -428,6 +433,20 @@ export default function SettingsPanel({
                   type="checkbox"
                   checked={allowDirectDoctorScheduling}
                   onChange={(e) => setAllowDirectDoctorScheduling(e.target.checked)}
+                  className="w-4 h-4 text-[#1A6FA8] focus:ring-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-200/60 pt-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 font-sans">Informar valor da consulta ao paciente</h4>
+                  <p className="text-[10px] text-slate-400 font-sans">Se desligado, a IA nunca informa o valor cadastrado — orienta o paciente a falar com a recepção sobre preços.</p>
+                </div>
+                <input
+                  id="toggle-informar-valor"
+                  type="checkbox"
+                  checked={informarValorConsulta}
+                  onChange={(e) => setInformarValorConsulta(e.target.checked)}
                   className="w-4 h-4 text-[#1A6FA8] focus:ring-0 cursor-pointer"
                 />
               </div>
