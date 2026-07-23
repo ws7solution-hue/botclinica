@@ -368,7 +368,7 @@ async function api(action, payload){
 
 // LOAD
 async function loadAll(){
-  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas()]);
+  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas()]);
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
@@ -376,11 +376,19 @@ async function loadAll(){
     await loadTickets();
     updateSupportBadge();
     await loadWaSuporteConversas();
+    await loadWaVendasConversas();
     if(currentPage === 'wa_suporte'){
       refreshWaSuporteList();
       if(activeWaSuporteConversa){
         const c = waSuporteConversas.find(x=>x.id===activeWaSuporteConversa);
         if(c) renderWaSuporteChat(c);
+      }
+    }
+    if(currentPage === 'wa_vendas'){
+      refreshWaVendasList();
+      if(activeWaVendasConversa){
+        const c = waVendasConversas.find(x=>x.id===activeWaVendasConversa);
+        if(c) renderWaVendasChat(c);
       }
     }
     if(currentPage === 'suporte') {
@@ -448,12 +456,29 @@ async function loadTickets(){
 
 let waSuporteConversas = [];
 let activeWaSuporteConversa = null;
+let waVendasConversas = [];
+let activeWaVendasConversa = null;
 const CLOUDAPI_BASE = 'https://whatsapp.botclinica.com.br';
 
 async function loadWaSuporteConversas(){
   const d = await api('listWaSuporteConversations', {});
   waSuporteConversas = Array.isArray(d) ? d : [];
   updateWaSuporteBadge();
+}
+
+async function loadWaVendasConversas(){
+  const d = await api('listWaVendasConversations', {});
+  waVendasConversas = Array.isArray(d) ? d : [];
+  updateWaVendasBadge();
+}
+
+function updateWaVendasBadge(){
+  const pendentes = waVendasConversas.filter(c=>c.status==='human_needed').length;
+  const badge = document.getElementById('badge-wa-vendas');
+  if(badge){
+    badge.style.display = pendentes > 0 ? 'inline-block' : 'none';
+    badge.textContent = pendentes;
+  }
 }
 
 function updateWaSuporteBadge(){
@@ -1043,17 +1068,158 @@ async function reactivateWaSuporteBot(to){
 function renderWaVendas(){
   document.getElementById('main-content').innerHTML=`
   <div class="topbar">
-    <div><div class="page-title">Luna (Vendas)</div><div class="page-sub">Conversas do bot de vendas</div></div>
+    <div><div class="page-title">Luna (Vendas)</div><div class="page-sub">Conversas do bot de vendas, atendidas pela Luna (IA) — assuma quando precisar</div></div>
+    <div class="topbar-right">
+      <span class="badge badge-red">${waVendasConversas.filter(c=>c.status==='human_needed').length} aguardando você</span>
+      <span class="badge badge-green">${waVendasConversas.filter(c=>c.status==='bot').length} com a IA</span>
+    </div>
   </div>
-  <div style="padding:48px;text-align:center;color:var(--muted)">
-    <div style="font-size:32px;margin-bottom:12px">🚧</div>
-    <div style="font-size:14px;font-weight:600;margin-bottom:6px">Em construção</div>
-    <div style="font-size:13px;max-width:420px;margin:0 auto">
-      A Luna ainda está no Baileys e não salva as conversas no Firestore.
-      Assim que ela migrar pra API oficial (próxima etapa), essa aba passa
-      a mostrar as conversas em tempo real, igual à de Suporte WhatsApp.
+  <div class="support-layout">
+    <div class="support-list">
+      <div class="support-list-header">Conversas</div>
+      <div id="wa-vendas-list">
+        ${renderWaVendasList(waVendasConversas)}
+      </div>
+    </div>
+    <div class="support-chat" id="wa-vendas-chat-area">
+      <div class="empty-chat">👈 Selecione uma conversa</div>
     </div>
   </div>`;
+}
+
+function refreshWaVendasList(){
+  const el = document.getElementById('wa-vendas-list');
+  if(el) el.innerHTML = renderWaVendasList(waVendasConversas);
+}
+
+function renderWaVendasList(list){
+  if(!list.length) return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma conversa ainda</div>`;
+  return [...list].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0)).map(c=>{
+    const statusLbl = {human_needed:'Aguardando você',human_active:'Você está no controle',bot:'IA respondendo'}[c.status]||'IA respondendo';
+    const statusColor = {human_needed:'priority-aberto',human_active:'priority-andamento',bot:'priority-resolvido'}[c.status]||'priority-resolvido';
+    return `<div class="support-item${activeWaVendasConversa===c.id?' active':''}" onclick="openWaVendasConversa('${c.id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="support-item-name">${c.patientName||c.phone||'Contato'}</div>
+        <span class="${statusColor}">${statusLbl}</span>
+      </div>
+      <div class="support-item-preview">${(c.last||'').slice(0,60)}</div>
+      <div class="support-item-meta"><span style="font-size:11px;color:var(--muted)">${c.time||''}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function openWaVendasConversa(id){
+  activeWaVendasConversa = id;
+  const conversa = waVendasConversas.find(c=>c.id===id);
+  if(!conversa) return;
+  refreshWaVendasList();
+  renderWaVendasChat(conversa);
+}
+
+function renderWaVendasChat(conversa){
+  const chatArea = document.getElementById('wa-vendas-chat-area');
+  if(!chatArea) return;
+  const prevInput = document.getElementById('wa-vendas-agent-msg');
+  const prevValue = prevInput ? prevInput.value : '';
+  const hadFocus = !!prevInput && document.activeElement === prevInput;
+  const msgs = conversa.messages||[];
+  const isHumanActive = conversa.status === 'human_active';
+  chatArea.innerHTML=`
+    <div class="support-chat-header">
+      <div>
+        <div style="font-weight:700">${conversa.patientName||conversa.phone}</div>
+        <div style="font-size:12px;color:var(--muted)">${conversa.phone}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${isHumanActive
+          ? `<button class="btn btn-outline btn-sm" onclick="reactivateWaVendasBot('${conversa.id}')">🤖 Devolver pra IA</button>`
+          : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>`}
+      </div>
+    </div>
+    <div class="support-messages" id="wa-vendas-chat-msgs">
+      ${msgs.map(m=>{
+        const isMine = m.sender==='human';
+        const label = m.sender==='patient' ? '👤 '+(conversa.patientName||conversa.phone) : (m.sender==='human' ? 'Você' : '🤖 Luna (IA)');
+        const bubbleStyle = isMine ? 'background:var(--accent);color:#fff;border-bottom-right-radius:3px;' : 'background:var(--card2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px;';
+        const isImage = m.type === 'image' && m.mediaUrl;
+        const content = isImage
+          ? `<img src="${m.mediaUrl}" alt="Imagem" onclick="openWaImageViewer('${m.mediaUrl}')"
+               style="max-width:220px;max-height:220px;border-radius:10px;cursor:pointer;display:block;${m.text?'margin-bottom:6px;':''}"
+               onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=200&auto=format&fit=crop'"/>
+             ${m.text ? `<div>${m.text}</div>` : ''}`
+          : (m.text || '');
+        return `<div style="display:flex;flex-direction:column;align-items:${isMine?'flex-end':'flex-start'}">
+          <div style="max-width:70%;padding:10px 14px;font-size:13px;line-height:1.5;border-radius:14px;${bubbleStyle}">${content}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px;padding:0 2px">${label} · ${m.timestamp||''}</div>
+        </div>`;
+      }).join('')}
+      ${msgs.length===0?'<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">Sem mensagens ainda...</div>':''}
+    </div>
+    <div class="support-input">
+      <input type="file" id="wa-vendas-image-input" accept="image/*" style="display:none" onchange="sendWaVendasImage('${conversa.id}', this)"/>
+      <button class="btn btn-outline btn-sm" title="Anexar imagem" onclick="document.getElementById('wa-vendas-image-input').click()">📎</button>
+      <input type="text" id="wa-vendas-agent-msg" placeholder="Digite pra assumir a conversa..." onkeydown="if(event.key==='Enter')sendWaVendasMsg('${conversa.id}')"/>
+      <button class="btn btn-primary" onclick="sendWaVendasMsg('${conversa.id}')">Enviar →</button>
+    </div>`;
+  const newInput = document.getElementById('wa-vendas-agent-msg');
+  if(newInput && prevValue){ newInput.value = prevValue; if(hadFocus) newInput.focus(); }
+  const msgsEl = document.getElementById('wa-vendas-chat-msgs');
+  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+async function sendWaVendasMsg(to){
+  const input = document.getElementById('wa-vendas-agent-msg');
+  const text = input?.value?.trim();
+  if(!text) return;
+  input.value='';
+  try{
+    await fetch(CLOUDAPI_BASE + '/send-luna', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to, text })
+    });
+  }catch(e){ toast('❌ Erro ao enviar mensagem.'); return; }
+  await loadWaVendasConversas();
+  const c = waVendasConversas.find(x=>x.id===to);
+  if(c) renderWaVendasChat(c);
+  refreshWaVendasList();
+}
+
+async function sendWaVendasImage(to, inputEl){
+  const file = inputEl.files?.[0];
+  inputEl.value = '';
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('⚠️ Só é possível anexar imagens.'); return; }
+  if(file.size > 5*1024*1024){ toast('⚠️ Imagem muito grande (máximo 5MB).'); return; }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+    try{
+      await fetch(CLOUDAPI_BASE + '/send-luna-image', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ to, imageBase64: base64, mimeType: file.type })
+      });
+    }catch(e){ toast('❌ Erro ao enviar imagem.'); return; }
+    await loadWaVendasConversas();
+    const c = waVendasConversas.find(x=>x.id===to);
+    if(c) renderWaVendasChat(c);
+    refreshWaVendasList();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function reactivateWaVendasBot(to){
+  try{
+    await fetch(CLOUDAPI_BASE + '/reactivate-luna-bot', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to })
+    });
+    toast('🤖 IA reativada nessa conversa.');
+  }catch(e){ toast('❌ Erro ao reativar a IA.'); return; }
+  await loadWaVendasConversas();
+  const c = waVendasConversas.find(x=>x.id===to);
+  if(c) renderWaVendasChat(c);
+  refreshWaVendasList();
 }
 
 // FINANCEIRO
