@@ -55,7 +55,10 @@ module.exports = async (req, res) => {
         subject: 'Redefinição de senha - BotClínica',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #222;">
-            <h2 style="color: #1A6FA8;">BotClínica</h2>
+            <div style="text-align: center; margin-bottom: 16px;">
+              <img src="https://botclinica.com.br/logo-icon.png" alt="BotClínica" style="height: 48px; width: auto;" />
+            </div>
+            <h2 style="color: #1A6FA8; text-align: center;">BotClínica</h2>
             <p>Olá,</p>
             <p>Recebemos uma solicitação para redefinir a senha da sua conta BotClínica associada a este e-mail (<strong>${email}</strong>).</p>
             <p>Para criar uma nova senha, clique no botão abaixo:</p>
