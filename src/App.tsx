@@ -107,6 +107,24 @@ export default function App() {
           const prevAppt = prevMap.get(id);
           if (!prevAppt || JSON.stringify(prevAppt) !== JSON.stringify(appt)) {
             fbSaveAppointment(clinicId, appt).catch(e => console.error("Error saving appointment:", e));
+
+            // BUGFIX (24/07): consultas criadas manualmente pelo sistema
+            // (fora do WhatsApp) nunca avisavam o paciente — ficavam só
+            // registradas no app, sem nenhuma mensagem de verdade sair.
+            // Agora, toda consulta NOVA (não edição de uma já existente)
+            // já dispara a confirmação automática pelo WhatsApp.
+            if (!prevAppt && appt.patientPhone && appt.status !== 'canceled') {
+              const dataFormatada = new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR');
+              const text = `Olá, ${appt.patientName}! Sua consulta com ${appt.doctorName} foi agendada para o dia ${dataFormatada}, às ${appt.time}. Para confirmar ou reagendar, é só responder esta mensagem. 🏥`;
+              fetch('https://whatsapp.botclinica.com.br/send-clinic-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clinicId, to: appt.patientPhone, text,
+                  templateParams: { nome_paciente: appt.patientName, nome_medico: appt.doctorName, data_consulta: dataFormatada, horario_consulta: appt.time },
+                }),
+              }).catch(e => console.error('Erro ao enviar confirmação automática:', e));
+            }
           }
         }
       }
