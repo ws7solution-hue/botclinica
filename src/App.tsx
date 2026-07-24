@@ -94,6 +94,16 @@ export default function App() {
     });
   };
 
+  // Normaliza telefone pra o formato exigido pela Meta (só números, com
+  // código do país 55) — aceita qualquer formato digitado no cadastro:
+  // "+5531989917628", "5531989917628" ou só "31989917628".
+  const normalizePhoneForWhatsApp = (phone: string): string => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (digits.startsWith('55') && digits.length >= 12) return digits;
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`; // DDD + número, sem código do país
+    return digits;
+  };
+
   const setAppointments = (update: React.SetStateAction<Appointment[]>) => {
     setRawAppointments(prev => {
       const next = typeof update === 'function' ? (update as Function)(prev) : update;
@@ -120,7 +130,7 @@ export default function App() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  clinicId, to: appt.patientPhone, text,
+                  clinicId, to: normalizePhoneForWhatsApp(appt.patientPhone), text,
                   templateParams: { nome_paciente: appt.patientName, nome_medico: appt.doctorName, data_consulta: dataFormatada, horario_consulta: appt.time },
                 }),
               }).catch(e => console.error('Erro ao enviar confirmação automática:', e));
