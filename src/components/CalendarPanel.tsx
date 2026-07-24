@@ -60,6 +60,15 @@ export default function CalendarPanel({
 
   const CLOUDAPI_BASE = 'https://whatsapp.botclinica.com.br';
 
+  // Normaliza telefone pra o formato exigido pela Meta (só números, com
+  // código do país 55) — aceita qualquer formato digitado no cadastro.
+  const normalizePhoneForWhatsApp = (phone: string): string => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (digits.startsWith('55') && digits.length >= 12) return digits;
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+    return digits;
+  };
+
   // ── Pop-up de confirmação de consulta (botão Send) ─────────────────────────
   const [reminderModalAppt, setReminderModalAppt] = useState<Appointment | null>(null);
   const [reminderMessage, setReminderMessage] = useState('');
@@ -82,10 +91,10 @@ export default function CalendarPanel({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clinicId, to: appt.patientPhone, text: reminderMessage,
+          clinicId, to: normalizePhoneForWhatsApp(appt.patientPhone), text: reminderMessage,
           // Prontos pra quando o template de confirmação for aprovado —
           // usados automaticamente se o paciente estiver fora da janela de 24h.
-          templateParams: [appt.patientName, appt.doctorName, dataFormatada, appt.time],
+          templateParams: { nome_paciente: appt.patientName, nome_medico: appt.doctorName, data_consulta: dataFormatada, horario_consulta: appt.time },
         }),
       });
       const data = await resp.json();
@@ -144,8 +153,8 @@ export default function CalendarPanel({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clinicId, to: appt.patientPhone, text: cancelMessage,
-          templateParams: [appt.patientName, appt.doctorName, dataFormatada, appt.time],
+          clinicId, to: normalizePhoneForWhatsApp(appt.patientPhone), text: cancelMessage,
+          templateParams: { nome_paciente: appt.patientName, nome_medico: appt.doctorName, data_consulta: dataFormatada, horario_consulta: appt.time },
         }),
       });
       const data = await resp.json();
