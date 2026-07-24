@@ -22,7 +22,16 @@ export async function fbGetPlan(email: string) {
 
 /** Envia e-mail de redefinição de senha via Firebase Auth (link real, sem senha provisória). */
 export async function fbSendPasswordReset(email: string) {
-  return post('reset', { requestType: 'PASSWORD_RESET', email });
+  // BUGFIX (23/07): o template de e-mail do Firebase ficou travado no
+  // console (sem conseguir editar texto/remetente). Agora usamos nosso
+  // próprio endpoint, que gera o link via Admin SDK e manda o e-mail via
+  // Resend, com nosso texto em português.
+  const r = await fetch('/api/send-password-reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return r.json();
 }
 
 // ── CONVERSAS (mecanismo legado, usado pelo webhook real do WhatsApp na VPS) ──
