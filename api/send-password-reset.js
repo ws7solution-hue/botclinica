@@ -22,7 +22,7 @@ if (!admin.apps.length) {
 }
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = 'BotClínica <naoresponda@botclinica.com.br>';
+const FROM_EMAIL = 'BotClínica <contato@botclinica.com.br>';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
