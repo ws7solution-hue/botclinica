@@ -652,12 +652,20 @@ export default function ChatPanel({
                 </>
               )}
               {activeChat.status === 'resolved' && (
-                <button
-                  onClick={() => handleReturnToBot(activeChat.id)}
-                  className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-md text-[10px] font-semibold cursor-pointer"
-                >
-                  Reabrir para Bot
-                </button>
+                <>
+                  <button
+                    onClick={() => handleTakeOver(activeChat.id)}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-[10px] font-bold cursor-pointer"
+                  >
+                    Assumir Conversa
+                  </button>
+                  <button
+                    onClick={() => handleReturnToBot(activeChat.id)}
+                    className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-md text-[10px] font-semibold cursor-pointer"
+                  >
+                    Reabrir para Bot
+                  </button>
+                </>
               )}
             </div>
           </div>
