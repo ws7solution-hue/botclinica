@@ -299,8 +299,13 @@ export default function ChatPanel({
 
     const text = replyText.trim();
     // Resolve o phone — usa patientPhone ou reconstrói do ID
-    const phone = activeChat.patientPhone || 
+    const rawPhone = activeChat.patientPhone ||
                   activeChat.id.replace(/_/g, '') + '@s.whatsapp.net';
+    // Normaliza pro formato exigido pela Meta (só números, com código do país)
+    const phoneDigits = rawPhone.replace(/\D/g, '');
+    const phone = phoneDigits.startsWith('55') ? phoneDigits
+                : (phoneDigits.length === 10 || phoneDigits.length === 11) ? `55${phoneDigits}`
+                : phoneDigits;
 
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
@@ -328,10 +333,23 @@ export default function ChatPanel({
     if (clinicId) {
       const emailKey = clinicId.toLowerCase().replace(/[@.]/g, '_');
       try {
+        // BUGFIX (24/07): faltava mandar templateParams — sem isso, quando a
+        // conversa está fora da janela de 24h da Meta (ex: conversa criada
+        // pelo sistema, paciente nunca mandou mensagem de verdade), o envio
+        // via template falhava silenciosamente porque faltavam os 4 campos
+        // obrigatórios do template aprovado.
         const r = await fetch('https://whatsapp.botclinica.com.br/send-clinic-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clinicId: emailKey, to: phone, text }),
+          body: JSON.stringify({
+            clinicId: emailKey, to: phone, text,
+            templateParams: {
+              nome_paciente: activeChat.patientName || 'paciente',
+              nome_medico: 'nossa equipe',
+              data_consulta: '-',
+              horario_consulta: '-',
+            },
+          }),
         });
         const d = await r.json();
         if (!r.ok || d.error) {
