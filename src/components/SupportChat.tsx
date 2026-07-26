@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, ChevronDown, Plus, Paperclip } from 'lucide-react';
+import { MessageCircle, X, Send, ChevronDown, Plus, Paperclip, Download } from 'lucide-react';
 import { AtendiaPlan } from '../types';
 
 interface SupportChatProps {
@@ -129,6 +129,7 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [sendingImage, setSendingImage] = useState(false);
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
 
   async function handleAttachImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -322,7 +323,7 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
                           src={m.mediaUrl}
                           alt="Imagem anexada"
                           className="max-w-full max-h-[200px] rounded-lg object-cover cursor-pointer"
-                          onClick={() => window.open(m.mediaUrl, '_blank')}
+                          onClick={() => setViewingImageUrl(m.mediaUrl!)}
                         />
                       ) : (
                         m.text
@@ -388,6 +389,42 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
               <p className="text-[10px] text-slate-400 font-sans">Suporte disponível 24h · Resposta em até 2h</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Visualizador de imagem em tela cheia (clique + botão de baixar) */}
+      {viewingImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[60] p-4"
+          onClick={() => setViewingImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setViewingImageUrl(null)}
+            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2 cursor-pointer transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <img
+            src={viewingImageUrl}
+            alt="Imagem em tela cheia"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[80vh] rounded-lg object-contain shadow-2xl"
+          />
+
+          {/* Como já é uma imagem em base64 (guardada direto no navegador),
+              o download funciona direto com o atributo "download", sem
+              precisar de nenhum proxy no servidor. */}
+          <a
+            href={viewingImageUrl}
+            download={`imagem-suporte-${Date.now()}.jpg`}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-sm font-bold font-sans cursor-pointer transition-all shadow-lg"
+          >
+            <Download className="w-4 h-4" />
+            Baixar imagem
+          </a>
         </div>
       )}
     </div>
