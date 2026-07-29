@@ -127,6 +127,16 @@ export default function CalendarPanel({
     }
   };
 
+  // Data de hoje no formato AAAA-MM-DD, pra saber se uma consulta já passou
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Marca se o paciente compareceu ou faltou — só isso decide se a consulta
+  // vira receita de verdade no Financeiro (nunca antes da data acontecer).
+  const handleMarkAttendance = (apptId: string, attendanceStatus: 'attended' | 'no_show') => {
+    setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, attendanceStatus } : a));
+    onAddSystemLog('success', attendanceStatus === 'attended' ? '✅ Consulta marcada como Compareceu.' : '❌ Consulta marcada como Faltou.');
+  };
+
   // ── Pop-up de cancelamento de consulta (botão X) ───────────────────────────
   const [cancelModalAppt, setCancelModalAppt] = useState<Appointment | null>(null);
   const [cancelMessage, setCancelMessage] = useState('');
@@ -426,7 +436,7 @@ export default function CalendarPanel({
 
                     {/* Operational controls */}
                     <div className="flex items-center gap-1.5">
-                      {appt.status !== 'canceled' && (
+                      {appt.status !== 'canceled' && appt.date > todayStr && (
                         <>
                           <button
                             disabled={updatingApptId !== null}
@@ -456,6 +466,46 @@ export default function CalendarPanel({
                               <XCircle className="w-3.5 h-3.5" />
                             )}
                           </button>
+                          <button
+                            onClick={() => handleDeleteAppointment(appt.id)}
+                            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg border border-slate-200 transition-all cursor-pointer flex items-center justify-center"
+                            title="Excluir consulta permanentemente"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+
+                      {/* Consulta já passou — só aqui decide se vira receita
+                          de verdade no Financeiro (nunca antes disso). */}
+                      {appt.status !== 'canceled' && appt.date <= todayStr && (
+                        <>
+                          {(!appt.attendanceStatus || appt.attendanceStatus === 'pending') ? (
+                            <>
+                              <button
+                                onClick={() => handleMarkAttendance(appt.id, 'attended')}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg border border-emerald-200 transition-all cursor-pointer text-[10px] font-bold flex items-center gap-1"
+                                title="Marcar que o paciente compareceu"
+                              >
+                                ✅ Compareceu
+                              </button>
+                              <button
+                                onClick={() => handleMarkAttendance(appt.id, 'no_show')}
+                                className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-lg border border-red-200 transition-all cursor-pointer text-[10px] font-bold flex items-center gap-1"
+                                title="Marcar que o paciente faltou"
+                              >
+                                ❌ Faltou
+                              </button>
+                            </>
+                          ) : (
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border flex items-center gap-1 ${
+                              appt.attendanceStatus === 'attended'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-red-50 text-red-600 border-red-200'
+                            }`}>
+                              {appt.attendanceStatus === 'attended' ? '✅ Compareceu' : '❌ Faltou'}
+                            </span>
+                          )}
                           <button
                             onClick={() => handleDeleteAppointment(appt.id)}
                             className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg border border-slate-200 transition-all cursor-pointer flex items-center justify-center"

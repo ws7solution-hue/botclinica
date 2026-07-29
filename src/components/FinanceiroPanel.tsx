@@ -142,10 +142,15 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
     }
   };
 
-  // Receitas automáticas: derivadas dos agendamentos confirmados (não cancelados)
+  // Receitas automáticas: derivadas dos agendamentos CONFIRMADOS DE VERDADE
+  // — ou seja, só depois que a data já passou E foi marcado manualmente
+  // como "Compareceu". Antes, qualquer consulta não-cancelada já virava
+  // receita na hora de marcar, mesmo semanas antes de acontecer — o que
+  // superestimava o financeiro sem nenhuma garantia real de que o paciente
+  // ia aparecer.
   const autoReceitas = useMemo(() => {
     return (appointments || [])
-      .filter((a: any) => a.status !== 'canceled' && a.status !== 'cancelled')
+      .filter((a: any) => a.attendanceStatus === 'attended')
       .map((a: any) => {
         const doctor = doctors.find((d) => d.name === a.doctorName || d.id === a.doctorId);
         const fee = doctor ? Number((doctor as any).consultationFee || (doctor as any).price || 0) : 0;
