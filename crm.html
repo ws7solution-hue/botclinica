@@ -4,6 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>BotClínica CRM</title>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#1A6FA8"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -230,6 +232,9 @@ tr:hover td{background:rgba(26,111,168,.04)}
       <button class="nav-btn" onclick="goTo('config')"><span class="nav-icon">⚙️</span><span>Configurações</span></button>
     </div>
     <div class="sidebar-bottom">
+      <button class="nav-btn" id="btn-enable-push" onclick="enablePushNotifications()" style="margin-bottom:6px">
+        <span class="nav-icon">🔔</span><span id="btn-enable-push-label">Ativar notificações</span>
+      </button>
       <button class="logout-btn" onclick="doLogout()">→ <span>Sair</span></button>
     </div>
   </div>
@@ -459,6 +464,65 @@ let activeWaSuporteConversa = null;
 let waVendasConversas = [];
 let activeWaVendasConversa = null;
 const CLOUDAPI_BASE = 'https://whatsapp.botclinica.com.br';
+
+// ── Notificações push (avisa quando chega suporte/venda/ticket novo) ───────
+// Chave pública VAPID — combina com a privada guardada no .env da VPS.
+const VAPID_PUBLIC_KEY = 'BJyaSh10upl8FUjRXgy60WsaEWUKu_JQTIyHC2jzt6I-YVIzTsgRNXdM--UOd4dHDVxImwr_ABj41NnaW56qfoQ';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function enablePushNotifications() {
+  const label = document.getElementById('btn-enable-push-label');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('❌ Seu navegador não suporta notificações push.');
+    return;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      toast('⚠️ Permissão de notificação não concedida.');
+      return;
+    }
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+
+    await fetch(CLOUDAPI_BASE + '/save-push-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription),
+    });
+
+    if (label) label.textContent = '✅ Notificações ativadas';
+    toast('🔔 Notificações ativadas com sucesso!');
+  } catch (e) {
+    console.error('Erro ao ativar notificações:', e);
+    toast('❌ Erro ao ativar notificações: ' + e.message);
+  }
+}
+
+// Ao carregar a página, confere se já está inscrito, pra deixar o botão certo
+async function checkPushSubscriptionStatus() {
+  const label = document.getElementById('btn-enable-push-label');
+  if (!('serviceWorker' in navigator) || !label) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+    if (!registration) return;
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) label.textContent = '✅ Notificações ativadas';
+  } catch (e) {}
+}
+checkPushSubscriptionStatus();
+
 
 async function loadWaSuporteConversas(){
   const d = await api('listWaSuporteConversations', {});
