@@ -74,6 +74,11 @@ export interface Appointment {
   status: 'confirmed' | 'pending' | 'canceled';
   reminderSent: boolean;
   reminderStatus: 'none' | 'sent' | 'read' | 'confirmed_by_patient' | 'canceled_by_patient';
+  // Separado do "status" de agendamento — só é preenchido DEPOIS que a data
+  // da consulta já passou, marcado manualmente pelo médico/secretária.
+  // É isso que decide se a consulta vira receita de verdade no Financeiro
+  // (nunca antes disso, e nunca só por estar "confirmada").
+  attendanceStatus?: 'pending' | 'attended' | 'no_show';
 }
 
 export interface UserProfile {
