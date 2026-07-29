@@ -586,6 +586,7 @@ module.exports = async (req, res) => {
           status: g("status") || "pending",
           reminderSent: f.reminderSent?.booleanValue || false,
           reminderStatus: g("reminderStatus") || "none",
+          attendanceStatus: g("attendanceStatus") || "pending",
         };
       });
       return res.status(200).json({ appointments: apts });
