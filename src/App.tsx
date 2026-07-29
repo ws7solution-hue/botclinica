@@ -495,7 +495,19 @@ export default function App() {
     const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
     if (!email || email === DEMO_EMAIL) return;
     const clinicId = email.replace(/[@.]/g, '_');
-    fbListScheduleBlocks(clinicId).then(setScheduleBlocks).catch(() => {});
+    let isMounted = true;
+
+    const fetchBlocks = () => {
+      fbListScheduleBlocks(clinicId).then((list) => { if (isMounted) setScheduleBlocks(list || []); }).catch(() => {});
+    };
+    fetchBlocks();
+    // BUGFIX (25/07): antes só carregava uma vez no login — um bloqueio
+    // criado no Portal do Médico (ou por outra pessoa em outra aba) só
+    // aparecia depois de recarregar a página. Agora atualiza sozinho, sem
+    // nenhum indicador visível de carregamento, a cada 15 segundos.
+    const interval = setInterval(fetchBlocks, 15000);
+
+    return () => { isMounted = false; clearInterval(interval); };
   }, [isLoggedIn, userProfile.email]);
 
   React.useEffect(() => {
@@ -507,21 +519,30 @@ export default function App() {
     const clinicId = email.replace(/[@.]/g, '_');
     let isMounted = true;
 
-    addSystemLog('info', 'Sincronizando agendamentos com o Firestore...');
-    fbListAppointments(clinicId)
-      .then((apptsList) => {
-        if (isMounted) {
+    const fetchAppointments = (isFirstLoad: boolean) => {
+      fbListAppointments(clinicId)
+        .then((apptsList) => {
+          if (!isMounted) return;
           setRawAppointments(apptsList || []);
-          addSystemLog('success', `Agendamentos sincronizados: ${apptsList.length} encontrados.`);
-        }
-      })
-      .catch((err) => {
-        console.error("Error fetching appointments:", err);
-        addSystemLog('error', `Erro na sincronização de agendamentos: ${err.message}. Mantendo dados locais.`);
-      });
+          if (isFirstLoad) addSystemLog('success', `Agendamentos sincronizados: ${apptsList.length} encontrados.`);
+        })
+        .catch((err) => {
+          console.error("Error fetching appointments:", err);
+          if (isFirstLoad) addSystemLog('error', `Erro na sincronização de agendamentos: ${err.message}. Mantendo dados locais.`);
+        });
+    };
+
+    addSystemLog('info', 'Sincronizando agendamentos com o Firestore...');
+    fetchAppointments(true);
+    // BUGFIX (25/07): antes só carregava uma vez no login — uma consulta
+    // marcada pelo bot (via WhatsApp) ou por outra pessoa em outra aba só
+    // aparecia depois de recarregar a página. Agora atualiza sozinho, sem
+    // avisos repetidos no log, a cada 15 segundos.
+    const interval = setInterval(() => fetchAppointments(false), 15000);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, [isLoggedIn, userProfile.email]);
 
@@ -1054,6 +1075,8 @@ export default function App() {
               setActiveTab={setActiveTab}
               currentPlan={currentPlan}
               clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
+              scheduleBlocks={scheduleBlocks}
+              setScheduleBlocks={setScheduleBlocks}
             />
           )}
 
