@@ -1024,6 +1024,18 @@ module.exports = async (req, res) => {
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         })}),
       });
+
+      // Avisa via notificação push que um ticket novo chegou
+      fetch("https://whatsapp.botclinica.com.br/notify-owner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "🎫 Novo chamado de suporte",
+          body: `${clinicName || email} abriu um chamado: ${(title || message || "").slice(0, 80)}`,
+          url: "https://botclinica.com.br/crm",
+        }),
+      }).catch(() => {});
+
       return res.status(200).json({ ok: true, id });
     }
 
@@ -1046,6 +1058,20 @@ module.exports = async (req, res) => {
           updatedAt: { stringValue: new Date().toISOString() },
         }}),
       });
+
+      // Se foi o cliente que respondeu (não o próprio Suporte), avisa
+      if (message.role === "client") {
+        fetch("https://whatsapp.botclinica.com.br/notify-owner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "🎫 Nova mensagem no chamado",
+            body: (message.text || "Cliente respondeu no chamado").slice(0, 100),
+            url: "https://botclinica.com.br/crm",
+          }),
+        }).catch(() => {});
+      }
+
       return res.status(200).json({ ok: true });
     }
 
