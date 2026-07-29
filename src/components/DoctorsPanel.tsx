@@ -36,6 +36,8 @@ interface DoctorsPanelProps {
   setActiveTab: (tab: any) => void;
   currentPlan: AtendiaPlan;
   clinicId?: string;
+  scheduleBlocks: any[];
+  setScheduleBlocks: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 const DAYS_OF_WEEK = [
@@ -54,7 +56,9 @@ export default function DoctorsPanel({
   specialties,
   setActiveTab,
   currentPlan,
-  clinicId
+  clinicId,
+  scheduleBlocks,
+  setScheduleBlocks,
 }: DoctorsPanelProps) {
   // Plan limits check
   const doctorLimit = useMemo(() => {
@@ -75,18 +79,17 @@ export default function DoctorsPanel({
   const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
 
   // ── Bloqueio de agenda ──
+  // BUGFIX (25/07): antes esse painel mantinha sua PRÓPRIA cópia de
+  // scheduleBlocks, separada da usada pelo resto do app (que decide se um
+  // horário está ocupado). Isso fazia o bloqueio só "valer" depois de
+  // recarregar a página. Agora usa a mesma cópia (via props), atualizada
+  // em tempo real e compartilhada com o app inteiro.
   const [blockingDoctor, setBlockingDoctor] = useState<Doctor | null>(null);
-  const [scheduleBlocks, setScheduleBlocks] = useState<any[]>([]);
   const [blockDate, setBlockDate] = useState('');
   const [blockAllDay, setBlockAllDay] = useState(true);
   const [blockStartTime, setBlockStartTime] = useState('');
   const [blockEndTime, setBlockEndTime] = useState('');
   const [blockReason, setBlockReason] = useState('');
-
-  useEffect(() => {
-    if (!clinicId) return;
-    fbListScheduleBlocks(clinicId).then(setScheduleBlocks).catch(() => {});
-  }, [clinicId]);
 
   const handleSaveBlock = async () => {
     if (!blockingDoctor || !blockDate || !clinicId) return;
