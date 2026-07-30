@@ -1236,6 +1236,23 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // Reset de PIN esquecido — só quem já está logado como dono da clínica
+    // consegue chegar nessa tela (Médicos), então não precisa reconfirmar
+    // senha aqui — o médico só vai poder criar um PIN novo no próximo login.
+    if (action === "resetDoctorPin") {
+      const { clinicId, doctorId } = payload;
+      if (!doctorId) return res.status(400).json({ error: "doctorId obrigatório" });
+      const col = `doctors_${emailToKey(clinicId || "")}`;
+      const r = await fetch(`${FS}/${col}/${doctorId}?key=${API_KEY}&updateMask.fieldPaths=doctorPinHash`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { doctorPinHash: { stringValue: "" } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "listAdminConversations") {
       const { source } = payload; // 'suporte' ou 'vendas'
       const col = `admin_conversations_${source}`;
