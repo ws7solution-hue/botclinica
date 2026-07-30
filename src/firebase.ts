@@ -261,3 +261,8 @@ export async function fbCheckDoctorPin(clinicId: string, doctorId: string, pin: 
 export async function fbSetDoctorPin(clinicId: string, doctorId: string, pin: string) {
   return post('setDoctorPin', { clinicId, doctorId, pin });
 }
+
+/** Reseta o PIN de um médico — usado pelo dono da clínica quando o médico esquece o PIN. */
+export async function fbResetDoctorPin(clinicId: string, doctorId: string) {
+  return post('resetDoctorPin', { clinicId, doctorId });
+}
