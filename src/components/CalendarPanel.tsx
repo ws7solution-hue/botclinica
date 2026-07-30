@@ -135,6 +135,26 @@ export default function CalendarPanel({
   const handleMarkAttendance = (apptId: string, attendanceStatus: 'attended' | 'no_show') => {
     setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, attendanceStatus } : a));
     onAddSystemLog('success', attendanceStatus === 'attended' ? '✅ Consulta marcada como Compareceu.' : '❌ Consulta marcada como Faltou.');
+
+    // Oferta automática de reagendamento — só dispara se a clínica tiver
+    // essa opção ligada em Configurações (checado do lado do servidor).
+    if (attendanceStatus === 'attended') {
+      const appt = appointments.find(a => a.id === apptId);
+      if (appt && appt.patientPhone) {
+        fetch(`${CLOUDAPI_BASE}/offer-reschedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clinicId,
+            to: normalizePhoneForWhatsApp(appt.patientPhone),
+            patientName: appt.patientName,
+            doctorName: appt.doctorName,
+            date: appt.date,
+            time: appt.time,
+          }),
+        }).catch(() => {});
+      }
+    }
   };
 
   // ── Pop-up de cancelamento de consulta (botão X) ───────────────────────────

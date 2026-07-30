@@ -36,6 +36,7 @@ interface SettingsProps {
     enableAutoReminders: boolean;
     daysBeforeAppointmentForReminder: number;
     informarValorConsulta: boolean;
+    enableAutoRescheduling: boolean;
     aiTone: string;
     rulesList: Rule[];
   };
@@ -74,7 +75,7 @@ export default function SettingsPanel({
   const [daysBeforeAppointmentForReminder, setDaysBeforeAppointmentForReminder] = useState(botSettings.daysBeforeAppointmentForReminder);
   
   // Premium specific states
-  const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(currentPlan === 'premium');
+  const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(botSettings.enableAutoRescheduling ?? true);
   const [enableDelayAlerts, setEnableDelayAlerts] = useState(currentPlan === 'premium');
   
   // Custom Keyword Rules states
@@ -95,6 +96,7 @@ export default function SettingsPanel({
     setAiTone(botSettings.aiTone);
     setAllowDirectDoctorScheduling(botSettings.allowDirectDoctorScheduling);
     setInformarValorConsulta(botSettings.informarValorConsulta ?? true);
+    setEnableAutoRescheduling(botSettings.enableAutoRescheduling ?? true);
     setEnableAutoReminders(botSettings.enableAutoReminders);
     setDaysBeforeAppointmentForReminder(botSettings.daysBeforeAppointmentForReminder);
     setRules(botSettings.rulesList);
@@ -193,6 +195,7 @@ export default function SettingsPanel({
       enableAutoReminders,
       daysBeforeAppointmentForReminder,
       informarValorConsulta,
+      enableAutoRescheduling,
       rulesList: rules
     }));
 
@@ -219,6 +222,7 @@ export default function SettingsPanel({
               enableAutoReminders,
               daysBeforeAppointmentForReminder,
               informarValorConsulta,
+              enableAutoRescheduling,
               rulesList: rules,
             }
           }
