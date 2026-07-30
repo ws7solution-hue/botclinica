@@ -330,6 +330,7 @@ export const INITIAL_BOT_SETTINGS = {
   enableAutoReminders: true,
   daysBeforeAppointmentForReminder: 1,
   informarValorConsulta: true,
+  enableAutoRescheduling: true,
   aiTone: 'Acolhedor, prestativo e profissional',
   rulesList: [
     { trigger: 'consulta / agendamento', action: 'Buscar médicos e horários livres' },
