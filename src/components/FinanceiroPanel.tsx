@@ -13,7 +13,7 @@ import LockOverlay from './LockOverlay';
 import {
   fbCheckFinanceiroPin, fbSetFinanceiroPin, fbListFinanceiroEntries,
   fbSaveFinanceiroEntry, fbDeleteFinanceiroEntry,
-  fbGetFinanceiroConfig, fbSetFinanceiroConfig
+  fbGetFinanceiroConfig, fbSetFinanceiroConfig, fbLogin
 } from '../firebase';
 
 interface FinanceiroEntry {
@@ -68,6 +68,10 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   const [pinInput, setPinInput] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinError, setPinError] = useState('');
+  const [forgotPinMode, setForgotPinMode] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [checkingPin, setCheckingPin] = useState(true);
 
   const [entries, setEntries] = useState<FinanceiroEntry[]>([]);
@@ -139,6 +143,33 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
       setUnlocked(true);
     } else {
       setPinError('PIN incorreto.');
+    }
+  };
+
+  // "Esqueci meu PIN" — por segurança, não deixa trocar o PIN sem confirmar
+  // a senha de login da conta primeiro (senão qualquer pessoa com acesso ao
+  // app poderia simplesmente clicar em "esqueci" e ver o financeiro).
+  const handleForgotPinSubmit = async () => {
+    setForgotError('');
+    if (!forgotPassword) { setForgotError('Digite sua senha de login.'); return; }
+    setForgotLoading(true);
+    try {
+      const result = await fbLogin(clinicId, forgotPassword);
+      if (result.error) {
+        setForgotError('Senha incorreta.');
+        return;
+      }
+      // Senha confirmada — libera a tela de criar um PIN novo
+      setHasPin(false);
+      setForgotPinMode(false);
+      setForgotPassword('');
+      setPinInput('');
+      setPinConfirm('');
+      onAddSystemLog('warning', 'PIN do Financeiro redefinido após confirmação de senha.');
+    } catch (e) {
+      setForgotError('Erro de conexão. Tente novamente.');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -448,40 +479,81 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
           <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-6 h-6 text-[#1A6FA8]" />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 font-sans mb-1">
-            {hasPin === false ? 'Criar PIN do Financeiro' : 'Área Restrita'}
-          </h2>
-          <p className="text-xs text-slate-500 font-sans mb-6">
-            {hasPin === false
-              ? 'Defina um PIN de acesso exclusivo para o Financeiro (diferente da sua senha de login).'
-              : 'Digite o PIN do Financeiro para continuar. Apenas o responsável pela clínica deve ter acesso.'}
-          </p>
-          <input
-            type="password"
-            inputMode="numeric"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="PIN (4 a 6 dígitos)"
-            className="w-full text-center text-lg tracking-widest p-3 border border-slate-200 rounded-lg mb-3 focus:outline-hidden focus:border-[#1A6FA8] font-sans"
-          />
-          {hasPin === false && (
-            <input
-              type="password"
-              inputMode="numeric"
-              value={pinConfirm}
-              onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="Confirme o PIN"
-              className="w-full text-center text-lg tracking-widest p-3 border border-slate-200 rounded-lg mb-3 focus:outline-hidden focus:border-[#1A6FA8] font-sans"
-            />
+
+          {forgotPinMode ? (
+            <>
+              <h2 className="text-lg font-bold text-slate-800 font-sans mb-1">Esqueceu seu PIN?</h2>
+              <p className="text-xs text-slate-500 font-sans mb-6">
+                Confirme sua senha de login (a mesma usada pra entrar no app) pra poder criar um PIN novo do Financeiro.
+              </p>
+              <input
+                type="password"
+                value={forgotPassword}
+                onChange={(e) => setForgotPassword(e.target.value)}
+                placeholder="Sua senha de login"
+                className="w-full text-center p-3 border border-slate-200 rounded-lg mb-3 focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+              />
+              {forgotError && <p className="text-xs text-red-500 font-sans mb-3">{forgotError}</p>}
+              <button
+                onClick={handleForgotPinSubmit}
+                disabled={forgotLoading}
+                className="w-full bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold py-3 rounded-lg text-sm font-sans transition-colors flex items-center justify-center gap-2 disabled:opacity-60 mb-2"
+              >
+                {forgotLoading ? 'Verificando...' : 'Confirmar senha e criar novo PIN'}
+              </button>
+              <button
+                onClick={() => { setForgotPinMode(false); setForgotError(''); setForgotPassword(''); }}
+                className="text-xs text-slate-400 font-sans hover:underline"
+              >
+                Voltar
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold text-slate-800 font-sans mb-1">
+                {hasPin === false ? 'Criar PIN do Financeiro' : 'Área Restrita'}
+              </h2>
+              <p className="text-xs text-slate-500 font-sans mb-6">
+                {hasPin === false
+                  ? 'Defina um PIN de acesso exclusivo para o Financeiro (diferente da sua senha de login).'
+                  : 'Digite o PIN do Financeiro para continuar. Apenas o responsável pela clínica deve ter acesso.'}
+              </p>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="PIN (4 a 6 dígitos)"
+                className="w-full text-center text-lg tracking-widest p-3 border border-slate-200 rounded-lg mb-3 focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+              />
+              {hasPin === false && (
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={pinConfirm}
+                  onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Confirme o PIN"
+                  className="w-full text-center text-lg tracking-widest p-3 border border-slate-200 rounded-lg mb-3 focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+                />
+              )}
+              {pinError && <p className="text-xs text-red-500 font-sans mb-3">{pinError}</p>}
+              <button
+                onClick={handleUnlock}
+                className="w-full bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold py-3 rounded-lg text-sm font-sans transition-colors flex items-center justify-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                {hasPin === false ? 'Criar PIN e Entrar' : 'Entrar'}
+              </button>
+              {hasPin !== false && (
+                <button
+                  onClick={() => { setForgotPinMode(true); setPinError(''); }}
+                  className="mt-3 text-xs text-slate-400 font-sans hover:underline"
+                >
+                  Esqueci meu PIN
+                </button>
+              )}
+            </>
           )}
-          {pinError && <p className="text-xs text-red-500 font-sans mb-3">{pinError}</p>}
-          <button
-            onClick={handleUnlock}
-            className="w-full bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold py-3 rounded-lg text-sm font-sans transition-colors flex items-center justify-center gap-2"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            {hasPin === false ? 'Criar PIN e Entrar' : 'Entrar'}
-          </button>
         </div>
       </div>
     );

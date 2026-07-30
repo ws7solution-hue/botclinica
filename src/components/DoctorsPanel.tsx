@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Clock, 
+  KeyRound, 
   Coins, 
   Plus, 
   Activity,
@@ -26,7 +27,7 @@ import {
   Upload
 } from 'lucide-react';
 import { Doctor, AtendiaPlan } from '../types';
-import { fbSaveDoctor, fbDeleteDoctor, fbListScheduleBlocks, fbSaveScheduleBlock, fbDeleteScheduleBlock } from '../firebase';
+import { fbSaveDoctor, fbDeleteDoctor, fbListScheduleBlocks, fbSaveScheduleBlock, fbDeleteScheduleBlock, fbResetDoctorPin } from '../firebase';
 
 interface DoctorsPanelProps {
   doctors: Doctor[];
@@ -90,6 +91,16 @@ export default function DoctorsPanel({
   const [blockStartTime, setBlockStartTime] = useState('');
   const [blockEndTime, setBlockEndTime] = useState('');
   const [blockReason, setBlockReason] = useState('');
+
+  const handleResetDoctorPin = async (doc: Doctor) => {
+    if (!confirm(`Redefinir o PIN de acesso do(a) Dr(a). ${doc.name}? Ele(a) vai poder criar um PIN novo no próximo login do Portal do Médico.`)) return;
+    try {
+      await fbResetDoctorPin(clinicId || '', doc.id);
+      onAddSystemLog('success', `PIN de acesso do(a) Dr(a). ${doc.name} foi redefinido.`);
+    } catch (err: any) {
+      onAddSystemLog('error', `Falha ao redefinir PIN: ${err.message}`);
+    }
+  };
 
   const handleSaveBlock = async () => {
     if (!blockingDoctor || !blockDate || !clinicId) return;
@@ -735,6 +746,13 @@ export default function DoctorsPanel({
                         title="Bloquear Agenda"
                       >
                         <CalendarOff className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleResetDoctorPin(doc)}
+                        className="p-1.5 hover:bg-blue-50 text-slate-500 hover:text-[#1A6FA8] rounded-md transition-colors cursor-pointer"
+                        title="Redefinir PIN do Portal do Médico (caso o médico tenha esquecido)"
+                      >
+                        <KeyRound className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenEditModal(doc)}
