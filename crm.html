@@ -232,9 +232,6 @@ tr:hover td{background:rgba(26,111,168,.04)}
       <button class="nav-btn" onclick="goTo('config')"><span class="nav-icon">⚙️</span><span>Configurações</span></button>
     </div>
     <div class="sidebar-bottom">
-      <button class="nav-btn" id="btn-enable-push" onclick="enablePushNotifications()" style="margin-bottom:6px">
-        <span class="nav-icon">🔔</span><span id="btn-enable-push-label">Ativar notificações</span>
-      </button>
       <button class="logout-btn" onclick="doLogout()">→ <span>Sair</span></button>
     </div>
   </div>
@@ -634,6 +631,7 @@ function goTo(page){
   chartInstances = {};
   const renders = {dashboard:renderDashboard, clientes:renderClientes, suporte:renderSuporte, wa_suporte:renderWaSuporte, wa_vendas:renderWaVendas, financeiro:renderFinanceiro, alertas:renderAlertas, config:renderConfig};
   if(renders[page]) renders[page]();
+  if(page === 'config') checkPushSubscriptionStatus();
 }
 
 // HELPERS
@@ -1502,6 +1500,15 @@ function renderConfig(){
   <div class="topbar">
     <div><div class="page-title">Configurações</div><div class="page-sub">Preços e custos operacionais</div></div>
     <div class="topbar-right"><button class="btn btn-green" onclick="saveConfig()">💾 Salvar tudo</button></div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="config-section" style="margin-bottom:0">
+      <h3>🔔 Notificações</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Receba um alerta do navegador quando chegar suporte, venda ou ticket novo precisando de atenção.</p>
+      <button class="btn btn-outline" id="btn-enable-push" onclick="enablePushNotifications()">
+        🔔 <span id="btn-enable-push-label">Ativar notificações</span>
+      </button>
+    </div>
   </div>
   <div class="card" style="margin-bottom:16px">
     <div class="config-section">
