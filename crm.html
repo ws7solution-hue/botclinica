@@ -382,6 +382,7 @@ async function loadAll(){
     updateSupportBadge();
     await loadWaSuporteConversas();
     await loadWaVendasConversas();
+    checkForNewAttentionItems();
     if(currentPage === 'wa_suporte'){
       refreshWaSuporteList();
       if(activeWaSuporteConversa){
@@ -460,6 +461,47 @@ async function loadTickets(){
 }
 
 let waSuporteConversas = [];
+
+// ── Alerta sonoro (toca quando aparece algo novo precisando de atenção) ────
+let prevAttentionCount = null; // null = primeira carga, não toca som ainda
+
+function playAlertSound(){
+  try{
+    const tocarBeep = (freq, delay) => setTimeout(() => {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    }, delay);
+    tocarBeep(880, 0);
+    tocarBeep(1046, 180);
+  }catch(e){ console.error('Erro ao tocar som de alerta:', e); }
+}
+
+function checkForNewAttentionItems(){
+  const ticketsAbertos = tickets.filter(t=>t.status==='aberto').length;
+  const suportePendente = waSuporteConversas.filter(c=>c.status==='human_needed').length;
+  const vendasPendente = waVendasConversas.filter(c=>c.status==='human_needed').length;
+  // Conta também o TOTAL de conversas da Luna (não só quem pede humano) —
+  // assim, todo lead novo que chega pelo anúncio já toca o alerta, igual
+  // fizemos com a notificação por WhatsApp.
+  const vendasTotal = waVendasConversas.length;
+
+  const total = ticketsAbertos + suportePendente + vendasPendente + vendasTotal;
+
+  if(prevAttentionCount !== null && total > prevAttentionCount){
+    playAlertSound();
+  }
+  prevAttentionCount = total;
+}
+
 let activeWaSuporteConversa = null;
 let waVendasConversas = [];
 let activeWaVendasConversa = null;
