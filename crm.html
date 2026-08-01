@@ -462,13 +462,29 @@ async function loadTickets(){
 
 let waSuporteConversas = [];
 
-// ── Alerta sonoro (toca quando aparece algo novo precisando de atenção) ────
-let prevAttentionCount = null; // null = primeira carga, não toca som ainda
+// ── Alerta sonoro (toca a cada mensagem nova, em qualquer conversa/ticket) ──
+let prevMessageCount = null; // null = primeira carga, não toca som ainda
+let sharedAudioCtx = null;
+
+// Os navegadores bloqueiam som automático até o usuário clicar em algo na
+// página pelo menos uma vez. Criamos o AudioContext já no primeiro clique
+// (em qualquer lugar da tela) e reaproveitamos ele sempre — isso evita o
+// problema de "não tocou nada" por bloqueio de autoplay.
+function getAudioCtx(){
+  if(!sharedAudioCtx){
+    sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(sharedAudioCtx.state === 'suspended'){
+    sharedAudioCtx.resume();
+  }
+  return sharedAudioCtx;
+}
+document.addEventListener('click', () => { try{ getAudioCtx(); }catch(e){} }, { once: true });
 
 function playAlertSound(){
   try{
+    const ctx = getAudioCtx();
     const tocarBeep = (freq, delay) => setTimeout(() => {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -485,21 +501,22 @@ function playAlertSound(){
   }catch(e){ console.error('Erro ao tocar som de alerta:', e); }
 }
 
+// Conta TODAS as mensagens de TODAS as conversas/tickets — assim, qualquer
+// mensagem nova (de paciente, lead, ou até resposta sua em outra aba) toca
+// o beep, não só quando surge uma conversa/ticket totalmente novo.
+function countAllMessages(){
+  const countTicketMsgs = (tickets||[]).reduce((sum,t)=> sum + ((t.messages||[]).length), 0);
+  const countSuporteMsgs = (waSuporteConversas||[]).reduce((sum,c)=> sum + ((c.messages||[]).length), 0);
+  const countVendasMsgs = (waVendasConversas||[]).reduce((sum,c)=> sum + ((c.messages||[]).length), 0);
+  return countTicketMsgs + countSuporteMsgs + countVendasMsgs;
+}
+
 function checkForNewAttentionItems(){
-  const ticketsAbertos = tickets.filter(t=>t.status==='aberto').length;
-  const suportePendente = waSuporteConversas.filter(c=>c.status==='human_needed').length;
-  const vendasPendente = waVendasConversas.filter(c=>c.status==='human_needed').length;
-  // Conta também o TOTAL de conversas da Luna (não só quem pede humano) —
-  // assim, todo lead novo que chega pelo anúncio já toca o alerta, igual
-  // fizemos com a notificação por WhatsApp.
-  const vendasTotal = waVendasConversas.length;
-
-  const total = ticketsAbertos + suportePendente + vendasPendente + vendasTotal;
-
-  if(prevAttentionCount !== null && total > prevAttentionCount){
+  const total = countAllMessages();
+  if(prevMessageCount !== null && total > prevMessageCount){
     playAlertSound();
   }
-  prevAttentionCount = total;
+  prevMessageCount = total;
 }
 
 let activeWaSuporteConversa = null;
