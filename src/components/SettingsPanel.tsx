@@ -76,7 +76,6 @@ export default function SettingsPanel({
   
   // Premium specific states
   const [enableAutoRescheduling, setEnableAutoRescheduling] = useState(botSettings.enableAutoRescheduling ?? true);
-  const [enableDelayAlerts, setEnableDelayAlerts] = useState(currentPlan === 'premium');
   
   // Custom Keyword Rules states
   const [rules, setRules] = useState<Rule[]>(botSettings.rulesList);
@@ -500,36 +499,11 @@ export default function SettingsPanel({
                 )}
               </div>
 
-              {/* PREMIUM: Alertas de Atraso de Médicos */}
-              <div className="flex items-center justify-between border-t border-slate-200/60 pt-3 relative">
-                <div className="flex-1 pr-6">
-                  <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs font-bold text-slate-700 font-sans">Alertas automáticos de atrasos de médicos</h4>
-                    <span className="text-[8px] bg-amber-100 text-amber-700 border border-amber-200 font-bold px-1.5 py-0.2 rounded-sm uppercase tracking-wider font-mono">Premium</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-sans">Se o médico atrasar, o bot envia de forma proativa um aviso ao paciente pelo WhatsApp, reduzindo ansiedade.</p>
-                </div>
-                {currentPlan !== 'premium' ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      alert("Os Alertas de Atraso de Médicos estão disponíveis apenas no plano Premium. Faça o upgrade de sua assinatura para habilitar.");
-                    }}
-                    className="p-1 text-amber-600 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
-                    title="Apenas no plano Premium"
-                  >
-                    <Lock className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <input
-                    id="toggle-delay-alerts"
-                    type="checkbox"
-                    checked={enableDelayAlerts}
-                    onChange={(e) => setEnableDelayAlerts(e.target.checked)}
-                    className="w-4 h-4 text-[#1A6FA8] focus:ring-0 cursor-pointer"
-                  />
-                )}
-              </div>
+              {/* "Alertas automáticos de atrasos de médicos" foi removido
+                  da tela (25/07) — ainda não existe nenhuma lógica real por
+                  trás (nem no app, nem no N8N, nem na VPS), incluindo pra
+                  clientes do plano Premium. Reintroduzir só quando a
+                  funcionalidade for construída de verdade. */}
 
             </div>
 
