@@ -151,8 +151,37 @@ module.exports.config = {
   },
 };
 
-// ── Ativa conta no Firebase (mesma lógica usada no checkout) ─────────────────
+// ── Ativa conta no Firebase (a conta já foi PREPARADA — sem estar ativa —
+// no momento em que a pessoa criou a sessão de checkout. Aqui só ligamos
+// o "ativo" de vez, sem mexer na senha já gerada, senão quebraríamos o
+// login automático de quem acabou de pagar). ─────────────────────────────
 async function activateAccount({ email, plano, clinicName, adminName }) {
+  const key = emailToKey(email);
+
+  // Confere se a conta já foi preparada antes (fluxo normal, via checkout)
+  const existingR = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
+  const existingD = await existingR.json();
+
+  if (existingD.fields?.senhaTemp) {
+    // Conta já existe com senha já criada — só liga o "ativo", sem tocar
+    // em mais nada (preserva a senha real do Firebase Auth).
+    const url = `${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=ativo&updateMask.fieldPaths=statusPagamento&updateMask.fieldPaths=plano&key=${FB_KEY}`;
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          ativo: { booleanValue: true },
+          statusPagamento: { stringValue: 'em_dia' },
+          plano: { stringValue: plano || existingD.fields?.plano?.stringValue || 'starter' },
+        }
+      }),
+    });
+    return;
+  }
+
+  // Caso raro (webhook chegando antes do checkout preparar a conta, ou
+  // pagamento feito por outro caminho) — cria do zero, com senha nova.
   const senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
 
   let idToken = '';
@@ -168,7 +197,6 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
     console.log('Usuário já existe, continuando...');
   }
 
-  const key = emailToKey(email);
   const url = `${FS}/acessos_autorizados/${key}?key=${FB_KEY}`;
   await fetch(url, {
     method: 'PATCH',

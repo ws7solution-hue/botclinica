@@ -5,7 +5,7 @@ const PRICE_IDS = {
   starter:      'price_1U0vvfD2SvjWdknTG8H0O1d8',
   profissional: 'price_1U0vw3D2SvjWdknTFpCEfzlv',
   clinica:      'price_1U0vwND2SvjWdknTABxXdeov',
-  premium:      'price_1U0x8MD2SvjWdknTbQUpwZrA', // ⚠️ TESTE R$1 - trocar de volta depois
+  premium:      'price_1U0vwhD2SvjWdknToikbi9UW',
 };
 
 module.exports = async (req, res) => {
@@ -49,8 +49,9 @@ module.exports = async (req, res) => {
     if (!priceId) return res.status(400).json({ error: 'Plano inválido' });
 
     try {
-      // Cria conta ANTES de ir pro Stripe — garante login automático ao voltar
-      await activateAccount({ email, plano, clinicName, adminName });
+      // Prepara as credenciais de login (SEM ativar ainda — só o webhook
+      // ativa de verdade, depois que o Stripe confirmar o pagamento).
+      await createPendingAccount({ email, plano, clinicName, adminName });
 
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
@@ -83,7 +84,15 @@ module.exports = async (req, res) => {
 };
 
 // ── Ativa conta no Firebase ───────────────────────────────────────────────────
-async function activateAccount({ email, plano, clinicName, adminName }) {
+// BUGFIX CRÍTICO (05/08): essa função rodava ANTES do pagamento acontecer
+// de verdade (só ao CRIAR a sessão do Stripe, antes até da pessoa ver a
+// tela de cartão) e já marcava "ativo: true" — ou seja, qualquer um que
+// simplesmente chegasse até essa etapa (sem nunca pagar nada) já ganhava
+// acesso completo. Agora essa função só PREPARA as credenciais de login
+// (pra funcionar o login automático quando a pessoa voltar do Stripe), mas
+// deixa "ativo: false" — só o webhook (que só dispara com pagamento
+// confirmado DE VERDADE pelo Stripe) é que liga o acesso de fato.
+async function createPendingAccount({ email, plano, clinicName, adminName }) {
   const FB_PROJECT = 'botclinica-60b6f';
   const FB_KEY = 'AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew';
   const FS = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
@@ -91,25 +100,32 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
 
   const emailToKey = (e) => e.toLowerCase().replace(/[@.]/g, '_');
 
+  // Se a conta já existir (ex: tentando pagar de novo), não mexe na senha
+  // dela nem reseta nada — só garante que os dados básicos existem.
+  const key = emailToKey(email);
+  const existingR = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
+  const existingD = await existingR.json();
+  if (existingD.fields) {
+    // Conta já existe (de uma tentativa anterior) — não sobrescreve senha
+    // nem marca ativo, só garante que continua "aguardando pagamento".
+    return;
+  }
+
   // Gera senha temporária
   const senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
 
   // Cria usuário no Firebase Auth
-  let idToken = '';
   try {
-    const r = await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
+    await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true }),
     });
-    const d = await r.json();
-    idToken = d.idToken || '';
   } catch (e) {
     console.log('Usuário já existe, continuando...');
   }
 
-  // Salva no Firestore
-  const key = emailToKey(email);
+  // Salva no Firestore — SEM marcar como ativo, só preparando os dados
   const url = `${FS}/acessos_autorizados/${key}?key=${FB_KEY}`;
   await fetch(url, {
     method: 'PATCH',
@@ -122,19 +138,11 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
         adminName: { stringValue: adminName || '' },
         senhaTemp: { stringValue: senhaTemp },
         firstAccess: { booleanValue: true },
-        ativo: { booleanValue: true },
+        ativo: { booleanValue: false },
+        statusPagamento: { stringValue: 'aguardando_pagamento' },
         createdAt: { stringValue: new Date().toISOString() },
       }
     }),
   });
-
-  // Envia email de boas-vindas com senha temporária
-  if (idToken) {
-    await fetch(`${AUTH_URL}:sendOobCode?key=${FB_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken }),
-    });
-  }
 }
 
