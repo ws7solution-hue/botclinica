@@ -63,7 +63,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       const result = await fbLogin(loginIdentifier.trim().toLowerCase(), loginPassword);
       if (result.error) {
-        const msg = result.error.includes('INVALID') || result.error.includes('wrong-password')
+        // BUGFIX (05/08): antes, o erro de "assinatura cancelada/inativa"
+        // (vindo do backend quando ativo:false) caía no genérico de
+        // "verifique suas credenciais" — super confuso, já que a senha
+        // estava certa, só a conta é que foi desativada por falta de
+        // pagamento. Agora mostra a mensagem real nesse caso.
+        const msg = result.error.includes('cancelada ou inativa')
+          ? result.error
+          : result.error.includes('INVALID') || result.error.includes('wrong-password')
           ? 'Email ou senha incorretos.'
           : result.error.includes('too-many')
           ? 'Muitas tentativas. Tente novamente em alguns minutos.'
