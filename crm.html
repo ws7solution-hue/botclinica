@@ -118,6 +118,9 @@ tr:hover td{background:rgba(26,111,168,.04)}
 .status-ativo{background:var(--green-l);color:var(--green);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-vencendo{background:var(--yellow-l);color:var(--yellow);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-vencido{background:var(--red-l);color:var(--red);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-atrasado{background:var(--yellow-l);color:var(--yellow);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-sem_conta{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-desconhecido{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-cancelado{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 
 /* CONFIG */
@@ -266,13 +269,9 @@ tr:hover td{background:rgba(26,111,168,.04)}
         </select>
       </div>
       <div class="form-group">
-        <label>Status</label>
-        <select class="form-select" id="f-status">
-          <option value="ativo">✅ Ativo</option>
-          <option value="vencendo">⚠️ Vencendo</option>
-          <option value="vencido">❌ Vencido</option>
-          <option value="cancelado">🚫 Cancelado</option>
-        </select>
+        <label>Status <span style="font-weight:400;font-size:10px;color:var(--muted)">(automático)</span></label>
+        <div id="f-status-display" style="padding:10px 12px;background:var(--subtle);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text)">—</div>
+        <p style="font-size:10px;color:var(--muted);margin-top:4px">Vem direto do Stripe (pagamento em dia / atrasado / cancelado) — não é editável aqui.</p>
       </div>
     </div>
     <div class="form-row">
@@ -281,8 +280,8 @@ tr:hover td{background:rgba(26,111,168,.04)}
         <input class="form-input" id="f-inicio" type="date"/>
       </div>
       <div class="form-group">
-        <label>Próximo vencimento</label>
-        <input class="form-input" id="f-venc" type="date"/>
+        <label>Próximo vencimento <span style="font-weight:400;font-size:10px;color:var(--muted)">(automático)</span></label>
+        <div id="f-venc-display" style="padding:10px 12px;background:var(--subtle);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text)">—</div>
       </div>
     </div>
     <div class="form-row">
@@ -636,14 +635,22 @@ function goTo(page){
 
 // HELPERS
 function fmtBRL(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtDate(s){ if(!s) return '—'; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('pt-BR'); }
+function fmtDate(s){
+  if(!s) return '—';
+  // Aceita tanto "AAAA-MM-DD" (campo digitado à mão) quanto data-hora ISO
+  // completa tipo "2026-09-05T14:23:00.000Z" (agora vinda direto do Stripe).
+  const soDataParte = String(s).split('T')[0];
+  const d=new Date(soDataParte+'T12:00:00');
+  if(isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-BR');
+}
 function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
-function daysDiff(dateStr){ if(!dateStr) return null; const d=new Date(dateStr+'T12:00:00'); return Math.ceil((d-new Date())/86400000); }
+function daysDiff(dateStr){ if(!dateStr) return null; const soDataParte=String(dateStr).split('T')[0]; const d=new Date(soDataParte+'T12:00:00'); if(isNaN(d.getTime())) return null; return Math.ceil((d-new Date())/86400000); }
 function monthsActive(startStr){ if(!startStr) return 0; const d=new Date(startStr+'T12:00:00'); const now=new Date(); return Math.floor((now-d)/2592000000); }
 function planLabel(p){ return {starter:'🌱 Starter',profissional:'⭐ Profissional',clinica:'🏥 Clínica',premium:'👑 Premium'}[p]||p; }
 function planClass(p){ return 'plan-'+(p||'starter'); }
 function statusClass(s){ return 'status-'+(s||'ativo'); }
-function statusLabel(s){ return {ativo:'Ativo',vencendo:'Vencendo',vencido:'Vencido',cancelado:'Cancelado'}[s]||s; }
+function statusLabel(s){ return {ativo:'✅ Ativo',atrasado:'⚠️ Atrasado',cancelado:'🚫 Cancelado',sem_conta:'— Sem conta',desconhecido:'? Desconhecido'}[s]||s; }
 function precoPlano(p){ return config.precos[p]||0; }
 function ativos(){ return clientes.filter(c=>c.status==='ativo'||c.status==='vencendo'); }
 function mrr(){ return ativos().reduce((s,c)=>s+precoPlano(c.plano),0); }
@@ -1564,9 +1571,9 @@ function openModal(id){
   document.getElementById('f-nome').value=c?.nome||'';
   document.getElementById('f-email').value=c?.email||'';
   document.getElementById('f-plano').value=c?.plano||'starter';
-  document.getElementById('f-status').value=c?.status||'ativo';
+  document.getElementById('f-status-display').textContent=c?statusLabel(c.status):'— (novo cliente, sem conta ainda)';
   document.getElementById('f-inicio').value=c?.inicio||new Date().toISOString().split('T')[0];
-  document.getElementById('f-venc').value=c?.vencimento||nextMonth();
+  document.getElementById('f-venc-display').textContent=c?.vencimento?fmtDate(c.vencimento):'— (sincroniza depois do 1º pagamento)';
   document.getElementById('f-tel').value=c?.telefone||'';
   document.getElementById('f-cidade').value=c?.cidade||'';
   document.getElementById('f-obs').value=c?.obs||'';
@@ -1577,12 +1584,13 @@ function closeModal(){ document.getElementById('modal-cliente').classList.remove
 async function saveCliente(){
   const email=document.getElementById('f-email').value.trim().toLowerCase();
   if(!email){ alert('Email obrigatório'); return; }
+  // BUGFIX (05/08): "status" e "vencimento" não são mais digitados aqui —
+  // vêm automaticamente do Stripe (via acessos_autorizados). Salvamos só os
+  // dados que fazem sentido serem editados manualmente.
   const data={
     nome:document.getElementById('f-nome').value.trim(),
     email,plano:document.getElementById('f-plano').value,
-    status:document.getElementById('f-status').value,
     inicio:document.getElementById('f-inicio').value,
-    vencimento:document.getElementById('f-venc').value,
     telefone:document.getElementById('f-tel').value.trim(),
     cidade:document.getElementById('f-cidade').value.trim(),
     obs:document.getElementById('f-obs').value.trim(),
@@ -1592,12 +1600,13 @@ async function saveCliente(){
   if(!editId) data.createdAt=new Date().toISOString();
   document.getElementById('save-btn').textContent='Salvando...';
   await api('crmSaveCliente',{cliente:data});
-  const idx=clientes.findIndex(c=>c.id===data.id);
-  if(idx>=0) clientes[idx]=data; else clientes.push(data);
   closeModal();
   document.getElementById('save-btn').textContent='Salvar';
   toast('✅ Cliente salvo!');
   await api('setAccess',{email,plano:data.plano});
+  // Recarrega do servidor (não só o array local) pra pegar o status/vencimento
+  // reais que só o backend sabe calcular.
+  await loadClientes();
   goTo(currentPage);
 }
 
