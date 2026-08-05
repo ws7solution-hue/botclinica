@@ -189,6 +189,12 @@ module.exports = async (req, res) => {
         email: doc.fields?.email?.stringValue || doc.name.split("/").pop().replace(/_/g, "."),
         plano: doc.fields?.plano?.stringValue || "starter",
         createdAt: doc.fields?.createdAt?.stringValue || "",
+        // BUGFIX (05/08): faltava mandar o status real — o CRM estava
+        // "chumbando" ativo:true pra todo mundo que aparecia por aqui,
+        // sem nunca checar o valor de verdade guardado no banco.
+        ativo: doc.fields?.ativo?.booleanValue !== false,
+        statusPagamento: doc.fields?.statusPagamento?.stringValue || "",
+        proximaCobranca: doc.fields?.proximaCobranca?.stringValue || "",
       }));
       return res.status(200).json({ clients });
     }
@@ -324,10 +330,46 @@ module.exports = async (req, res) => {
     }
 
     // ── CRM: deletar cliente ─────────────────────────────────
+    // ── CRM: ativar/bloquear acesso manualmente (toggle do lápis) ────────
+    if (action === "crmSetAtivo") {
+      const { email, ativo } = payload;
+      if (!email) return res.status(400).json({ error: "Email obrigatório" });
+      const key = emailToKey(email);
+      await fetch(`${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=ativo&updateMask.fieldPaths=statusPagamento&key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            ativo: { booleanValue: !!ativo },
+            statusPagamento: { stringValue: ativo ? "em_dia" : "bloqueado_manualmente" },
+          }
+        }),
+      });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "crmDeleteCliente") {
-      const { id } = payload;
+      const { id, email } = payload;
       if (!id) return res.status(400).json({ error: "ID obrigatório" });
       await fetch(`${FS}/crm_clientes/${id}?key=${API_KEY}`, { method: "DELETE" });
+
+      // BUGFIX (05/08): antes só apagava do registro do CRM — o acesso
+      // continuava existindo em acessos_autorizados, então "voltava" na
+      // próxima vez que a lista era recarregada (o merge com listClients
+      // trazia ele de novo). Agora também bloqueia o acesso de verdade.
+      const emailFinal = email || id.replace(/_/g, ".");
+      const accKey = emailToKey(emailFinal);
+      await fetch(`${FS}/acessos_autorizados/${accKey}?updateMask.fieldPaths=ativo&updateMask.fieldPaths=statusPagamento&key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            ativo: { booleanValue: false },
+            statusPagamento: { stringValue: "removido_pelo_crm" },
+          }
+        }),
+      }).catch(() => {});
+
       return res.status(200).json({ ok: true });
     }
 
