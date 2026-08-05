@@ -5,7 +5,7 @@ const PRICE_IDS = {
   starter:      'price_1U0vvfD2SvjWdknTG8H0O1d8',
   profissional: 'price_1U0vw3D2SvjWdknTFpCEfzlv',
   clinica:      'price_1U0vwND2SvjWdknTABxXdeov',
-  premium:      'price_1U0vwhD2SvjWdknToikbi9UW',
+  premium:      'price_1U0x8MD2SvjWdknTbQUpwZrA', // ⚠️ TESTE R$1 - trocar de volta depois
 };
 
 module.exports = async (req, res) => {
