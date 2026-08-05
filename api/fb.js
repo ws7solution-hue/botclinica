@@ -265,7 +265,7 @@ module.exports = async (req, res) => {
       let r = await fetch(`${FS}/crm_clientes?key=${API_KEY}`);
       let d = await r.json();
       const docs = d.documents || [];
-      const clientes = docs.map(doc => {
+      const clientesBase = docs.map(doc => {
         const f = doc.fields || {};
         const get = (k, type) => f[k]?.[type] || f[k]?.stringValue || "";
         return {
@@ -273,9 +273,7 @@ module.exports = async (req, res) => {
           nome: get("nome","stringValue"),
           email: get("email","stringValue"),
           plano: get("plano","stringValue") || "starter",
-          status: get("status","stringValue") || "ativo",
           inicio: get("inicio","stringValue"),
-          vencimento: get("vencimento","stringValue"),
           telefone: get("telefone","stringValue"),
           cidade: get("cidade","stringValue"),
           obs: get("obs","stringValue"),
@@ -283,6 +281,31 @@ module.exports = async (req, res) => {
           updatedAt: get("updatedAt","stringValue"),
         };
       });
+
+      // BUGFIX CRÍTICO (05/08): "status" e "vencimento" eram campos
+      // digitados manualmente aqui no CRM, sem nenhuma ligação com a
+      // assinatura de verdade no Stripe — dava pra "ativo" aparecer na
+      // tela mesmo com pagamento cancelado há meses. Agora busca o status
+      // REAL de cada cliente direto de acessos_autorizados (a mesma coleção
+      // que o login confere, e que o webhook do Stripe atualiza sozinho).
+      const clientes = await Promise.all(clientesBase.map(async (c) => {
+        if (!c.email) return { ...c, status: "sem_conta", vencimento: "" };
+        try {
+          const accR = await fsReq(`acessos_autorizados/${emailToKey(c.email)}`);
+          const accD = await accR.json();
+          const af = accD.fields || {};
+          const ativo = af.ativo?.booleanValue !== false;
+          const statusPagamento = af.statusPagamento?.stringValue || (ativo ? "em_dia" : "cancelado");
+          return {
+            ...c,
+            status: !ativo ? "cancelado" : statusPagamento === "atrasado" ? "atrasado" : "ativo",
+            vencimento: af.proximaCobranca?.stringValue || c.vencimento || "",
+          };
+        } catch (e) {
+          return { ...c, status: "desconhecido", vencimento: "" };
+        }
+      }));
+
       return res.status(200).json({ clientes });
     }
 
@@ -449,6 +472,20 @@ module.exports = async (req, res) => {
       // Buscar plano do usuário
       const planR = await fsReq(`acessos_autorizados/${emailToKey(email)}`);
       const planD = await planR.json();
+
+      // BUGFIX CRÍTICO (05/08): antes, mesmo uma conta cancelada/inadimplente
+      // de vez (ativo:false, gravado pelo webhook do Stripe quando a
+      // assinatura é cancelada ou some depois de falhar) continuava
+      // conseguindo logar normalmente — nada bloqueava de verdade. Assume
+      // TRUE se o campo não existir (conta antiga/manual sem esse campo
+      // ainda), só bloqueia quando for EXPLICITAMENTE false.
+      const ativo = planD.fields?.ativo?.booleanValue !== false;
+      if (!ativo) {
+        return res.status(200).json({
+          error: "Sua assinatura está cancelada ou inativa. Entre em contato com o suporte para reativar seu acesso.",
+        });
+      }
+
       const plano = planD.fields?.plano?.stringValue || "starter";
       const firstAccess = planD.fields?.firstAccess?.booleanValue !== false; // true se campo não existe ou for true
       return res.status(200).json({ ok: true, email, plano, idToken: d.idToken, firstAccess });
