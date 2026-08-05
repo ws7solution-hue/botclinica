@@ -1089,6 +1089,7 @@ function renderWaSuporteChat(conversa){
                <button class="btn btn-outline btn-sm" onclick="assumeWaSuporteConversa('${conversa.id}')">Reabrir e assumir</button>`
             : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>
                <button class="btn btn-outline btn-sm" onclick="assumeWaSuporteConversa('${conversa.id}')">🙋 Assumir Conversa</button>`}
+        <button class="btn btn-danger btn-sm" onclick="deleteWaConversa('suporte','${conversa.id}')" title="Excluir conversa">🗑️</button>
       </div>
     </div>
     <div class="support-messages" id="wa-chat-msgs">
@@ -1337,6 +1338,7 @@ function renderWaVendasChat(conversa){
                <button class="btn btn-outline btn-sm" onclick="assumeWaVendasConversa('${conversa.id}')">Reabrir e assumir</button>`
             : `<span style="font-size:12px;color:var(--muted);align-self:center">IA respondendo automaticamente</span>
                <button class="btn btn-outline btn-sm" onclick="assumeWaVendasConversa('${conversa.id}')">🙋 Assumir Conversa</button>`}
+        <button class="btn btn-danger btn-sm" onclick="deleteWaConversa('luna','${conversa.id}')" title="Excluir conversa">🗑️</button>
       </div>
     </div>
     <div class="support-messages" id="wa-vendas-chat-msgs">
@@ -1423,6 +1425,23 @@ async function assumeWaVendasConversa(to){
   const c = waVendasConversas.find(x=>x.id===to);
   if(c) renderWaVendasChat(c);
   refreshWaVendasList();
+}
+
+async function deleteWaConversa(tipo, id){
+  if(!confirm('Tem certeza que deseja excluir esta conversa? Essa ação não pode ser desfeita.')) return;
+  await api('deleteConversation',{tipo, id});
+  if(tipo==='suporte'){
+    waSuporteConversas = waSuporteConversas.filter(c=>c.id!==id);
+    if(activeWaSuporteConversa===id) activeWaSuporteConversa=null;
+    refreshWaSuporteList();
+    document.getElementById('wa-suporte-chat-area').innerHTML = '<div class="empty-chat">👈 Selecione uma conversa</div>';
+  } else {
+    waVendasConversas = waVendasConversas.filter(c=>c.id!==id);
+    if(activeWaVendasConversa===id) activeWaVendasConversa=null;
+    refreshWaVendasList();
+    document.getElementById('wa-vendas-chat-area').innerHTML = '<div class="empty-chat">👈 Selecione uma conversa</div>';
+  }
+  toast('🗑️ Conversa excluída.');
 }
 
 async function resolveWaVendasConversa(to){
