@@ -99,33 +99,49 @@ async function createPendingAccount({ email, plano, clinicName, adminName }) {
   const AUTH_URL = `https://identitytoolkit.googleapis.com/v1/accounts`;
 
   const emailToKey = (e) => e.toLowerCase().replace(/[@.]/g, '_');
-
-  // Se a conta já existir (ex: tentando pagar de novo), não mexe na senha
-  // dela nem reseta nada — só garante que os dados básicos existem.
   const key = emailToKey(email);
+
   const existingR = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
   const existingD = await existingR.json();
-  if (existingD.fields) {
-    // Conta já existe (de uma tentativa anterior) — não sobrescreve senha
-    // nem marca ativo, só garante que continua "aguardando pagamento".
+  const jaTemSenha = !!existingD.fields?.senhaTemp?.stringValue;
+
+  // Só considera "já ativo de verdade" se AMBOS baterem: ativo=true e
+  // statusPagamento=em_dia (ou seja, alguém que já é cliente pagante
+  // de verdade). Nesse caso específico, não mexe em nada — é normal um
+  // cliente já ativo clicar em "Assinar" de novo por engano/curiosidade,
+  // e isso não pode desativar quem já está pagando certinho.
+  const jaEstaAtivoDeVerdade =
+    existingD.fields?.ativo?.booleanValue === true &&
+    existingD.fields?.statusPagamento?.stringValue === 'em_dia';
+
+  if (jaEstaAtivoDeVerdade) {
     return;
   }
 
-  // Gera senha temporária
-  const senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
+  // BUGFIX (05/08 — 2ª rodada): a versão anterior desse código, quando a
+  // conta já existia por QUALQUER motivo (teste antigo, tentativa anterior,
+  // etc), simplesmente não fazia nada — deixando o "ativo" antigo intacto,
+  // mesmo que fosse true de antes. Isso permitiu uma conta continuar
+  // "ativa" mesmo começando um checkout novo sem pagar. Agora, toda vez
+  // que uma sessão de checkout é criada (exceto pra quem já é cliente
+  // pagante de verdade, tratado acima), marcamos explicitamente como
+  // não-ativo/aguardando pagamento — não importa o estado anterior. Só o
+  // webhook (pagamento confirmado de verdade) liga o acesso de novo.
+  let senhaTemp = existingD.fields?.senhaTemp?.stringValue;
 
-  // Cria usuário no Firebase Auth
-  try {
-    await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true }),
-    });
-  } catch (e) {
-    console.log('Usuário já existe, continuando...');
+  if (!jaTemSenha) {
+    senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
+    try {
+      await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true }),
+      });
+    } catch (e) {
+      console.log('Usuário já existe no Auth, continuando...');
+    }
   }
 
-  // Salva no Firestore — SEM marcar como ativo, só preparando os dados
   const url = `${FS}/acessos_autorizados/${key}?key=${FB_KEY}`;
   await fetch(url, {
     method: 'PATCH',
@@ -136,11 +152,11 @@ async function createPendingAccount({ email, plano, clinicName, adminName }) {
         plano: { stringValue: plano || 'starter' },
         clinicName: { stringValue: clinicName || '' },
         adminName: { stringValue: adminName || '' },
-        senhaTemp: { stringValue: senhaTemp },
-        firstAccess: { booleanValue: true },
+        senhaTemp: { stringValue: senhaTemp || '' },
+        firstAccess: { booleanValue: existingD.fields?.firstAccess?.booleanValue ?? true },
         ativo: { booleanValue: false },
         statusPagamento: { stringValue: 'aguardando_pagamento' },
-        createdAt: { stringValue: new Date().toISOString() },
+        createdAt: { stringValue: existingD.fields?.createdAt?.stringValue || new Date().toISOString() },
       }
     }),
   });
