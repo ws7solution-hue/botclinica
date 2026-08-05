@@ -6,10 +6,10 @@
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
 
 const PRICE_IDS = {
-  starter:      'price_1Tq1FORiC3IX8iaz00PLfzrQ',
-  profissional: 'price_1Tq1H9RiC3IX8iazJxHhJLZQ',
-  clinica:      'price_1Tq1HoRiC3IX8iaz9lROVOzf',
-  premium:      'price_1Tq1IORiC3IX8iazV16NV0IC',
+  starter:      'price_1U0vvfD2SvjWdknTG8H0O1d8',
+  profissional: 'price_1U0vw3D2SvjWdknTFpCEfzlv',
+  clinica:      'price_1U0vwND2SvjWdknTABxXdeov',
+  premium:      'price_1U0vwhD2SvjWdknToikbi9UW',
 };
 
 module.exports = async (req, res) => {
