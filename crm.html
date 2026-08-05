@@ -119,6 +119,7 @@ tr:hover td{background:rgba(26,111,168,.04)}
 .status-vencendo{background:var(--yellow-l);color:var(--yellow);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-vencido{background:var(--red-l);color:var(--red);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-atrasado{background:var(--yellow-l);color:var(--yellow);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.status-aguardando_pagamento{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-sem_conta{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-desconhecido{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
 .status-cancelado{background:rgba(100,100,100,.15);color:#888;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
@@ -269,9 +270,14 @@ tr:hover td{background:rgba(26,111,168,.04)}
         </select>
       </div>
       <div class="form-group">
-        <label>Status <span style="font-weight:400;font-size:10px;color:var(--muted)">(automático)</span></label>
-        <div id="f-status-display" style="padding:10px 12px;background:var(--subtle);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text)">—</div>
-        <p style="font-size:10px;color:var(--muted);margin-top:4px">Vem direto do Stripe (pagamento em dia / atrasado / cancelado) — não é editável aqui.</p>
+        <label>Status</label>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--subtle);border:1px solid var(--border);border-radius:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+            <input type="checkbox" id="f-ativo" style="width:16px;height:16px;cursor:pointer"/>
+            <span style="font-size:13px" id="f-ativo-label">Conta ativa (acesso liberado)</span>
+          </label>
+        </div>
+        <p style="font-size:10px;color:var(--muted);margin-top:4px" id="f-status-origem">Normalmente atualizado automaticamente pelo Stripe — desligue aqui só pra bloquear manualmente.</p>
       </div>
     </div>
     <div class="form-row">
@@ -421,14 +427,19 @@ async function loadClientes(){
   const map = {};
   fbClientes.forEach(fc => {
     const key = (fc.email||'').replace(/[@.]/g,'_');
+    // BUGFIX (05/08): antes o status vinha FIXO como 'ativo' pra qualquer
+    // conta que aparecesse aqui, mesmo quem nunca pagou nada — ignorava
+    // completamente o campo real do banco. Agora usa o valor de verdade.
+    const ativo = fc.ativo !== false;
+    const statusReal = !ativo ? 'cancelado' : (fc.statusPagamento === 'atrasado' ? 'atrasado' : fc.statusPagamento === 'aguardando_pagamento' ? 'aguardando_pagamento' : 'ativo');
     map[key] = {
       id: key,
       email: fc.email||'',
       nome: fc.clinicName || fc.email?.split('@')[0] || '',
       plano: fc.plano || 'starter',
-      status: 'ativo',
+      status: statusReal,
       inicio: fc.createdAt ? fc.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
-      vencimento: calcVencimento(fc.createdAt),
+      vencimento: fc.proximaCobranca || calcVencimento(fc.createdAt),
       source: 'firebase',
     };
   });
@@ -650,7 +661,7 @@ function monthsActive(startStr){ if(!startStr) return 0; const d=new Date(startS
 function planLabel(p){ return {starter:'🌱 Starter',profissional:'⭐ Profissional',clinica:'🏥 Clínica',premium:'👑 Premium'}[p]||p; }
 function planClass(p){ return 'plan-'+(p||'starter'); }
 function statusClass(s){ return 'status-'+(s||'ativo'); }
-function statusLabel(s){ return {ativo:'✅ Ativo',atrasado:'⚠️ Atrasado',cancelado:'🚫 Cancelado',sem_conta:'— Sem conta',desconhecido:'? Desconhecido'}[s]||s; }
+function statusLabel(s){ return {ativo:'✅ Ativo',atrasado:'⚠️ Atrasado',cancelado:'🚫 Cancelado',aguardando_pagamento:'⏳ Aguardando pagamento',sem_conta:'— Sem conta',desconhecido:'? Desconhecido'}[s]||s; }
 function precoPlano(p){ return config.precos[p]||0; }
 function ativos(){ return clientes.filter(c=>c.status==='ativo'||c.status==='vencendo'); }
 function mrr(){ return ativos().reduce((s,c)=>s+precoPlano(c.plano),0); }
@@ -1571,7 +1582,8 @@ function openModal(id){
   document.getElementById('f-nome').value=c?.nome||'';
   document.getElementById('f-email').value=c?.email||'';
   document.getElementById('f-plano').value=c?.plano||'starter';
-  document.getElementById('f-status-display').textContent=c?statusLabel(c.status):'— (novo cliente, sem conta ainda)';
+  document.getElementById('f-ativo').checked = c ? (c.status==='ativo' || c.status==='atrasado') : true;
+  document.getElementById('f-status-origem').textContent = c ? `Status atual: ${statusLabel(c.status)} — normalmente atualizado automaticamente pelo Stripe.` : 'Nova conta — ative depois do primeiro pagamento, ou já deixe ativa se for cortesia.';
   document.getElementById('f-inicio').value=c?.inicio||new Date().toISOString().split('T')[0];
   document.getElementById('f-venc-display').textContent=c?.vencimento?fmtDate(c.vencimento):'— (sincroniza depois do 1º pagamento)';
   document.getElementById('f-tel').value=c?.telefone||'';
@@ -1584,9 +1596,7 @@ function closeModal(){ document.getElementById('modal-cliente').classList.remove
 async function saveCliente(){
   const email=document.getElementById('f-email').value.trim().toLowerCase();
   if(!email){ alert('Email obrigatório'); return; }
-  // BUGFIX (05/08): "status" e "vencimento" não são mais digitados aqui —
-  // vêm automaticamente do Stripe (via acessos_autorizados). Salvamos só os
-  // dados que fazem sentido serem editados manualmente.
+  const ativo=document.getElementById('f-ativo').checked;
   const data={
     nome:document.getElementById('f-nome').value.trim(),
     email,plano:document.getElementById('f-plano').value,
@@ -1600,9 +1610,12 @@ async function saveCliente(){
   if(!editId) data.createdAt=new Date().toISOString();
   document.getElementById('save-btn').textContent='Salvando...';
   await api('crmSaveCliente',{cliente:data});
+  // NOVO: liga/desliga o acesso de verdade (bloqueio manual real, não só
+  // um campo decorativo) — sempre que o toggle é salvo.
+  await api('crmSetAtivo',{email, ativo});
   closeModal();
   document.getElementById('save-btn').textContent='Salvar';
-  toast('✅ Cliente salvo!');
+  toast(ativo ? '✅ Cliente salvo e acesso liberado!' : '🚫 Cliente salvo e acesso bloqueado!');
   await api('setAccess',{email,plano:data.plano});
   // Recarrega do servidor (não só o array local) pra pegar o status/vencimento
   // reais que só o backend sabe calcular.
@@ -1611,10 +1624,11 @@ async function saveCliente(){
 }
 
 async function deleteCliente(id,nome){
-  if(!confirm(`Remover "${nome}" do CRM?`)) return;
-  await api('crmDeleteCliente',{id});
+  if(!confirm(`Remover "${nome}" do CRM? Isso também bloqueia o acesso dele ao app.`)) return;
+  const c = clientes.find(x=>x.id===id);
+  await api('crmDeleteCliente',{id, email:c?.email});
   clientes=clientes.filter(c=>c.id!==id);
-  toast('🗑️ Cliente removido');
+  toast('🗑️ Cliente removido e acesso bloqueado');
   goTo(currentPage);
 }
 
