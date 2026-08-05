@@ -4,117 +4,119 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>BotClínica — Assinar plano</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --blue:#1A6FA8;--blue-dark:#135A8C;--blue-light:#EBF4FB;
-  --green:#0D9B6E;--green-light:#E8F8F2;
-  --text:#1A2535;--muted:#6B80A0;--border:#E4EAF0;
-  --bg:#F4F8FC;--white:#FFFFFF;
-  --shadow:0 2px 16px rgba(26,111,168,0.08);
-  --shadow-lg:0 8px 40px rgba(26,111,168,0.14);
+  --bg-deep:#060B14;--bg-panel:#0B1420;--bg-panel-2:#0F1B2C;
+  --blue:#1A6FA8;--blue-bright:#4DA8FF;--blue-dark:#135A8C;
+  --teal:#2DD4BF;--gold:#F5A623;
+  --text:#F0F4F8;--muted:#8FA0B5;--border:rgba(255,255,255,0.08);--border-2:rgba(255,255,255,0.14);
 }
-body{font-family:'Inter',sans-serif;color:var(--text);background:var(--white);font-size:16px;line-height:1.6}
+body{font-family:'Inter',sans-serif;color:var(--text);background:var(--bg-deep);font-size:16px;line-height:1.6;overflow-x:hidden}
 a{text-decoration:none;color:inherit}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif}
+
+.bg-fixed{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-mesh{position:absolute;inset:-20%;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(26,111,168,0.2), transparent 42%),
+    radial-gradient(circle at 80% 70%, rgba(45,212,191,0.1), transparent 38%);
+  animation:meshDrift 26s ease-in-out infinite alternate;filter:blur(50px)}
+@keyframes meshDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-2%,2%) scale(1.06)}}
 
 /* NAV */
-nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 5%}
-.nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:68px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;color:var(--text)}
-.logo-icon{width:38px;height:38px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
-.logo span{color:var(--blue)}
+nav{position:sticky;top:0;z-index:100;background:rgba(6,11,20,0.75);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 5%}
+.nav-inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:72px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;font-family:'Space Grotesk',sans-serif}
 .back{color:var(--muted);font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;transition:color .15s}
-.back:hover{color:var(--blue)}
+.back:hover{color:var(--blue-bright)}
 
 /* HERO */
-.hero{background:linear-gradient(160deg,var(--blue) 0%,#0E5490 100%);padding:56px 5% 48px;text-align:center}
-.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:6px 16px;color:#fff;font-size:13px;font-weight:500;margin-bottom:20px}
-.hero h1{font-size:clamp(26px,4vw,40px);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
-.hero p{font-size:16px;color:rgba(255,255,255,.82);max-width:480px;margin:0 auto}
+.hero{position:relative;padding:64px 5% 48px;text-align:center;overflow:hidden}
+.grid-overlay{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.3;
+  background-image:linear-gradient(rgba(77,168,255,.05) 1px, transparent 1px),linear-gradient(90deg, rgba(77,168,255,.05) 1px, transparent 1px);
+  background-size:44px 44px;mask-image:radial-gradient(ellipse 60% 60% at 50% 0%, black, transparent)}
+.hero>*{position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.28);border-radius:20px;padding:7px 16px;color:var(--teal);font-size:12.5px;font-weight:600;margin-bottom:20px}
+.hero-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:livedot 2s infinite}
+@keyframes livedot{0%{box-shadow:0 0 0 0 rgba(45,212,191,.55)}70%{box-shadow:0 0 0 8px rgba(45,212,191,0)}100%{box-shadow:0 0 0 0 rgba(45,212,191,0)}}
+.hero h1{font-size:clamp(28px,4vw,44px);font-weight:700;line-height:1.15;letter-spacing:-0.02em;margin-bottom:14px}
+.hero h1 em{font-style:normal;background:linear-gradient(100deg,var(--blue-bright),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{font-size:16px;color:var(--muted);max-width:480px;margin:0 auto}
 
 /* PLANOS */
-.plans-section{padding:48px 5%;background:var(--bg)}
-.section-label{text-align:center;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
-.section-title{text-align:center;font-size:clamp(22px,3vw,32px);font-weight:800;color:var(--text);margin-bottom:8px}
-.section-sub{text-align:center;color:var(--muted);font-size:15px;margin-bottom:40px}
-.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1280px;margin:0 auto}
-.plan{background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:32px 28px;position:relative;transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column}
-.plan:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
-.plan.destaque{border-color:var(--blue);box-shadow:var(--shadow-lg)}
-.plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:11px;font-weight:700;padding:4px 16px;border-radius:20px;white-space:nowrap;display:flex;align-items:center;gap:5px}
-.plan-name{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
-.plan-price{display:flex;align-items:baseline;gap:2px;margin-bottom:4px}
-.plan-price .currency{font-size:16px;font-weight:700;color:var(--text)}
-.plan-price .value{font-size:48px;font-weight:800;color:var(--text);line-height:1}
-.plan-price .period{font-size:14px;color:var(--muted);margin-left:2px}
-.plan-desc{font-size:13px;color:var(--blue);font-weight:500;margin-bottom:22px;line-height:1.5}
-.plan-features{list-style:none;margin-bottom:28px;flex:1}
-.plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:14px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border)}
+.plans-section{padding:48px 5% 30px;position:relative}
+.section-inner{max-width:1180px;margin:0 auto;position:relative;z-index:1}
+.section-label{text-align:center;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--blue-bright);margin-bottom:10px}
+.section-title{text-align:center;font-size:clamp(22px,3vw,32px);font-weight:700;color:#fff;margin-bottom:8px;letter-spacing:-0.01em}
+.section-sub{text-align:center;color:var(--muted);font-size:15px;margin-bottom:44px}
+.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;max-width:1220px;margin:0 auto}
+.plan{background:var(--bg-panel);border:1px solid var(--border);border-radius:20px;padding:30px 26px;position:relative;transition:transform .2s,border-color .2s;display:flex;flex-direction:column}
+.plan:hover{transform:translateY(-5px);border-color:var(--border-2)}
+.plan.destaque{border:1.5px solid var(--blue-bright);box-shadow:0 0 40px -10px rgba(77,168,255,.35)}
+.plan-badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--blue-bright);color:#04101c;font-size:10.5px;font-weight:800;padding:5px 15px;border-radius:20px;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.plan-name{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin-bottom:14px;font-family:'Space Grotesk',sans-serif}
+.plan-price{display:flex;align-items:baseline;gap:2px;margin-bottom:6px}
+.plan-price .currency{font-size:14px;font-weight:700;color:var(--muted)}
+.plan-price .value{font-size:42px;font-weight:700;color:#fff;line-height:1;font-family:'Space Grotesk',sans-serif}
+.plan-price .period{font-size:12px;color:var(--muted);margin-left:2px}
+.plan-desc{font-size:12.5px;color:var(--blue-bright);font-weight:500;margin-bottom:20px;line-height:1.5;text-align:left}
+.plan-features{list-style:none;margin-bottom:26px;flex:1}
+.plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:#C7D2DE;padding:7px 0;border-bottom:1px solid var(--border)}
 .plan-features li:last-child{border-bottom:none}
-.plan-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;margin-top:2px}
-.plan-features.premium-features li{color:#E2E8F0;border-bottom:1px solid rgba(255,255,255,.08)}
-.plan-features.premium-features li::before{color:#F59E0B}
-.plan-features li.no{color:var(--muted)}
-.plan-features li.no::before{content:'–';color:var(--border)}
+.plan-features li::before{content:'✓';color:var(--teal);font-weight:700;flex-shrink:0;margin-top:1px}
+.plan-features.premium-features li{color:#E2E8F0;border-bottom:1px solid rgba(245,166,35,.1)}
+.plan-features.premium-features li::before{color:var(--gold)}
 
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:all .15s;border:none;text-decoration:none;font-family:'Inter',sans-serif}
-.btn-primary{background:var(--blue);color:#fff;width:100%;padding:14px;border-radius:10px;font-size:15px}
-.btn-primary:hover{background:var(--blue-dark);transform:translateY(-1px);box-shadow:0 4px 16px rgba(26,111,168,.3)}
-.btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue);width:100%;padding:13px;border-radius:10px;font-size:15px}
-.btn-outline:hover{background:var(--blue-light)}
-
-.pay-icon{font-size:32px;margin-bottom:10px}
-.pay-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
-.pay-sub{font-size:12px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 22px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;transition:all .18s;border:none;text-decoration:none;font-family:'Inter',sans-serif;position:relative;overflow:hidden}
+.btn-magnetic::before{content:'';position:absolute;inset:0;background:radial-gradient(120px circle at var(--bx,50%) var(--by,50%), rgba(255,255,255,.35), transparent 60%);opacity:0;transition:opacity .25s}
+.btn-magnetic:hover::before{opacity:1}
+.btn-primary{background:var(--blue-bright);color:#04101c;width:100%;padding:14px;border-radius:11px;font-size:14.5px;box-shadow:0 0 24px -4px rgba(77,168,255,.55)}
+.btn-primary:hover{filter:brightness(1.06)}
+.btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border-2);width:100%;padding:13px;border-radius:11px;font-size:14.5px}
+.btn-outline:hover{border-color:var(--blue-bright);color:var(--blue-bright)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#e0791f);color:#1a1204;width:100%;padding:14px;border-radius:11px;font-size:14.5px}
+.btn-gold:hover{filter:brightness(1.06)}
 
 /* GARANTIA */
-.guarantee-section{padding:40px 5%;background:var(--bg)}
-.guarantee-box{max-width:640px;margin:0 auto;background:var(--green-light);border:1.5px solid rgba(13,155,110,.2);border-radius:16px;padding:28px;text-align:center}
-.guarantee-box h3{font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px}
+.guarantee-section{padding:20px 5% 50px;position:relative}
+.guarantee-box{max-width:640px;margin:0 auto;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.25);border-radius:18px;padding:28px;text-align:center;position:relative;z-index:1}
+.guarantee-box h3{font-size:17px;font-weight:700;color:#fff;margin-bottom:8px}
 .guarantee-box p{font-size:14px;color:var(--muted);line-height:1.6}
 
 /* WHATSAPP CTA */
-.wpp-section{padding:48px 5%;text-align:center;background:var(--white)}
-.wpp-box{max-width:560px;margin:0 auto}
-.wpp-box p{font-size:15px;color:var(--muted);margin-bottom:20px}
-.btn-wpp{display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#fff;padding:16px 36px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;transition:.2s;box-shadow:0 4px 16px rgba(37,211,102,.3)}
-.btn-wpp:hover{background:#1ebe5d;transform:translateY(-2px);box-shadow:0 6px 20px rgba(37,211,102,.4)}
-.wpp-icon{font-size:22px}
+.wpp-section{padding:50px 5% 60px;text-align:center;position:relative}
+.wpp-box{max-width:560px;margin:0 auto;position:relative;z-index:1}
+.wpp-box h2{font-size:22px;font-weight:700;color:#fff;margin-bottom:10px}
+.wpp-box p{font-size:15px;color:var(--muted);margin-bottom:22px}
+.btn-wpp{display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#04150c;padding:16px 36px;border-radius:12px;font-size:15.5px;font-weight:700;text-decoration:none;transition:.2s;box-shadow:0 4px 24px rgba(37,211,102,.35)}
+.btn-wpp:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(37,211,102,.45)}
+.wpp-icon{font-size:21px}
 
-/* MODAL PIX */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(26,37,53,.6);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-.modal-overlay.open{display:flex}
-.modal{background:var(--white);border:1.5px solid var(--border);border-radius:20px;padding:36px;max-width:380px;width:90%;text-align:center;box-shadow:var(--shadow-lg)}
-.modal h3{font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px}
-.modal .modal-sub{font-size:13px;color:var(--muted);margin-bottom:22px}
-.pix-key{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;font-size:14px;font-family:monospace;word-break:break-all;margin-bottom:12px;color:var(--green);font-weight:600}
-.btn-copy{width:100%;padding:13px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;font-family:'Inter',sans-serif;transition:.15s}
-.btn-copy:hover{background:#0b8a62}
-.modal-notice{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px}
-.modal-notice strong{color:var(--text)}
-.btn-close-modal{width:100%;padding:11px;background:transparent;color:var(--muted);border:1.5px solid var(--border);border-radius:10px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif}
-.btn-close-modal:hover{border-color:var(--blue);color:var(--blue)}
-.copied{color:var(--green);font-size:12px;font-weight:600;margin-top:8px;display:none}
+footer{text-align:center;padding:28px;color:var(--muted);font-size:13px;border-top:1px solid var(--border);position:relative}
+footer a{color:var(--blue-bright)}
 
-/* FOOTER */
-footer{text-align:center;padding:28px;color:var(--muted);font-size:13px;border-top:1px solid var(--border)}
-footer a{color:var(--blue)}
-
-@media(max-width:640px){
-  .pay-methods{grid-template-columns:1fr}
-  .plan-price .value{font-size:40px}
-  .plans{grid-template-columns:1fr}
-}
+@media(max-width:900px){.plans{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.plans{grid-template-columns:1fr}.plan-price .value{font-size:36px}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;animation-iteration-count:1 !important}}
 </style>
 </head>
 <body>
+
+<div class="bg-fixed"><div class="bg-mesh"></div></div>
 
 <!-- NAV -->
 <nav>
   <div class="nav-inner">
     <a href="/" class="logo">
-      <div class="logo-icon">🤖</div>
+      <svg width="28" height="28" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 25 L20 45 Q15 50 15 58 L15 62 Q15 70 20 75 L40 95" stroke="url(#navlogo)" stroke-width="12" stroke-linecap="round" fill="none"/>
+        <path d="M80 25 L100 45 Q105 50 105 58 L105 62 Q105 70 100 75 L80 95" stroke="url(#navlogo)" stroke-width="12" stroke-linecap="round" fill="none"/>
+        <circle cx="60" cy="60" r="16" fill="#2DD4BF"/>
+        <defs><linearGradient id="navlogo" x1="0" y1="0" x2="120" y2="120"><stop offset="0%" stop-color="#4DA8FF"/><stop offset="100%" stop-color="#1A6FA8"/></linearGradient></defs>
+      </svg>
       BotClínica
     </a>
     <a href="/" class="back">← Voltar ao site</a>
@@ -123,105 +125,105 @@ footer a{color:var(--blue)}
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-badge">🔒 Pagamento 100% seguro · Cancele quando quiser</div>
-  <h1>Escolha o plano ideal<br>para sua clínica</h1>
+  <div class="grid-overlay"></div>
+  <div class="hero-badge"><span class="hero-badge-dot"></span> Pagamento 100% seguro · Cancele quando quiser</div>
+  <h1>Escolha o plano <em>ideal</em><br>para sua clínica</h1>
   <p>Sem taxa de instalação. Sem contrato mínimo. Ativo em até 24h.</p>
 </section>
 
 <!-- PLANOS -->
 <section class="plans-section">
-  <div class="section-label">Planos e preços</div>
-  <div class="section-title">Simples, sem surpresas</div>
-  <div class="section-sub">Cancele quando quiser. Sem taxa de instalação. Sem contrato mínimo.</div>
+  <div class="section-inner">
+    <div class="section-label">Planos e preços</div>
+    <div class="section-title">Simples, sem surpresas</div>
+    <div class="section-sub">Cancele quando quiser. Sem taxa de instalação. Sem contrato mínimo.</div>
 
-  <div class="plans">
+    <div class="plans">
 
-    <!-- STARTER -->
-    <div class="plan">
-      <div class="plan-name">Starter</div>
-      <div class="plan-price">
-        <span class="currency">R$</span>
-        <span class="value" id="p1-val">397</span>
-        <span class="period">/mês</span>
+      <!-- STARTER -->
+      <div class="plan">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">
+          <span class="currency">R$</span>
+          <span class="value" id="p1-val">397</span>
+          <span class="period">/mês</span>
+        </div>
+        <div class="plan-desc">Ideal pra clínicas pequenas que querem começar</div>
+        <ul class="plan-features">
+          <li>1 número de WhatsApp</li>
+          <li>1 médico</li>
+          <li>Até 300 conversas/mês</li>
+          <li>Agendamento automático</li>
+          <li>Painel de conversas</li>
+          <li>Notificações em tempo real</li>
+          <li>Suporte por e-mail</li>
+        </ul>
+        <button onclick="startCheckout('starter')" class="btn btn-outline btn-magnetic">Começar agora</button>
       </div>
-      <div class="plan-desc">Ideal pra clínicas pequenas que querem começar</div>
-      <ul class="plan-features">
-        <li>1 número de WhatsApp</li>
-        <li>1 médico</li>
-        <li>Até 300 conversas/mês</li>
-        <li>Agendamento automático</li>
-        <li>Painel de conversas</li>
-        <li>Notificações em tempo real</li>
-        <li>Suporte por e-mail</li>
-      </ul>
-      <button onclick="startCheckout('starter')" class="btn btn-outline">Começar agora</button>
-    </div>
 
-    <!-- PROFISSIONAL (destaque) -->
-    <div class="plan destaque">
-      <div class="plan-badge">⭐ Mais escolhido</div>
-      <div class="plan-name">Profissional</div>
-      <div class="plan-price">
-        <span class="currency">R$</span>
-        <span class="value" id="p2-val">597</span>
-        <span class="period">/mês</span>
+      <!-- PROFISSIONAL (destaque) -->
+      <div class="plan destaque">
+        <div class="plan-badge">⭐ Mais escolhido</div>
+        <div class="plan-name">Profissional</div>
+        <div class="plan-price">
+          <span class="currency">R$</span>
+          <span class="value" id="p2-val">597</span>
+          <span class="period">/mês</span>
+        </div>
+        <div class="plan-desc">Para clínicas que querem automatizar de verdade</div>
+        <ul class="plan-features">
+          <li>1 número de WhatsApp</li>
+          <li>Conversas ilimitadas</li>
+          <li>Bot por médico</li>
+          <li>Lembretes automáticos</li>
+          <li>Relatórios e métricas</li>
+          <li>Suporte prioritário</li>
+        </ul>
+        <button onclick="startCheckout('profissional')" class="btn btn-primary btn-magnetic">Começar agora</button>
       </div>
-      <div class="plan-desc">Para clínicas que querem automatizar de verdade</div>
-      <ul class="plan-features">
-        <li>1 número de WhatsApp</li>
-        <li>Conversas ilimitadas</li>
-        <li>Bot por médico</li>
-        <li>Lembretes automáticos</li>
-        <li>Relatórios e métricas</li>
-        <li>Suporte prioritário</li>
-      </ul>
-      <button onclick="startCheckout('profissional')" class="btn btn-primary">Começar agora</button>
-    </div>
 
-    <!-- CLÍNICA -->
-    <div class="plan">
-      <div class="plan-name">Clínica</div>
-      <div class="plan-price">
-        <span class="currency">R$</span>
-        <span class="value" id="p3-val">997</span>
-        <span class="period">/mês</span>
+      <!-- CLÍNICA -->
+      <div class="plan">
+        <div class="plan-name">Clínica</div>
+        <div class="plan-price">
+          <span class="currency">R$</span>
+          <span class="value" id="p3-val">997</span>
+          <span class="period">/mês</span>
+        </div>
+        <div class="plan-desc">Para clínicas com múltiplos médicos e alto volume</div>
+        <ul class="plan-features">
+          <li>Múltiplos médicos</li>
+          <li>Conversas ilimitadas</li>
+          <li>Dashboard gerencial</li>
+          <li>Relatórios avançados</li>
+          <li>Suporte WhatsApp</li>
+          <li>Onboarding presencial</li>
+        </ul>
+        <button onclick="startCheckout('clinica')" class="btn btn-outline btn-magnetic">Começar agora</button>
       </div>
-      <div class="plan-desc">Para clínicas com múltiplos médicos e alto volume</div>
-      <ul class="plan-features">
-        <li>Múltiplos médicos</li>
-        <li>Conversas ilimitadas</li>
-        <li>Dashboard gerencial</li>
-        <li>Relatórios avançados</li>
-        <li>Suporte WhatsApp</li>
-        <li>Onboarding presencial</li>
-      </ul>
-      <button onclick="startCheckout('clinica')" class="btn btn-outline">Começar agora</button>
-    </div>
 
-    <!-- PREMIUM -->
-    <div class="plan plan-card" style="border:2px solid #F59E0B;position:relative;background:#0F172A">
-      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#F59E0B;color:#000;font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px;white-space:nowrap">👑 MAIS COMPLETO</div>
-      <div class="plan-name" style="color:#F59E0B" style="color:#F59E0B;opacity:.8;font-family:monospace;font-size:10px;letter-spacing:.12em">PREMIUM</div>
-      <div class="plan-price">
-        <span class="currency" style="color:#F59E0B">R$</span>
-        <span class="value" style="color:#fff">1.497</span>
-        <span class="period">/mês</span>
+      <!-- PREMIUM -->
+      <div class="plan" style="border:1.5px solid rgba(245,166,35,.35);background:linear-gradient(165deg,#14100A,#0B0906);box-shadow:0 0 40px -10px rgba(245,166,35,.18)">
+        <div class="plan-badge" style="background:var(--gold);color:#1a1204">👑 MAIS COMPLETO</div>
+        <div class="plan-name" style="color:var(--gold)">Premium</div>
+        <div class="plan-price">
+          <span class="currency" style="color:var(--gold)">R$</span>
+          <span class="value">1.497</span>
+          <span class="period">/mês</span>
+        </div>
+        <div class="plan-desc" style="color:#B8A085">Automatização total com prontuário digital e remarcação automática</div>
+        <ul class="plan-features premium-features">
+          <li>Tudo do plano Clínica</li>
+          <li>Prontuário eletrônico</li>
+          <li>Reagendamento automático via WhatsApp</li>
+          <li>Relatórios avançados com IA</li>
+          <li>Suporte prioritário 24h</li>
+        </ul>
+        <button onclick="startCheckout('premium')" class="btn btn-gold btn-magnetic">Assinar Premium →</button>
       </div>
-      <div class="plan-desc" style="color:#94A3B8">Automatização total com prontuário digital e remarcação automática</div>
-      <ul class="plan-features premium-features">
-        <li>Tudo do plano Clínica</li>
-        <li>Prontuário eletrônico</li>
-        <li>Remarcação automática</li>
-        <li>Avisos de atraso do médico</li>
-        <li>Relatórios avançados com IA</li>
-        <li>Suporte prioritário 24h</li>
-      </ul>
-      <button onclick="startCheckout('premium')" class="btn" style="background:linear-gradient(135deg,#F59E0B,#EF4444);color:#000;font-weight:800;border:none">Assinar Premium →</button>
-    </div>
 
+    </div>
   </div>
-
-  <!-- FORMAS DE PAGAMENTO -->
 </section>
 
 <!-- GARANTIA -->
@@ -235,7 +237,7 @@ footer a{color:var(--blue)}
 <!-- WHATSAPP CTA -->
 <section class="wpp-section">
   <div class="wpp-box">
-    <h2 style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:10px">Prefere conversar antes?</h2>
+    <h2>Prefere conversar antes?</h2>
     <p>Tire suas dúvidas com a nossa equipe pelo WhatsApp antes de assinar. Respondemos em minutos.</p>
     <a href="https://wa.me/5531982158450?text=Olá!%20Quero%20saber%20mais%20sobre%20o%20BotClínica%20antes%20de%20assinar." target="_blank" class="btn-wpp">
       <span class="wpp-icon">💬</span>
@@ -244,28 +246,24 @@ footer a{color:var(--blue)}
   </div>
 </section>
 
-
 <footer>
   <p>© 2026 BotClínica · <a href="/app">Acessar painel</a> · Dúvidas? <a href="https://wa.me/5531982158450">Fale no WhatsApp</a></p>
 </footer>
 
-<script>
-// checkout limpo
-</script>
 <!-- MODAL DE IDENTIFICAÇÃO -->
-<div id="checkout-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-  <div style="background:#fff;border-radius:20px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-    <h3 style="font-size:18px;font-weight:800;color:#0F172A;margin-bottom:6px">Quase lá! 🚀</h3>
-    <p style="font-size:13px;color:#64748B;margin-bottom:20px">Informe seus dados para finalizar a assinatura do plano <strong id="modal-plan-name" style="color:#1A6FA8"></strong>.</p>
+<div id="checkout-modal" style="display:none;position:fixed;inset:0;background:rgba(4,8,14,.75);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(6px)">
+  <div style="background:#0F1B2C;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:32px;max-width:400px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,.5)">
+    <h3 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;font-family:'Space Grotesk',sans-serif">Quase lá 🚀</h3>
+    <p style="font-size:13px;color:#8FA0B5;margin-bottom:20px">Informe seus dados para finalizar a assinatura do plano <strong id="modal-plan-name" style="color:#4DA8FF"></strong>.</p>
     <div style="display:flex;flex-direction:column;gap:12px">
-      <input id="checkout-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none"/>
-      <input id="checkout-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none"/>
-      <input id="checkout-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:13px;outline:none"/>
+      <input id="checkout-clinic" type="text" placeholder="Nome da clínica" style="padding:12px 14px;border:1.5px solid rgba(255,255,255,.14);border-radius:10px;font-size:13px;outline:none;background:#0B1420;color:#F0F4F8;font-family:inherit"/>
+      <input id="checkout-admin" type="text" placeholder="Seu nome" style="padding:12px 14px;border:1.5px solid rgba(255,255,255,.14);border-radius:10px;font-size:13px;outline:none;background:#0B1420;color:#F0F4F8;font-family:inherit"/>
+      <input id="checkout-email" type="email" placeholder="Seu melhor email" style="padding:12px 14px;border:1.5px solid rgba(255,255,255,.14);border-radius:10px;font-size:13px;outline:none;background:#0B1420;color:#F0F4F8;font-family:inherit"/>
     </div>
-    <p id="checkout-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+    <p id="checkout-error" style="color:#F87171;font-size:12px;margin-top:8px;display:none"></p>
     <div style="display:flex;gap:10px;margin-top:20px">
-      <button onclick="closeCheckoutModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;font-weight:700;font-size:13px;cursor:pointer">Cancelar</button>
-      <button id="checkout-submit-btn" onclick="submitCheckout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:#1A6FA8;color:#fff;font-weight:800;font-size:13px;cursor:pointer">Ir para pagamento →</button>
+      <button onclick="closeCheckoutModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid rgba(255,255,255,.14);background:transparent;font-weight:700;font-size:13px;cursor:pointer;color:#8FA0B5;font-family:inherit">Cancelar</button>
+      <button id="checkout-submit-btn" onclick="submitCheckout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:#4DA8FF;color:#04101c;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Ir para pagamento →</button>
     </div>
   </div>
 </div>
@@ -335,6 +333,15 @@ footer a{color:var(--blue)}
       startCheckout(plano);
     }
   })();
+
+  // Botões magnéticos — mesmo efeito do site principal
+  document.querySelectorAll('.btn-magnetic').forEach(function(btn){
+    btn.addEventListener('mousemove', function(e){
+      var r = btn.getBoundingClientRect();
+      btn.style.setProperty('--bx', ((e.clientX - r.left) / r.width * 100) + '%');
+      btn.style.setProperty('--by', ((e.clientY - r.top) / r.height * 100) + '%');
+    });
+  });
 </script>
 </body>
 </html>
