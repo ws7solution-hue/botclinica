@@ -353,22 +353,14 @@ module.exports = async (req, res) => {
       if (!id) return res.status(400).json({ error: "ID obrigatório" });
       await fetch(`${FS}/crm_clientes/${id}?key=${API_KEY}`, { method: "DELETE" });
 
-      // BUGFIX (05/08): antes só apagava do registro do CRM — o acesso
-      // continuava existindo em acessos_autorizados, então "voltava" na
-      // próxima vez que a lista era recarregada (o merge com listClients
-      // trazia ele de novo). Agora também bloqueia o acesso de verdade.
+      // BUGFIX (05/08 — 3ª rodada): antes só desativava (ativo:false),
+      // mantendo o registro — por isso o cliente "reaparecia" na lista, só
+      // que com status Cancelado, em vez de sumir de vez como o usuário
+      // esperava de um "Excluir" de verdade. Agora apaga o documento por
+      // completo (o login já bloqueia sozinho quando o registro não existe).
       const emailFinal = email || id.replace(/_/g, ".");
       const accKey = emailToKey(emailFinal);
-      await fetch(`${FS}/acessos_autorizados/${accKey}?updateMask.fieldPaths=ativo&updateMask.fieldPaths=statusPagamento&key=${API_KEY}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fields: {
-            ativo: { booleanValue: false },
-            statusPagamento: { stringValue: "removido_pelo_crm" },
-          }
-        }),
-      }).catch(() => {});
+      await fetch(`${FS}/acessos_autorizados/${accKey}?key=${API_KEY}`, { method: "DELETE" }).catch(() => {});
 
       return res.status(200).json({ ok: true });
     }
@@ -518,10 +510,16 @@ module.exports = async (req, res) => {
       // BUGFIX CRÍTICO (05/08): antes, mesmo uma conta cancelada/inadimplente
       // de vez (ativo:false, gravado pelo webhook do Stripe quando a
       // assinatura é cancelada ou some depois de falhar) continuava
-      // conseguindo logar normalmente — nada bloqueava de verdade. Assume
-      // TRUE se o campo não existir (conta antiga/manual sem esse campo
-      // ainda), só bloqueia quando for EXPLICITAMENTE false.
-      const ativo = planD.fields?.ativo?.booleanValue !== false;
+      // conseguindo logar normalmente — nada bloqueava de verdade.
+      //
+      // 2ª rodada: agora que "Excluir" no CRM apaga o registro de vez (não
+      // só desativa), precisamos diferenciar dois casos aqui:
+      //  - Registro NUNCA existiu ou foi EXCLUÍDO de propósito → bloqueia
+      //  - Registro existe mas é antigo/manual, sem o campo "ativo" ainda
+      //    (de antes dessa funcionalidade existir) → permite, por
+      //    compatibilidade com contas legadas
+      const contaExiste = !!planD.fields;
+      const ativo = !contaExiste ? false : planD.fields.ativo?.booleanValue !== false;
       if (!ativo) {
         return res.status(200).json({
           error: "Sua assinatura está cancelada ou inativa. Entre em contato com o suporte para reativar seu acesso.",
@@ -1355,6 +1353,21 @@ module.exports = async (req, res) => {
       });
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── CRM: excluir conversa (Suporte WhatsApp, Luna/Vendas ou Ticket) ──
+    if (action === "deleteConversation") {
+      const { tipo, id } = payload;
+      if (!tipo || !id) return res.status(400).json({ error: "tipo e id são obrigatórios" });
+      const colecoes = {
+        suporte: "conversations_suporte",
+        luna: "conversations_luna",
+        ticket: "support_tickets",
+      };
+      const colecao = colecoes[tipo];
+      if (!colecao) return res.status(400).json({ error: "tipo inválido" });
+      await fetch(`${FS}/${colecao}/${id}?key=${API_KEY}`, { method: "DELETE" });
       return res.status(200).json({ ok: true });
     }
 
