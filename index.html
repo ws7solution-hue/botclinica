@@ -95,11 +95,12 @@ nav{position:sticky;top:0;z-index:100;background:rgba(6,11,20,0.75);backdrop-fil
 .phone-notch{height:20px;display:flex;align-items:center;justify-content:center}
 .phone-notch::after{content:'';width:56px;height:5px;border-radius:4px;background:rgba(255,255,255,.15)}
 .phone-header{display:flex;align-items:center;gap:10px;padding:6px 16px 13px;border-bottom:1px solid var(--border)}
-.phone-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--teal));flex-shrink:0}
+.phone-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--teal));flex-shrink:0;position:relative;overflow:hidden}
 .phone-header-text .pname{font-size:12.5px;font-weight:600}
 .phone-header-text .pstatus{font-size:10px;color:var(--teal);display:flex;align-items:center;gap:4px}
 .phone-header-text .pstatus::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal)}
-.phone-chat-anim{height:330px;padding:15px;display:flex;flex-direction:column;gap:9px;font-size:12px;line-height:1.4;overflow:hidden}
+.phone-chat-anim{height:330px;padding:15px;display:flex;flex-direction:column;gap:9px;font-size:12px;line-height:1.4;overflow-y:auto;scroll-behavior:smooth}
+.phone-chat-anim::-webkit-scrollbar{width:0px;background:transparent}
 .bubble{max-width:80%;padding:9px 12px;border-radius:14px;opacity:0;animation:bubbleIn .4s forwards}
 .bubble.p{align-self:flex-start;background:rgba(255,255,255,.06);border-bottom-left-radius:4px}
 .bubble.bot{align-self:flex-end;background:linear-gradient(135deg,var(--blue),#14588a);color:#fff;border-bottom-right-radius:4px}
@@ -327,7 +328,13 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
       <div class="phone">
         <div class="phone-notch"></div>
         <div class="phone-header">
-          <div class="phone-avatar"></div>
+          <div class="phone-avatar">
+              <svg width="18" height="18" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:6px;left:6px">
+                <path d="M40 25 L20 45 Q15 50 15 58 L15 62 Q15 70 20 75 L40 95" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none"/>
+                <path d="M80 25 L100 45 Q105 50 105 58 L105 62 Q105 70 100 75 L80 95" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none"/>
+                <circle cx="60" cy="60" r="18" fill="#fff" fill-opacity="0.9"/>
+              </svg>
+            </div>
           <div class="phone-header-text">
             <div class="pname">Sofia · Clínica Exemplo</div>
             <div class="pstatus">online agora</div>
@@ -351,7 +358,6 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
           <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Agendamento automático</strong> — pergunta o serviço, a data e confirma tudo na hora</p></div>
           <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Lembretes de consulta</strong> — reduz faltas com confirmações automáticas</p></div>
           <div class="feature-item"><div class="feature-dot">✓</div><p><strong>FAQ inteligente</strong> — responde valores, convênios, localização e horários</p></div>
-          <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Bot por médico</strong> — cada médico tem seu próprio assistente personalizado</p></div>
           <div class="feature-item"><div class="feature-dot">✓</div><p><strong>Transferência com notificação</strong> — avisa o atendente com som e alerta visual</p></div>
         </div>
       </div>
@@ -359,10 +365,16 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
         <div class="phone" style="width:100%;max-width:280px;margin:0 auto">
           <div class="phone-notch"></div>
           <div class="phone-header">
-            <div class="phone-avatar"></div>
+            <div class="phone-avatar">
+              <svg width="18" height="18" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:6px;left:6px">
+                <path d="M40 25 L20 45 Q15 50 15 58 L15 62 Q15 70 20 75 L40 95" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none"/>
+                <path d="M80 25 L100 45 Q105 50 105 58 L105 62 Q105 70 100 75 L80 95" stroke="#fff" stroke-width="14" stroke-linecap="round" fill="none"/>
+                <circle cx="60" cy="60" r="18" fill="#fff" fill-opacity="0.9"/>
+              </svg>
+            </div>
             <div class="phone-header-text"><div class="pname">Sofia · Clínica Exemplo</div><div class="pstatus">online agora</div></div>
           </div>
-          <div class="phone-chat-anim" style="height:320px">
+          <div class="phone-chat-anim" id="phone-chat-static" style="height:320px">
             <div class="bubble p" style="opacity:1">Oi, quero agendar com a dermatologista</div>
             <div class="bubble bot" style="opacity:1">Olá! 😊 A Dra. Carla atende às terças e quintas. Qual seria a melhor data pra você?</div>
             <div class="bubble p" style="opacity:1">Quinta-feira que vem</div>
@@ -391,7 +403,7 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
       <div class="step-card" data-step="2">
         <div class="step-icon">📱</div>
         <h3>Conecte seu WhatsApp</h3>
-        <p>Escaneie um QR Code e seu número de WhatsApp já estará conectado. Nenhum número novo necessário.</p>
+        <p>Conectamos seu número atual à plataforma oficial da Meta pra você. Nenhum número novo necessário — seus contatos continuam os mesmos.</p>
       </div>
       <div class="step-card" data-step="3">
         <div class="step-icon">🚀</div>
@@ -488,7 +500,6 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
           <ul class="np-features">
             <li>1 número de WhatsApp</li>
             <li><strong>Conversas ilimitadas</strong></li>
-            <li><strong>Bot individual por médico</strong></li>
             <li>Lembretes automáticos</li>
             <li>Relatórios e métricas</li>
             <li>Suporte prioritário WhatsApp</li>
@@ -573,7 +584,7 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
     <div class="faq-inner">
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Preciso trocar meu número de WhatsApp?<span class="faq-icon">+</span></div>
-        <div class="faq-a">Não! O BotClínica se conecta ao seu número atual de WhatsApp Business. Você escaneia um QR Code e pronto. Seus contatos continuam os mesmos.</div>
+        <div class="faq-a">Não! Você continua usando o mesmo número de sempre — seus contatos não mudam. Ele só precisa estar conectado à plataforma oficial da Meta (WhatsApp Business), o que a nossa equipe faz por você na etapa de configuração.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">O bot substitui completamente minha recepcionista?<span class="faq-icon">+</span></div>
@@ -582,10 +593,6 @@ footer{background:var(--bg-deep);padding:56px 5% 32px;border-top:1px solid var(-
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Os pacientes vão saber que estão falando com um bot?<span class="faq-icon">+</span></div>
         <div class="faq-a">O bot usa linguagem natural, nome personalizado e responde de forma humanizada. A maioria dos pacientes não percebe diferença. Você pode configurar o tom — cordial, formal ou descontraído.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Como funciona o bot por médico?<span class="faq-icon">+</span></div>
-        <div class="faq-a">Cada médico da clínica tem seu próprio assistente com nome, personalidade e agenda configurados separadamente. Quando um paciente pergunta sobre a Dra. Ana, responde a "Sofia". Quando pergunta sobre o Dr. Carlos, responde o "Lucas". Você gerencia tudo pelo painel.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Preciso ter conhecimento técnico?<span class="faq-icon">+</span></div>
@@ -859,12 +866,14 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
           d.innerHTML='<span></span><span></span><span></span>';
           d.style.opacity='1';
           stage.appendChild(d);
+          stage.scrollTop=stage.scrollHeight;
           delay(1000).then(function(){ d.remove(); step(); });
         } else {
           var b=document.createElement('div');
           b.className='bubble '+s.type;
           b.textContent=s.text;
           stage.appendChild(b);
+          stage.scrollTop=stage.scrollHeight;
           delay(850).then(step);
         }
       }
@@ -875,6 +884,16 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
 
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){reveal();chatAnim('phone-chat-anim');});}
   else{reveal();chatAnim('phone-chat-anim');}
+
+  // Rola a caixa de chat estática (seção de features) até o final, pra não
+  // cortar a última mensagem (a confirmação do agendamento).
+  function scrollStaticChat(){
+    var el = document.getElementById('phone-chat-static');
+    if(el) el.scrollTop = el.scrollHeight;
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',scrollStaticChat);}
+  else{scrollStaticChat();}
+  window.addEventListener('load', scrollStaticChat);
 })();
 </script>
 
