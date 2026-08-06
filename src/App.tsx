@@ -420,6 +420,18 @@ export default function App() {
           console.log('login response:', JSON.stringify({ok: ld.ok, error: ld.error}));
           if (ld.ok) {
             if (d.plano) localStorage.setItem('atendia_plan', d.plano);
+            // Meta Pixel: dispara o evento de compra só aqui, depois de
+            // confirmar o pagamento de verdade (não no redirect em si) —
+            // assim mede conversão real, não só clique.
+            const planValues: Record<string, number> = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
+            const planValue = d.plano ? planValues[d.plano] : undefined;
+            if (typeof (window as any).fbq === 'function') {
+              (window as any).fbq('track', 'Purchase', {
+                value: planValue,
+                currency: 'BRL',
+                content_name: d.plano || 'plano_botclinica',
+              });
+            }
             handleLoginSuccess({
               ...ld,
               email: d.email,
