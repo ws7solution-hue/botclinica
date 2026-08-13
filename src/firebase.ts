@@ -107,6 +107,11 @@ export async function fbSaveConversation(clinicId: string, conversation: Convers
   return post('saveConversation', { clinicId: clinicId || '', conversation });
 }
 
+// ── Nota interna de recepção, por conversa (visível só pra clínica) ──
+export async function fbSaveReceptionNote(clinicId: string, conversationId: string, note: string) {
+  return post('saveReceptionNote', { clinicId: clinicId || '', conversationId, note });
+}
+
 // ── CONFIGURAÇÕES DA CLÍNICA ──
 export async function fbGetClinicSettings(clinicId?: string) {
   const d = await post('getClinicSettings', { clinicId: clinicId || '' });

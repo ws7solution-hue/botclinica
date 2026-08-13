@@ -1057,6 +1057,7 @@ export default function App() {
               conversations={conversations}
               setConversations={setConversations}
               doctors={doctors}
+              appointments={appointments}
               selectedChatId={selectedChatId}
               setSelectedChatId={setSelectedChatId}
               onAddSystemLog={addSystemLog}

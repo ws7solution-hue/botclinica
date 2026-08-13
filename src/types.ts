@@ -22,6 +22,7 @@ export interface Conversation {
   avatarColor: string;
   category: string; // e.g., 'Agendamento', 'Dúvida', 'Exames', 'Urgência'
   assignedDoctorId?: string;
+  receptionNote?: string;
   messages: Message[];
   updatedAt?: string;
 }
