@@ -767,7 +767,7 @@ module.exports = async (req, res) => {
       if (d.error) return res.status(200).json([]);
       const docs = (d.documents || []).map(doc => {
         const f = doc.fields || {};
-        const g = k => f[k]?.stringValue || "";
+        const g = k => f[k]?.stringValue || f[k]?.integerValue || f[k]?.doubleValue || "";
         return {
           id: doc.name.split("/").pop(),
           patientId: g("patientId"),
