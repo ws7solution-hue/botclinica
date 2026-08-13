@@ -833,6 +833,43 @@ module.exports = async (req, res) => {
 
     // ── CONVERSAS POR CLÍNICA (multi-tenant — isolado, ainda sem o webhook
     // real escrevendo aqui até o Embedded Signup ser concluído) ──
+    // ── Alertas proativos da clínica (gerados pelo job da VPS) ──────────
+    if (action === "listClinicAlerts") {
+      const { clinicId } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const col = `clinic_alerts_${emailToKey(clinicId)}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const alerts = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          type: f.type?.stringValue || "",
+          title: f.title?.stringValue || "",
+          message: f.message?.stringValue || "",
+          createdAt: f.createdAt?.stringValue || "",
+          read: f.read?.booleanValue || false,
+        };
+      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return res.status(200).json(alerts);
+    }
+
+    if (action === "markAlertRead") {
+      const { clinicId, alertId } = payload;
+      if (!clinicId || !alertId) return res.status(400).json({ error: "clinicId e alertId obrigatórios" });
+      const col = `clinic_alerts_${emailToKey(clinicId)}`;
+      const url = `${FS}/${col}/${alertId}?key=${API_KEY}&updateMask.fieldPaths=read`;
+      const r = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { read: { booleanValue: true } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "listConversations") {
       const { clinicId } = payload;
       const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
