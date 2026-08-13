@@ -20,8 +20,8 @@ import {
   X,
   Download
 } from 'lucide-react';
-import { Conversation, Message, Doctor } from '../types';
-import { fbDeleteConversation } from '../firebase';
+import { Conversation, Message, Doctor, Appointment } from '../types';
+import { fbDeleteConversation, fbSaveReceptionNote } from '../firebase';
 
 // React class ErrorBoundary to prevent media message parsing or rendering errors from crashing the page
 class ErrorBoundary extends React.Component<
@@ -147,6 +147,7 @@ interface ChatPanelProps {
   conversations: Conversation[];
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   doctors: Doctor[];
+  appointments: Appointment[];
   selectedChatId: string | null;
   setSelectedChatId: (id: string | null) => void;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
@@ -158,6 +159,7 @@ export default function ChatPanel({
   conversations,
   setConversations,
   doctors,
+  appointments,
   selectedChatId,
   setSelectedChatId,
   onAddSystemLog,
@@ -167,6 +169,21 @@ export default function ChatPanel({
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
   const [replyText, setReplyText] = useState('');
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSavedAt, setNoteSavedAt] = useState<number | null>(null);
+
+  // Mesma normalização usada no Prontuário/Portal do Médico: remove o "9"
+  // extra do celular pra DDDs fora de SP/RJ/ES, já que o WhatsApp às vezes
+  // entrega o telefone sem esse dígito — sem isso, o agendamento do paciente
+  // pode não ser encontrado mesmo existindo, só por causa do formato do
+  // número bater diferente entre a conversa e o agendamento.
+  const normalizePhoneDigits = (phone: string) => {
+    let digits = (phone || '').replace(/\D/g, '');
+    const match = digits.match(/^55(\d{2})9(\d{8})$/);
+    if (match) digits = `55${match[1]}${match[2]}`;
+    return digits;
+  };
 
   const handleDownloadImage = (url: string) => {
     // Passa pelo proxy do próprio site (mesma origem) em vez de baixar
@@ -191,6 +208,37 @@ export default function ChatPanel({
   }, [selectedChatId, conversations, setSelectedChatId]);
 
   const activeChat = conversations.find(c => c.id === selectedChatId) || conversations[0];
+
+  // Agendamento mais recente (não cancelado) desse paciente — é daqui que
+  // "Doutor Indicado" e "Especialidade Pretendida" passam a vir de verdade,
+  // em vez do campo assignedDoctorId (que nunca era preenchido em lugar
+  // nenhum do sistema, então sempre caía no texto genérico de placeholder).
+  const activeAppointment = activeChat
+    ? appointments
+        .filter(a => a.status !== 'canceled' && normalizePhoneDigits(a.patientPhone) === normalizePhoneDigits(activeChat.patientPhone))
+        .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))[0]
+    : undefined;
+
+  // Carrega a nota já salva sempre que troca de conversa (senão o texto de
+  // uma conversa "vaza" visualmente pra outra até o próximo re-render)
+  useEffect(() => {
+    setNoteDraft(activeChat?.receptionNote || '');
+    setNoteSavedAt(null);
+  }, [activeChat?.id]);
+
+  const handleSaveNote = async () => {
+    if (!activeChat) return;
+    setNoteSaving(true);
+    try {
+      await fbSaveReceptionNote(clinicId || '', activeChat.id, noteDraft);
+      setConversations(prev => prev.map(c => c.id === activeChat.id ? { ...c, receptionNote: noteDraft } : c));
+      setNoteSavedAt(Date.now());
+    } catch (e) {
+      onAddSystemLog('error', 'Não foi possível salvar a nota de recepção.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
 
   // Scroll to bottom of message list on update
   useEffect(() => {
@@ -813,14 +861,14 @@ export default function ChatPanel({
             <div>
               <span className="text-slate-400 font-sans block text-[10px] uppercase">Doutor Indicado</span>
               <span className="text-slate-700 font-sans font-medium">
-                {doctors.find(d => d.id === activeChat.assignedDoctorId)?.name || 'Nenhum / Triagem Inicial'}
+                {activeAppointment?.doctorName || 'Nenhum / Triagem Inicial'}
               </span>
             </div>
 
             <div>
               <span className="text-slate-400 font-sans block text-[10px] uppercase">Especialidade Pretendida</span>
               <span className="text-slate-700 font-sans font-medium">
-                {doctors.find(d => d.id === activeChat.assignedDoctorId)?.specialty || 'Clínica Geral / Outros'}
+                {activeAppointment?.specialty || 'Clínica Geral / Outros'}
               </span>
             </div>
           </div>
@@ -830,11 +878,16 @@ export default function ChatPanel({
               Notas de Recepção
             </h5>
             <textarea
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              onBlur={handleSaveNote}
               placeholder="Adicione observações internas sobre o paciente que ficarão salvas na ficha..."
               className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden min-h-[80px] font-sans"
             />
             <div className="flex items-center justify-between text-[10px] text-slate-400">
-              <span>Apenas visível para a clínica</span>
+              <span>
+                {noteSaving ? 'Salvando...' : noteSavedAt ? 'Salvo ✓' : 'Apenas visível para a clínica'}
+              </span>
               <Bookmark className="w-3.5 h-3.5" />
             </div>
           </div>
