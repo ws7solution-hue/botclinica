@@ -64,9 +64,14 @@ export default function ProntuarioPanel({
     uniquePatients.length > 0 ? uniquePatients[0].phone : ''
   );
 
-  // Normalization for Firestore keys
+  // Normalization for Firestore keys — inclui remoção do "9" extra do
+  // celular pra DDDs fora de SP/RJ/ES (ver DoctorPortalApp.tsx pro contexto
+  // completo do porquê isso é necessário).
   const getNormalizedPatientId = (phone: string) => {
-    return phone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    let digits = phone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    const match = digits.match(/^55(\d{2})9(\d{8})$/);
+    if (match) digits = `55${match[1]}${match[2]}`;
+    return digits;
   };
 
   const activePatient = uniquePatients.find(p => p.phone === selectedPatientPhone) || uniquePatients[0];

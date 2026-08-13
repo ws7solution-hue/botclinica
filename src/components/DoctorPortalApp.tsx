@@ -173,10 +173,24 @@ export default function DoctorPortalApp() {
   const nowTime = new Date().toTimeString().slice(0, 5);
   const nextPatientIndex = selectedAgendaDate === todayISO() ? appointments.findIndex((a) => a.time >= nowTime) : -1;
 
+  // Normaliza telefone pro mesmo padrão usado como docId/patientId em todo o
+  // sistema. Inclui um passo extra importante: o WhatsApp às vezes entrega o
+  // número de DDDs fora de SP/RJ/ES (como o 31, de BH) SEM o "9" extra do
+  // celular, mesmo que o número de verdade tenha — sem essa normalização, o
+  // mesmo paciente aparece com dois IDs diferentes dependendo de onde o
+  // telefone dele foi registrado no sistema (ex: 553189917628 vs
+  // 5531989917628), fazendo o prontuário "sumir" mesmo estando salvo.
+  const normalizePatientId = (phone: string) => {
+    let digits = phone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    const match = digits.match(/^55(\d{2})9(\d{8})$/);
+    if (match) digits = `55${match[1]}${match[2]}`;
+    return digits;
+  };
+
   const openPatient = async (appt: Appointment) => {
     setSelectedPatient(appt);
     setComplaint(''); setConduct(''); setPrescription('');
-    const patientId = appt.patientPhone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    const patientId = normalizePatientId(appt.patientPhone);
     const [profile, entries] = await Promise.all([
       fbGetPatientProfile(clinicId, patientId),
       fbListProntuario(clinicId, patientId),
@@ -189,7 +203,7 @@ export default function DoctorPortalApp() {
     if (!selectedPatient || !selectedDoctor) return;
     if (!complaint.trim() && !conduct.trim()) return;
     setSavingEvolution(true);
-    const patientId = selectedPatient.patientPhone.replace(/[@.]/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+    const patientId = normalizePatientId(selectedPatient.patientPhone);
     const entry = {
       date: new Date().toLocaleDateString('pt-BR'),
       doctorName: selectedDoctor.name,
