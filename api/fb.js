@@ -857,6 +857,7 @@ module.exports = async (req, res) => {
           avatarColor: g("avatarColor") || "bg-slate-500",
           category: g("category") || "WhatsApp",
           assignedDoctorId: g("assignedDoctorId") || undefined,
+          receptionNote: g("receptionNote") || "",
           messages: arr("messages"),
         };
       });
@@ -874,6 +875,23 @@ module.exports = async (req, res) => {
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
       return res.status(200).json(conversation);
+    }
+
+    // ── Nota interna de recepção — update PARCIAL (só esse campo, sem
+    // tocar no resto da conversa, diferente do saveConversation acima) ──
+    if (action === "saveReceptionNote") {
+      const { clinicId, conversationId, note } = payload;
+      if (!conversationId) return res.status(400).json({ error: "conversationId obrigatório" });
+      const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
+      const url = `${FS}/${col}/${conversationId}?key=${API_KEY}&updateMask.fieldPaths=receptionNote`;
+      const r = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { receptionNote: { stringValue: note || "" } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
     }
 
     // ── TROCAR SENHA (Firebase Auth) ─────────────────────
