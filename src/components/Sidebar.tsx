@@ -11,7 +11,8 @@ import {
   Wallet,
   CircleDot,
   Edit2,
-  LogOut
+  LogOut,
+  Bell
 } from 'lucide-react';
 import { SidebarTab, UserProfile, AtendiaPlan } from '../types';
 
@@ -24,6 +25,7 @@ interface SidebarProps {
   onEditProfile: () => void;
   onLogout?: () => void;
   currentPlan: AtendiaPlan;
+  unreadAlerts?: number;
 }
 
 export default function Sidebar({ 
@@ -34,7 +36,8 @@ export default function Sidebar({
   userProfile,
   onEditProfile,
   onLogout,
-  currentPlan
+  currentPlan,
+  unreadAlerts
 }: SidebarProps) {
   const menuItems = [
     { id: 'overview' as SidebarTab, label: 'Visão Geral', icon: LayoutDashboard },
@@ -43,6 +46,7 @@ export default function Sidebar({
     { id: 'doctors' as SidebarTab, label: 'Médicos', icon: Users },
     { id: 'prontuario' as SidebarTab, label: 'Prontuário', icon: Activity },
     { id: 'financeiro' as SidebarTab, label: 'Financeiro', icon: Wallet },
+    { id: 'alerts' as SidebarTab, label: 'Alertas', icon: Bell, badge: unreadAlerts },
     { id: 'reports' as SidebarTab, label: 'Relatórios', icon: BarChart3 },
     { id: 'settings' as SidebarTab, label: 'Configurações', icon: Settings },
   ];
