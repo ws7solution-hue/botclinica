@@ -96,7 +96,16 @@ export interface UserProfile {
   firstAccess?: boolean;
 }
 
-export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario' | 'financeiro';
+export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario' | 'financeiro' | 'alerts';
+
+export interface ClinicAlert {
+  id: string;
+  type: 'sem_retorno' | 'conversa_parada';
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
 
 export type AtendiaPlan = 'starter' | 'profissional' | 'clinica' | 'premium';
 

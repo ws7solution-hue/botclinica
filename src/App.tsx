@@ -6,6 +6,7 @@ import ChatPanel from './components/ChatPanel';
 import CalendarPanel from './components/CalendarPanel';
 import DoctorsPanel from './components/DoctorsPanel';
 import SettingsPanel from './components/SettingsPanel';
+import AlertsPanel from './components/AlertsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import ProntuarioPanel from './components/ProntuarioPanel';
 import FinanceiroPanel from './components/FinanceiroPanel';
@@ -22,7 +23,8 @@ import {
   Doctor, 
   SystemLogs,
   UserProfile,
-  AtendiaPlan
+  AtendiaPlan,
+  ClinicAlert
 } from './types';
 
 import { 
@@ -42,7 +44,8 @@ import {
   fbSaveAppointment, 
   fbListConversations, 
   fbSaveConversation,
-  fbListScheduleBlocks
+  fbListScheduleBlocks,
+  fbListClinicAlerts
 } from './firebase';
 
 import { Sparkles, X, Calendar, User, Phone, Clock, Stethoscope, AlertCircle, CalendarCheck } from 'lucide-react';
@@ -250,6 +253,24 @@ export default function App() {
     const interval = setInterval(checkWhatsappStatus, 30000); // confere a cada 30s
     return () => clearInterval(interval);
   }, [isLoggedIn, checkWhatsappStatus]);
+
+  // ── Contador de alertas não lidos (pro badge do menu) — independente
+  // de estar na aba Alertas aberta ou não, igual já fazemos pro badge de
+  // conversas.
+  const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
+  React.useEffect(() => {
+    const clinicIdForAlerts = userProfile.email || localStorage.getItem('atendia_email') || '';
+    if (!clinicIdForAlerts || !isLoggedIn) return;
+    const loadAlertsCount = async () => {
+      try {
+        const alerts = await fbListClinicAlerts(clinicIdForAlerts);
+        setUnreadAlertsCount(alerts.filter((a: ClinicAlert) => !a.read).length);
+      } catch (e) { /* silencioso — não é crítico */ }
+    };
+    loadAlertsCount();
+    const interval = setInterval(loadAlertsCount, 60000);
+    return () => clearInterval(interval);
+  }, [userProfile.email, isLoggedIn]);
 
 
   const handleLoginSuccess = (profile: UserProfile) => {
@@ -997,6 +1018,7 @@ export default function App() {
           activeTab={activeTab} 
           setActiveTab={(tab) => { setActiveTab(tab); setSidebarOpen(false); }} 
           unreadChats={unreadChatsCount}
+          unreadAlerts={unreadAlertsCount}
           whatsappConnected={whatsappConnected}
           userProfile={userProfile}
           onEditProfile={() => setProfileModalOpen(true)}
@@ -1143,6 +1165,12 @@ export default function App() {
                 setUserProfile(updated);
                 localStorage.setItem('atendia_user_profile', JSON.stringify(updated));
               }}
+            />
+          )}
+
+          {activeTab === 'alerts' && (
+            <AlertsPanel
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
             />
           )}
         </main>

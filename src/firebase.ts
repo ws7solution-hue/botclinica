@@ -112,6 +112,16 @@ export async function fbSaveReceptionNote(clinicId: string, conversationId: stri
   return post('saveReceptionNote', { clinicId: clinicId || '', conversationId, note });
 }
 
+// ── Alertas proativos ──
+export async function fbListClinicAlerts(clinicId: string) {
+  const d = await post('listClinicAlerts', { clinicId: clinicId || '' });
+  return Array.isArray(d) ? d : [];
+}
+
+export async function fbMarkAlertRead(clinicId: string, alertId: string) {
+  return post('markAlertRead', { clinicId: clinicId || '', alertId });
+}
+
 // ── CONFIGURAÇÕES DA CLÍNICA ──
 export async function fbGetClinicSettings(clinicId?: string) {
   const d = await post('getClinicSettings', { clinicId: clinicId || '' });
