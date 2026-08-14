@@ -200,6 +200,29 @@ module.exports = async (req, res) => {
     }
 
     // ── ADMIN: liberar/atualizar acesso ──────────────────
+    // ── Ativar/desativar add-ons pagos por clínica (via CRM interno) ─────
+    // Diferente do checkout self-service (Stripe), isso é o "poder de
+    // fogo manual" do Willian — liberar teste grátis por X dias, ou
+    // ativar/desativar direto, sem depender de pagamento.
+    if (action === "adminSetDocumentsAddon") {
+      const { clinicId, active, expiresAt } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const key = emailToKey(clinicId);
+      const path = `clinic_settings_${key}/bot`;
+      const fields = {
+        documentsAddonActive: { booleanValue: !!active },
+        documentsAddonExpiresAt: { stringValue: expiresAt || "" },
+      };
+      const paths = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");
+      const r = await fetch(`${FS}/${path}?key=${API_KEY}&${paths}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
     // ── Salva o telefone de WhatsApp da clínica na coleção central ───────
     // (usada pelo cloudapi da VPS para casar automaticamente com os
     // números registrados na WABA compartilhada da Meta)
