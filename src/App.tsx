@@ -377,7 +377,12 @@ export default function App() {
     // Busca configs do bot
     fbGetBotConfig(`clinic_settings_${key}/bot`)
       .then((config: any) => {
-        if (config && (config.clinicName || config.phone || config.welcomeMessage)) {
+        // BUGFIX: antes, isso só rodava se clinicName/phone/welcomeMessage
+        // existissem — contas criadas fora do fluxo normal de cadastro
+        // (ex: direto no Firestore, como as de teste) não tinham esses 3
+        // campos, e por isso NENHUMA config vinda do banco era aplicada,
+        // nem outras como documentsAddonActive que vinham no mesmo objeto.
+        if (config) {
           setBotSettings((prev: any) => ({
             ...prev,
             ...(config.clinicName && { clinicName: config.clinicName }),
