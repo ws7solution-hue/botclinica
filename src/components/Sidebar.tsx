@@ -12,7 +12,8 @@ import {
   CircleDot,
   Edit2,
   LogOut,
-  Bell
+  Bell,
+  FileStack
 } from 'lucide-react';
 import { SidebarTab, UserProfile, AtendiaPlan } from '../types';
 
@@ -45,6 +46,7 @@ export default function Sidebar({
     { id: 'calendar' as SidebarTab, label: 'Agenda', icon: Calendar },
     { id: 'doctors' as SidebarTab, label: 'Médicos', icon: Users },
     { id: 'prontuario' as SidebarTab, label: 'Prontuário', icon: Activity },
+    { id: 'documents' as SidebarTab, label: 'Documentos', icon: FileStack },
     { id: 'financeiro' as SidebarTab, label: 'Financeiro', icon: Wallet },
     { id: 'alerts' as SidebarTab, label: 'Alertas', icon: Bell, badge: unreadAlerts },
     { id: 'reports' as SidebarTab, label: 'Relatórios', icon: BarChart3 },
