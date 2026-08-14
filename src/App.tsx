@@ -7,6 +7,7 @@ import CalendarPanel from './components/CalendarPanel';
 import DoctorsPanel from './components/DoctorsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import AlertsPanel from './components/AlertsPanel';
+import DocumentsPanel from './components/DocumentsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import ProntuarioPanel from './components/ProntuarioPanel';
 import FinanceiroPanel from './components/FinanceiroPanel';
@@ -392,6 +393,9 @@ export default function App() {
             ...(config.enableAutoReminders !== undefined && { enableAutoReminders: config.enableAutoReminders }),
             ...(config.daysBeforeAppointmentForReminder !== undefined && { daysBeforeAppointmentForReminder: config.daysBeforeAppointmentForReminder }),
             ...(config.rulesList && { rulesList: config.rulesList }),
+            // Flag do add-on pago de Documentos por IA — só true depois
+            // que a clínica contratar e Willian ativar manualmente.
+            ...(config.documentsAddonActive !== undefined && { documentsAddonActive: config.documentsAddonActive }),
           }));
         }
       })
@@ -1171,6 +1175,15 @@ export default function App() {
           {activeTab === 'alerts' && (
             <AlertsPanel
               clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
+            />
+          )}
+
+          {activeTab === 'documents' && (
+            <DocumentsPanel
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
+              conversations={conversations}
+              onAddSystemLog={addSystemLog}
+              documentsAddonActive={Boolean(botSettings.documentsAddonActive)}
             />
           )}
         </main>

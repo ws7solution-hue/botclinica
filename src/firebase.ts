@@ -122,6 +122,12 @@ export async function fbMarkAlertRead(clinicId: string, alertId: string) {
   return post('markAlertRead', { clinicId: clinicId || '', alertId });
 }
 
+// ── Documentos organizados por IA ──
+export async function fbListClinicDocuments(clinicId: string, patientId?: string, category?: string) {
+  const d = await post('listClinicDocuments', { clinicId: clinicId || '', patientId: patientId || '', category: category || '' });
+  return Array.isArray(d) ? d : [];
+}
+
 // ── CONFIGURAÇÕES DA CLÍNICA ──
 export async function fbGetClinicSettings(clinicId?: string) {
   const d = await post('getClinicSettings', { clinicId: clinicId || '' });

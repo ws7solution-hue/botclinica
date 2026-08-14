@@ -96,15 +96,32 @@ export interface UserProfile {
   firstAccess?: boolean;
 }
 
-export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario' | 'financeiro' | 'alerts';
+export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario' | 'financeiro' | 'alerts' | 'documents';
 
 export interface ClinicAlert {
   id: string;
-  type: 'sem_retorno' | 'conversa_parada';
+  type: 'sem_retorno' | 'conversa_parada' | 'documento';
   title: string;
   message: string;
   createdAt: string;
   read: boolean;
+}
+
+export type DocumentCategory = 'geral' | 'contas' | 'convenios' | 'pacientes';
+export type DocumentType = 'exame' | 'atestado' | 'receita' | 'convenio' | 'encaminhamento' | 'outro';
+
+export interface ClinicDocument {
+  docId: string;
+  category: DocumentCategory;
+  patientId: string; // vazio quando category !== 'pacientes'
+  patientName: string;
+  docType: DocumentType;
+  filename: string;
+  summary: string;
+  extractedDate: string;
+  alert: string;
+  fileUrl: string;
+  uploadedAt: string;
 }
 
 export type AtendiaPlan = 'starter' | 'profissional' | 'clinica' | 'premium';

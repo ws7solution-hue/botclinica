@@ -331,6 +331,10 @@ export const INITIAL_BOT_SETTINGS = {
   daysBeforeAppointmentForReminder: 1,
   informarValorConsulta: true,
   enableAutoRescheduling: true,
+  // Add-on pago à parte — disponível pra QUALQUER plano (inclusive Premium),
+  // não vem incluso automaticamente em nenhum. Só é ativado manualmente
+  // (Firestore) depois da clínica contratar.
+  documentsAddonActive: false,
   aiTone: 'Acolhedor, prestativo e profissional',
   rulesList: [
     { trigger: 'consulta / agendamento', action: 'Buscar médicos e horários livres' },
