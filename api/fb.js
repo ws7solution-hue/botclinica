@@ -870,6 +870,35 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── Documentos organizados por IA ────────────────────────────────
+    if (action === "listClinicDocuments") {
+      const { clinicId, patientId, category } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const col = `clinic_documents_${emailToKey(clinicId)}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      let docs = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        return {
+          docId: f.docId?.stringValue || doc.name.split("/").pop(),
+          category: f.category?.stringValue || "geral",
+          patientId: f.patientId?.stringValue || "",
+          patientName: f.patientName?.stringValue || "",
+          docType: f.docType?.stringValue || "",
+          filename: f.filename?.stringValue || "",
+          summary: f.summary?.stringValue || "",
+          extractedDate: f.extractedDate?.stringValue || "",
+          alert: f.alert?.stringValue || "",
+          fileUrl: f.fileUrl?.stringValue || "",
+          uploadedAt: f.uploadedAt?.stringValue || "",
+        };
+      }).sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+      if (patientId) docs = docs.filter(doc => doc.patientId === patientId);
+      if (category) docs = docs.filter(doc => doc.category === category);
+      return res.status(200).json(docs);
+    }
+
     if (action === "listConversations") {
       const { clinicId } = payload;
       const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
