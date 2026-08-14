@@ -311,6 +311,45 @@ tr:hover td{background:rgba(26,111,168,.04)}
   </div>
 </div>
 
+<!-- Modal de Add-ons pagos (liberar/revogar recursos extras por cliente) -->
+<div class="modal-overlay" id="modal-addon">
+  <div class="modal">
+    <h2>Add-ons — <span id="addon-cliente-nome"></span></h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Libere recursos pagos manualmente (cortesia, teste, ou fora do fluxo automático do Stripe).</p>
+
+    <div class="card" style="margin-bottom:0;padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <strong>📄 Documentos por IA</strong>
+          <div style="font-size:11px;color:var(--muted)">R$197/mês — leitura e organização automática de documentos</div>
+        </div>
+        <span id="addon-status-badge" class="badge">—</span>
+      </div>
+      <div id="addon-expiry-info" style="font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+
+      <div id="addon-duration-picker" style="display:none;margin-bottom:12px">
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">Por quanto tempo?</label>
+        <select class="form-input" id="addon-duration-select">
+          <option value="7">7 dias (teste)</option>
+          <option value="14">14 dias (teste)</option>
+          <option value="30">30 dias</option>
+          <option value="">Permanente (até desativar manualmente)</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" id="addon-activate-btn" onclick="showAddonDurationPicker()">Ativar</button>
+        <button class="btn btn-primary btn-sm" id="addon-confirm-btn" onclick="confirmActivateAddon()" style="display:none">✅ Confirmar ativação</button>
+        <button class="btn btn-danger btn-sm" id="addon-deactivate-btn" onclick="deactivateDocumentsAddon()" style="display:none">Desativar</button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeAddonModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const CRM_PWD = "botclinica2026";
 const PROXY = "/api/fb";
@@ -826,6 +865,7 @@ function renderClienteRows(){
       <td style="color:var(--muted);font-size:12px" id="mdcount-${c.id}">—</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="openModal('${c.id}')">✏️</button>
+        <button class="btn btn-outline btn-sm" onclick="openAddonModal('${c.id}','${(c.email||'').replace(/'/g,"\\'")}')" title="Gerenciar add-ons pagos">🧩</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}','${c.nome||c.email}')">🗑️</button>
       </td>
     </tr>`;
@@ -1611,6 +1651,95 @@ function openModal(id){
   document.getElementById('modal-cliente').classList.add('open');
 }
 function closeModal(){ document.getElementById('modal-cliente').classList.remove('open'); }
+
+// ── Modal de Add-ons pagos ──────────────────────────────────────────────
+let addonClientId = null;
+let addonClientEmail = null;
+
+async function openAddonModal(clientId, clientEmail){
+  addonClientId = clientId;
+  addonClientEmail = clientEmail;
+  document.getElementById('addon-cliente-nome').textContent = clientEmail;
+  document.getElementById('addon-status-badge').textContent = 'Carregando...';
+  document.getElementById('addon-duration-picker').style.display = 'none';
+  document.getElementById('addon-confirm-btn').style.display = 'none';
+  document.getElementById('modal-addon').classList.add('open');
+
+  try {
+    const d = await api('getBotConfig', { docId: `clinic_settings_${clientId}/bot` });
+    const active = d && d.documentsAddonActive === true;
+    const expiresAt = d && d.documentsAddonExpiresAt;
+    renderAddonStatus(active, expiresAt);
+  } catch(e) {
+    document.getElementById('addon-status-badge').textContent = 'Erro ao carregar';
+  }
+}
+
+function renderAddonStatus(active, expiresAt){
+  const badge = document.getElementById('addon-status-badge');
+  const expiryInfo = document.getElementById('addon-expiry-info');
+  const activateBtn = document.getElementById('addon-activate-btn');
+  const deactivateBtn = document.getElementById('addon-deactivate-btn');
+
+  badge.textContent = active ? '✅ Ativo' : '⭕ Inativo';
+  badge.className = active ? 'badge badge-green' : 'badge';
+
+  if (active && expiresAt) {
+    expiryInfo.textContent = `Expira em: ${new Date(expiresAt).toLocaleDateString('pt-BR')}`;
+  } else if (active) {
+    expiryInfo.textContent = 'Sem data de expiração (permanente até desativar).';
+  } else {
+    expiryInfo.textContent = '';
+  }
+
+  activateBtn.style.display = active ? 'none' : 'inline-flex';
+  deactivateBtn.style.display = active ? 'inline-flex' : 'none';
+}
+
+function showAddonDurationPicker(){
+  document.getElementById('addon-duration-picker').style.display = 'block';
+  document.getElementById('addon-activate-btn').style.display = 'none';
+  document.getElementById('addon-confirm-btn').style.display = 'inline-flex';
+}
+
+async function confirmActivateAddon(){
+  const days = document.getElementById('addon-duration-select').value;
+  let expiresAt = '';
+  if (days) {
+    const d = new Date();
+    d.setDate(d.getDate() + parseInt(days, 10));
+    expiresAt = d.toISOString();
+  }
+  document.getElementById('addon-confirm-btn').textContent = 'Ativando...';
+  try {
+    await api('adminSetDocumentsAddon', { clinicId: addonClientEmail, active: true, expiresAt });
+    toast(`✅ Add-on ativado${days ? ` por ${days} dias` : ' permanentemente'}!`);
+    document.getElementById('addon-duration-picker').style.display = 'none';
+    document.getElementById('addon-confirm-btn').style.display = 'none';
+    renderAddonStatus(true, expiresAt);
+  } catch(e) {
+    toast('❌ Erro ao ativar add-on');
+  } finally {
+    document.getElementById('addon-confirm-btn').textContent = '✅ Confirmar ativação';
+  }
+}
+
+async function deactivateDocumentsAddon(){
+  if (!confirm('Desativar o add-on de Documentos por IA pra essa clínica?')) return;
+  try {
+    await api('adminSetDocumentsAddon', { clinicId: addonClientEmail, active: false, expiresAt: '' });
+    toast('Add-on desativado.');
+    renderAddonStatus(false, '');
+  } catch(e) {
+    toast('❌ Erro ao desativar add-on');
+  }
+}
+
+function closeAddonModal(){
+  document.getElementById('modal-addon').classList.remove('open');
+  addonClientId = null;
+  addonClientEmail = null;
+}
 
 async function saveCliente(){
   const email=document.getElementById('f-email').value.trim().toLowerCase();
