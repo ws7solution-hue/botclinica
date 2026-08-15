@@ -128,6 +128,14 @@ export async function fbListClinicDocuments(clinicId: string, patientId?: string
   return Array.isArray(d) ? d : [];
 }
 
+export async function fbRenameClinicDocument(clinicId: string, docId: string, newFilename: string) {
+  return post('renameClinicDocument', { clinicId: clinicId || '', docId, newFilename });
+}
+
+export async function fbDeleteClinicDocument(clinicId: string, docId: string) {
+  return post('deleteClinicDocument', { clinicId: clinicId || '', docId });
+}
+
 // ── CONFIGURAÇÕES DA CLÍNICA ──
 export async function fbGetClinicSettings(clinicId?: string) {
   const d = await post('getClinicSettings', { clinicId: clinicId || '' });
