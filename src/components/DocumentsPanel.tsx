@@ -58,6 +58,7 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
   const [documents, setDocuments] = useState<ClinicDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [docSearchTerm, setDocSearchTerm] = useState('');
 
   const patientsList = conversations.map(c => ({ name: c.patientName, phone: c.patientPhone || c.id }));
   const uniquePatients = patientsList.filter((v, i, a) => a.findIndex(t => t.phone === v.phone) === i);
@@ -69,6 +70,16 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
   const filteredPatients = uniquePatients.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.phone.includes(searchTerm)
   );
+
+  const filteredDocuments = documents.filter(doc => {
+    if (!docSearchTerm.trim()) return true;
+    const term = docSearchTerm.toLowerCase();
+    return (
+      (doc.filename || '').toLowerCase().includes(term) ||
+      (doc.summary || '').toLowerCase().includes(term) ||
+      (doc.patientName || '').toLowerCase().includes(term)
+    );
+  });
 
   const loadDocuments = async () => {
     setLoadingDocs(true);
@@ -84,6 +95,7 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
 
   useEffect(() => {
     if (!documentsAddonActive) return;
+    setDocSearchTerm('');
     loadDocuments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, activePatientId, clinicId, documentsAddonActive]);
@@ -130,7 +142,12 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
         if (data.error) {
           onAddSystemLog('error', `Falha ao analisar documento: ${data.error}`);
         } else {
-          onAddSystemLog('success', 'Documento analisado e salvo com sucesso.');
+          onAddSystemLog(
+            'success',
+            data.financeEntryCreated
+              ? 'Documento analisado e salvo! Uma despesa foi lançada automaticamente no Financeiro.'
+              : 'Documento analisado e salvo com sucesso.'
+          );
           await loadDocuments();
         }
       } catch (err) {
@@ -273,12 +290,29 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
             {/* Lista de documentos já salvos */}
             {loadingDocs && <p className="text-xs text-slate-400 font-sans">Carregando documentos...</p>}
 
+            {!loadingDocs && documents.length > 0 && (
+              <div className="relative mb-3">
+                <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nome do arquivo ou conteúdo..."
+                  value={docSearchTerm}
+                  onChange={(e) => setDocSearchTerm(e.target.value)}
+                  className="w-full pl-8 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-sans focus:outline-hidden"
+                />
+              </div>
+            )}
+
             {!loadingDocs && documents.length === 0 && (
               <p className="text-xs text-slate-400 font-sans text-center py-8">Nenhum documento salvo ainda nesta categoria.</p>
             )}
 
+            {!loadingDocs && documents.length > 0 && filteredDocuments.length === 0 && (
+              <p className="text-xs text-slate-400 font-sans text-center py-8">Nenhum documento encontrado pra essa busca.</p>
+            )}
+
             <div className="space-y-3">
-              {documents.map(doc => {
+              {filteredDocuments.map(doc => {
                 const Icon = DOC_TYPE_ICONS[doc.docType] || File;
                 return (
                   <div key={doc.docId} className="bg-white border border-slate-200 rounded-xl p-4">
@@ -295,6 +329,9 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
                             {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('pt-BR') : ''}
                           </span>
                         </div>
+                        {doc.filename && (
+                          <p className="text-[10px] text-slate-400 font-sans truncate">{doc.filename}</p>
+                        )}
                         <p className="text-xs text-slate-600 font-sans mt-1">{doc.summary}</p>
                         {doc.extractedDate && (
                           <p className="text-[10px] text-slate-400 font-sans mt-1">Data no documento: {doc.extractedDate}</p>
