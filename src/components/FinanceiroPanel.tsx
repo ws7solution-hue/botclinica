@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Lock, Plus, Trash2, TrendingUp, TrendingDown, DollarSign,
   Download, Calendar, Repeat, X, ShieldCheck, Search, Users, Phone,
-  Target, AlertTriangle, FileSpreadsheet, ArrowUpRight, ArrowDownRight
+  Target, AlertTriangle, FileSpreadsheet, ArrowUpRight, ArrowDownRight, Pencil
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -91,6 +91,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
 
   // Modal de novo lançamento
   const [showEntryModal, setShowEntryModal] = useState<'receita' | 'despesa' | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [formCategory, setFormCategory] = useState('');
   const [formCustomCategory, setFormCustomCategory] = useState('');
   const [formDescription, setFormDescription] = useState('');
@@ -431,7 +432,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
       return;
     }
     const entry: FinanceiroEntry = {
-      id: `fin_${Date.now()}`,
+      id: editingEntryId || `fin_${Date.now()}`,
       type: showEntryModal as 'receita' | 'despesa',
       category,
       description: formDescription,
@@ -441,11 +442,31 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
       createdAt: new Date().toISOString(),
     };
     await fbSaveFinanceiroEntry(clinicId, entry);
-    setEntries((prev) => [...prev, entry]);
-    onAddSystemLog('success', `${showEntryModal === 'receita' ? 'Receita' : 'Despesa'} adicionada: ${formatBRL(entry.amount)}`);
+    if (editingEntryId) {
+      setEntries((prev) => prev.map((e) => (e.id === editingEntryId ? entry : e)));
+      onAddSystemLog('success', `Lançamento atualizado: ${formatBRL(entry.amount)}`);
+    } else {
+      setEntries((prev) => [...prev, entry]);
+      onAddSystemLog('success', `${showEntryModal === 'receita' ? 'Receita' : 'Despesa'} adicionada: ${formatBRL(entry.amount)}`);
+    }
     setShowEntryModal(null);
+    setEditingEntryId(null);
     setFormCategory(''); setFormCustomCategory(''); setFormDescription('');
     setFormAmount(''); setFormDate(todayISO()); setFormRecurring(false);
+  };
+
+  // Abre o mesmo modal de "Nova Receita/Despesa", mas já preenchido com os
+  // dados do lançamento existente — ao salvar, atualiza em vez de criar novo.
+  const handleStartEditEntry = (entry: FinanceiroEntry) => {
+    setEditingEntryId(entry.id);
+    setShowEntryModal(entry.type);
+    const isKnownCategory = (entry.type === 'receita' ? RECEITA_CATEGORIES : DESPESA_CATEGORIES).includes(entry.category);
+    setFormCategory(isKnownCategory ? entry.category : '__custom__');
+    setFormCustomCategory(isKnownCategory ? '' : entry.category);
+    setFormDescription(entry.description || '');
+    setFormAmount(String(entry.amount).replace('.', ','));
+    setFormDate(entry.date);
+    setFormRecurring(!!entry.recurring);
   };
 
   const handleDeleteEntry = async (id: string) => {
@@ -870,7 +891,10 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
                 <div className="flex items-center gap-2">
                   <span className="text-emerald-600 font-bold">{formatBRL(e.amount)}</span>
                   {!e.id.startsWith('auto_') && (
-                    <button onClick={() => handleDeleteEntry(e.id)} className="text-slate-300 hover:text-red-500 print:hidden"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <>
+                      <button onClick={() => handleStartEditEntry(e)} className="text-slate-300 hover:text-[#1A6FA8] print:hidden"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteEntry(e.id)} className="text-slate-300 hover:text-red-500 print:hidden"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </>
                   )}
                 </div>
               </div>
@@ -899,6 +923,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-red-500 font-bold">{formatBRL(e.amount)}</span>
+                  <button onClick={() => handleStartEditEntry(e)} className="text-slate-300 hover:text-[#1A6FA8] print:hidden"><Pencil className="w-3.5 h-3.5" /></button>
                   <button onClick={() => handleDeleteEntry(e.id)} className="text-slate-300 hover:text-red-500 print:hidden"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
@@ -949,9 +974,9 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-800 font-sans">
-                Nova {showEntryModal === 'receita' ? 'Receita' : 'Despesa'}
+                {editingEntryId ? 'Editar' : 'Nova'} {showEntryModal === 'receita' ? 'Receita' : 'Despesa'}
               </h3>
-              <button onClick={() => setShowEntryModal(null)}><X className="w-4 h-4 text-slate-400" /></button>
+              <button onClick={() => { setShowEntryModal(null); setEditingEntryId(null); }}><X className="w-4 h-4 text-slate-400" /></button>
             </div>
             <div className="space-y-3">
               <div>

@@ -148,8 +148,8 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
         } else {
           onAddSystemLog(
             'success',
-            data.financeEntryCreated
-              ? 'Documento analisado e salvo! Uma despesa foi lançada automaticamente no Financeiro.'
+            data.financeEntriesCreated > 0
+              ? `Documento analisado e salvo! ${data.financeEntriesCreated} despesa(s) lançada(s) automaticamente no Financeiro.`
               : 'Documento analisado e salvo com sucesso.'
           );
           await loadDocuments();
