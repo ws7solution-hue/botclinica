@@ -122,6 +122,10 @@ export async function fbMarkAlertRead(clinicId: string, alertId: string) {
   return post('markAlertRead', { clinicId: clinicId || '', alertId });
 }
 
+export async function fbClearClinicAlerts(clinicId: string) {
+  return post('clearClinicAlerts', { clinicId: clinicId || '' });
+}
+
 // ── Documentos organizados por IA ──
 export async function fbListClinicDocuments(clinicId: string, patientId?: string, category?: string) {
   const d = await post('listClinicDocuments', { clinicId: clinicId || '', patientId: patientId || '', category: category || '' });

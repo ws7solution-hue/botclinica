@@ -173,6 +173,13 @@ export default function App() {
     });
   };
   const [systemLogs, setSystemLogs] = useState<SystemLogs[]>(INITIAL_SYSTEM_LOGS);
+  // Controla quantos logs de warning/error já foram "vistos" (abrindo o
+  // sino) — o badge só considera esses dois tipos, não os logs de rotina
+  // (info/success, tipo "Médicos sincronizados: X encontrados"), que
+  // sempre reaparecem a cada carregamento só porque a sincronização roda
+  // de novo — isso fazia o sino parecer "sempre com notificação nova",
+  // mesmo sem nada que realmente precisasse de atenção.
+  const [lastSeenAlertLogsCount, setLastSeenAlertLogsCount] = useState(0);
   const [botSettings, setBotSettings] = useState(INITIAL_BOT_SETTINGS);
   const [whatsappConnected, setWhatsappConnected] = useState(true);
   
@@ -882,6 +889,7 @@ export default function App() {
   // Helper: Clear system log panel
   const handleClearLogs = () => {
     setSystemLogs([]);
+    setLastSeenAlertLogsCount(0);
   };
 
   // Core Interactive Simulation: Inbound Patient WhatsApp Message Simulator
@@ -1059,9 +1067,14 @@ export default function App() {
           onSimulateIncomingChat={handleSimulateIncomingChat}
           onOpenQuickAppointment={handleOpenQuickAppointment}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-          systemLogsCount={systemLogs.length}
+          systemLogsCount={
+            systemLogs
+              .slice(0, Math.max(0, systemLogs.length - lastSeenAlertLogsCount))
+              .filter(l => l.type === 'warning' || l.type === 'error').length
+          }
           systemLogs={systemLogs}
           onClearLogs={handleClearLogs}
+          onOpenNotifications={() => setLastSeenAlertLogsCount(systemLogs.length)}
         />
 
         {/* Dynamic Inner Tab View */}
