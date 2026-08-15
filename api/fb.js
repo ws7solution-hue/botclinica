@@ -922,6 +922,56 @@ module.exports = async (req, res) => {
       return res.status(200).json(docs);
     }
 
+    // Renomear — só o campo "filename" (nome de exibição), nada mais.
+    // Não precisa mexer no arquivo físico na VPS, já que ele é salvo com
+    // um nome interno próprio (baseado no docId), não no nome original.
+    if (action === "renameClinicDocument") {
+      const { clinicId, docId, newFilename } = payload;
+      if (!clinicId || !docId || !newFilename) {
+        return res.status(400).json({ error: "clinicId, docId e newFilename são obrigatórios" });
+      }
+      const col = `clinic_documents_${emailToKey(clinicId)}`;
+      const url = `${FS}/${col}/${docId}?key=${API_KEY}&updateMask.fieldPaths=filename`;
+      const r = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { filename: { stringValue: newFilename } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Excluir — apaga o registro no Firestore E o arquivo físico na VPS
+    // (nessa ordem: se a exclusão do arquivo falhar por qualquer motivo,
+    // pelo menos o documento já sumiu da lista pra clínica).
+    if (action === "deleteClinicDocument") {
+      const { clinicId, docId } = payload;
+      if (!clinicId || !docId) return res.status(400).json({ error: "clinicId e docId são obrigatórios" });
+      const key = emailToKey(clinicId);
+      const col = `clinic_documents_${key}`;
+
+      // Busca o documento primeiro, pra saber o nome do arquivo físico a apagar
+      const getR = await fetch(`${FS}/${col}/${docId}?key=${API_KEY}`);
+      const getD = await getR.json();
+      const fileUrl = getD.fields?.fileUrl?.stringValue || "";
+
+      const delR = await fetch(`${FS}/${col}/${docId}?key=${API_KEY}`, { method: "DELETE" });
+      const delD = await delR.json().catch(() => ({}));
+      if (delD.error) return res.status(200).json({ error: delD.error.message });
+
+      // Extrai o nome do arquivo físico da fileUrl e apaga na VPS também
+      // (não bloqueia a resposta se isso falhar — o registro já foi apagado)
+      try {
+        const match = fileUrl.match(/\/documents\/[^/]+\/([^?]+)/);
+        if (match) {
+          await fetch(`https://whatsapp.botclinica.com.br/documents/${key}/${match[1]}`, { method: "DELETE" });
+        }
+      } catch (e) { /* não bloqueia a resposta principal */ }
+
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "listConversations") {
       const { clinicId } = payload;
       const col = clinicId ? `conversations_${emailToKey(clinicId)}` : "conversations";
