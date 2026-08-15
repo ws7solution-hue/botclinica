@@ -22,6 +22,7 @@ interface TopbarProps {
   systemLogs?: SystemLogs[];
   onClearLogs?: () => void;
   onToggleSidebar?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 export default function Topbar({
@@ -33,7 +34,8 @@ export default function Topbar({
   systemLogsCount,
   systemLogs = [],
   onClearLogs,
-  onToggleSidebar
+  onToggleSidebar,
+  onOpenNotifications
 }: TopbarProps) {
   const [time, setTime] = useState<string>('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -183,7 +185,14 @@ export default function Topbar({
         {/* Notification Bell with Dropdown */}
         <div className="relative" ref={notificationRef}>
           <button
-            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            onClick={() => {
+              const opening = !isNotificationsOpen;
+              setIsNotificationsOpen(opening);
+              // Marca como "visto" só quando ABRE (não quando fecha) —
+              // assim o badge some assim que a pessoa vê as notificações,
+              // sem precisar clicar em "Limpar todas".
+              if (opening && onOpenNotifications) onOpenNotifications();
+            }}
             className="relative cursor-pointer hover:bg-slate-100 p-2 rounded-lg transition-all flex items-center justify-center focus:outline-hidden"
             title="Visualizar notificações do sistema"
           >

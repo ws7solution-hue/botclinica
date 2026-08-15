@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Clock, Users, CheckCircle2 } from 'lucide-react';
+import { Bell, Clock, Users, CheckCircle2, Trash2 } from 'lucide-react';
 import { ClinicAlert } from '../types';
-import { fbListClinicAlerts, fbMarkAlertRead } from '../firebase';
+import { fbListClinicAlerts, fbMarkAlertRead, fbClearClinicAlerts } from '../firebase';
 
 interface AlertsPanelProps {
   clinicId?: string;
@@ -35,6 +35,13 @@ export default function AlertsPanel({ clinicId }: AlertsPanelProps) {
     await fbMarkAlertRead(clinicId, alertId);
   };
 
+  const handleClearAll = async () => {
+    if (!clinicId) return;
+    if (!window.confirm('Apagar todos os alertas? Essa ação não pode ser desfeita.')) return;
+    setAlerts([]);
+    await fbClearClinicAlerts(clinicId);
+  };
+
   const iconFor = (type: string) => {
     if (type === 'conversa_parada') return <Clock className="w-5 h-5 text-amber-600" />;
     if (type === 'sem_retorno') return <Users className="w-5 h-5 text-blue-600" />;
@@ -45,13 +52,24 @@ export default function AlertsPanel({ clinicId }: AlertsPanelProps) {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-2 mb-1">
-        <Bell className="w-5 h-5 text-[#1A6FA8]" />
-        <h2 className="text-lg font-bold text-slate-800 font-sans">Alertas</h2>
-        {unreadCount > 0 && (
-          <span className="text-[10px] bg-red-500 text-white rounded-full px-2 py-0.5 font-mono font-bold">
-            {unreadCount} novo{unreadCount > 1 ? 's' : ''}
-          </span>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Bell className="w-5 h-5 text-[#1A6FA8]" />
+          <h2 className="text-lg font-bold text-slate-800 font-sans">Alertas</h2>
+          {unreadCount > 0 && (
+            <span className="text-[10px] bg-red-500 text-white rounded-full px-2 py-0.5 font-mono font-bold">
+              {unreadCount} novo{unreadCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        {alerts.length > 0 && (
+          <button
+            onClick={handleClearAll}
+            className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-600 font-sans"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Limpar alertas
+          </button>
         )}
       </div>
       <p className="text-xs text-slate-400 font-sans mb-6">
