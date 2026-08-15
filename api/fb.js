@@ -893,6 +893,21 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // Apaga TODOS os alertas de uma clínica de uma vez (botão "Limpar alertas")
+    if (action === "clearClinicAlerts") {
+      const { clinicId } = payload;
+      if (!clinicId) return res.status(400).json({ error: "clinicId obrigatório" });
+      const col = `clinic_alerts_${emailToKey(clinicId)}`;
+      const r = await fsReq(col);
+      const d = await r.json();
+      const docs = d.documents || [];
+      for (const doc of docs) {
+        const alertId = doc.name.split("/").pop();
+        await fetch(`${FS}/${col}/${alertId}?key=${API_KEY}`, { method: "DELETE" }).catch(() => {});
+      }
+      return res.status(200).json({ ok: true, deleted: docs.length });
+    }
+
     // ── Documentos organizados por IA ────────────────────────────────
     if (action === "listClinicDocuments") {
       const { clinicId, patientId, category } = payload;
