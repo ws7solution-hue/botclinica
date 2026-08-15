@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, FileText, Upload, Loader2, AlertTriangle, Download, FlaskConical,
-  ClipboardList, Pill, ShieldCheck, ArrowRightLeft, File, Wallet, FileStack, Users
+  ClipboardList, Pill, ShieldCheck, ArrowRightLeft, File, Wallet, FileStack, Users,
+  Pencil, Trash2, Check, X
 } from 'lucide-react';
 import { Conversation, DocumentType, DocumentCategory, ClinicDocument } from '../types';
-import { fbListClinicDocuments } from '../firebase';
+import { fbListClinicDocuments, fbRenameClinicDocument, fbDeleteClinicDocument } from '../firebase';
 import AddonLockOverlay from './AddonLockOverlay';
 
 interface DocumentsPanelProps {
@@ -59,6 +60,9 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [docSearchTerm, setDocSearchTerm] = useState('');
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [editingFilename, setEditingFilename] = useState('');
+  const [savingRename, setSavingRename] = useState(false);
 
   const patientsList = conversations.map(c => ({ name: c.patientName, phone: c.patientPhone || c.id }));
   const uniquePatients = patientsList.filter((v, i, a) => a.findIndex(t => t.phone === v.phone) === i);
@@ -158,6 +162,45 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const startEditingFilename = (doc: ClinicDocument) => {
+    setEditingDocId(doc.docId);
+    setEditingFilename(doc.filename || '');
+  };
+
+  const cancelEditingFilename = () => {
+    setEditingDocId(null);
+    setEditingFilename('');
+  };
+
+  const saveRenamedFilename = async (docId: string) => {
+    if (!editingFilename.trim()) {
+      onAddSystemLog('warning', 'O nome do arquivo não pode ficar vazio.');
+      return;
+    }
+    setSavingRename(true);
+    try {
+      await fbRenameClinicDocument(clinicId, docId, editingFilename.trim());
+      setDocuments(prev => prev.map(d => d.docId === docId ? { ...d, filename: editingFilename.trim() } : d));
+      onAddSystemLog('success', 'Nome do arquivo atualizado.');
+      cancelEditingFilename();
+    } catch (err) {
+      onAddSystemLog('error', 'Falha ao renomear o arquivo.');
+    } finally {
+      setSavingRename(false);
+    }
+  };
+
+  const handleDeleteDocument = async (doc: ClinicDocument) => {
+    if (!window.confirm(`Excluir "${doc.filename || 'este documento'}"? Essa ação não pode ser desfeita.`)) return;
+    try {
+      await fbDeleteClinicDocument(clinicId, doc.docId);
+      setDocuments(prev => prev.filter(d => d.docId !== doc.docId));
+      onAddSystemLog('success', 'Documento excluído.');
+    } catch (err) {
+      onAddSystemLog('error', 'Falha ao excluir o documento.');
+    }
   };
 
   const categoryTitles: Record<DocumentCategory, string> = {
@@ -325,13 +368,63 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
                           <span className="text-xs font-bold text-slate-800 font-sans">
                             {DOC_TYPE_LABELS[doc.docType as DocumentType] || doc.docType}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                            {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('pt-BR') : ''}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('pt-BR') : ''}
+                            </span>
+                            {editingDocId !== doc.docId && (
+                              <>
+                                <button
+                                  onClick={() => startEditingFilename(doc)}
+                                  className="p-1 text-slate-400 hover:text-[#1A6FA8] hover:bg-blue-50 rounded-md transition-colors"
+                                  title="Renomear arquivo"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDocument(doc)}
+                                  className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                  title="Excluir documento"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        {doc.filename && (
-                          <p className="text-[10px] text-slate-400 font-sans truncate">{doc.filename}</p>
+
+                        {editingDocId === doc.docId ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="text"
+                              value={editingFilename}
+                              onChange={(e) => setEditingFilename(e.target.value)}
+                              autoFocus
+                              className="flex-1 text-[11px] px-2 py-1 border border-[#1A6FA8] rounded-md font-sans focus:outline-hidden"
+                            />
+                            <button
+                              onClick={() => saveRenamedFilename(doc.docId)}
+                              disabled={savingRename}
+                              className="p-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md transition-colors disabled:opacity-50"
+                              title="Salvar"
+                            >
+                              <Check className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={cancelEditingFilename}
+                              disabled={savingRename}
+                              className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-md transition-colors"
+                              title="Cancelar"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          doc.filename && (
+                            <p className="text-[10px] text-slate-400 font-sans truncate">{doc.filename}</p>
+                          )
                         )}
+
                         <p className="text-xs text-slate-600 font-sans mt-1">{doc.summary}</p>
                         {doc.extractedDate && (
                           <p className="text-[10px] text-slate-400 font-sans mt-1">Data no documento: {doc.extractedDate}</p>
