@@ -969,6 +969,23 @@ module.exports = async (req, res) => {
         }
       } catch (e) { /* não bloqueia a resposta principal */ }
 
+      // NOVO: apaga também qualquer lançamento financeiro criado
+      // automaticamente a partir desse documento (identificados pelo
+      // campo "sourceDocId") — senão a despesa continua na aba Financeiro
+      // mesmo depois do documento de origem ter sido excluído.
+      try {
+        const finCol = `financeiro_entries_${key}`;
+        const finR = await fetch(`${FS}/${finCol}?key=${API_KEY}`);
+        const finD = await finR.json();
+        const relatedEntries = (finD.documents || []).filter(
+          (d) => d.fields?.sourceDocId?.stringValue === docId
+        );
+        for (const entryDoc of relatedEntries) {
+          const entryId = entryDoc.name.split("/").pop();
+          await fetch(`${FS}/${finCol}/${entryId}?key=${API_KEY}`, { method: "DELETE" });
+        }
+      } catch (e) { /* não bloqueia a resposta principal */ }
+
       return res.status(200).json({ ok: true });
     }
 
