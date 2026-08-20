@@ -145,6 +145,8 @@ export default function DoctorsPanel({
   const [formBreak2End, setFormBreak2End] = useState('');
   const [formConsultationFee, setFormConsultationFee] = useState(300);
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formRepasseType, setFormRepasseType] = useState<'percentual' | 'fixo'>('percentual');
+  const [formRepasseValue, setFormRepasseValue] = useState<number>(40);
   
   // Bot config
   const [formProcedures, setFormProcedures] = useState('');
@@ -257,6 +259,8 @@ export default function DoctorsPanel({
     setFormBreak2End('');
     setFormConsultationFee(300);
     setFormIsActive(true);
+    setFormRepasseType('percentual');
+    setFormRepasseValue(40);
     
     // Bot configs empty presets
     setFormProcedures('Consultas de rotina, diagnóstico, acompanhamento terapêutico e orientações clínicas periódicas.');
@@ -291,6 +295,8 @@ export default function DoctorsPanel({
     setFormBreak2End(doc.break2End || '');
     setFormConsultationFee(doc.consultationFee);
     setFormIsActive(doc.isActive);
+    setFormRepasseType(doc.repasseType || 'percentual');
+    setFormRepasseValue(doc.repasseValue ?? 40);
 
     setFormProcedures(doc.procedures || '');
     setFormInsurancePlans(doc.insurancePlans || '');
@@ -338,6 +344,8 @@ export default function DoctorsPanel({
         schedules: schedulesString,
         consultationFee: Number(formConsultationFee),
         isActive: formIsActive,
+        repasseType: formRepasseType,
+        repasseValue: Number(formRepasseValue),
         procedures: formProcedures,
         insurancePlans: formInsurancePlans,
         exams: formExams,
@@ -363,6 +371,8 @@ export default function DoctorsPanel({
         consultationFee: Number(formConsultationFee),
         activePatientsCount: 0,
         isActive: formIsActive,
+        repasseType: formRepasseType,
+        repasseValue: Number(formRepasseValue),
         attendanceDays: formAttendanceDays,
         startTime: formStartTime,
         endTime: formEndTime,
@@ -947,6 +957,52 @@ export default function DoctorsPanel({
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Repasse financeiro — quanto fica pra clínica vs pro médico */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 space-y-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-700 font-sans">Repasse Financeiro</h4>
+                      <p className="text-[10px] text-slate-400 font-sans">
+                        Define quanto fica pra clínica em cada consulta atendida por esse médico — usado pra calcular o repasse automaticamente no Financeiro.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600 font-sans block">Tipo de repasse</label>
+                        <select
+                          value={formRepasseType}
+                          onChange={(e) => setFormRepasseType(e.target.value as 'percentual' | 'fixo')}
+                          className="w-full p-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-1 focus:ring-[#1A6FA8] focus:border-[#1A6FA8] focus:outline-hidden font-sans"
+                        >
+                          <option value="percentual">% sobre a consulta</option>
+                          <option value="fixo">Valor fixo por consulta</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600 font-sans block">
+                          {formRepasseType === 'percentual' ? '% que fica pra clínica' : 'R$ que fica pra clínica'}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold font-mono">
+                            {formRepasseType === 'percentual' ? '%' : 'R$'}
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            max={formRepasseType === 'percentual' ? 100 : undefined}
+                            value={formRepasseValue}
+                            onChange={(e) => setFormRepasseValue(Number(e.target.value))}
+                            className="w-full pl-8 pr-3 p-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-[#1A6FA8] focus:border-[#1A6FA8] focus:outline-hidden font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-sans bg-white p-2 rounded-lg border border-slate-100">
+                      {formRepasseType === 'percentual'
+                        ? `Ex: consulta de R$${formConsultationFee} → clínica fica com R$${(formConsultationFee * formRepasseValue / 100).toFixed(2)}, médico recebe R$${(formConsultationFee * (100 - formRepasseValue) / 100).toFixed(2)}.`
+                        : `Ex: consulta de R$${formConsultationFee} → clínica fica com R$${formRepasseValue.toFixed(2)}, médico recebe R$${Math.max(0, formConsultationFee - formRepasseValue).toFixed(2)}.`}
+                    </p>
                   </div>
 
                    {/* Photo Upload Area */}

@@ -283,21 +283,48 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
 
   const metaProgress = metaMensal > 0 ? Math.min(100, (totalReceitas / metaMensal) * 100) : 0;
 
-  // ── Ranking de médicos: receita, nº de consultas, ticket médio ──────────
+  // ── Ranking de médicos: receita, nº de consultas, ticket médio, e o
+  // repasse (quanto fica pra clínica vs quanto vai pro médico) ────────────
   const rankingMedicos = useMemo(() => {
-    const map: Record<string, { name: string; specialty: string; count: number; total: number }> = {};
+    const map: Record<string, { name: string; specialty: string; count: number; total: number; repasseType?: 'percentual' | 'fixo'; repasseValue?: number }> = {};
     receitasNoPeriodo.forEach((e: any) => {
       const name = e.description?.split(' — ')[1] || 'Outros';
       if (!map[name]) {
         const doctor = doctors.find((d) => d.name === name);
-        map[name] = { name, specialty: (doctor as any)?.specialty || '', count: 0, total: 0 };
+        map[name] = {
+          name,
+          specialty: (doctor as any)?.specialty || '',
+          count: 0,
+          total: 0,
+          repasseType: (doctor as any)?.repasseType,
+          repasseValue: (doctor as any)?.repasseValue,
+        };
       }
       map[name].count += 1;
       map[name].total += Number(e.amount || 0);
     });
     const totalGeral = Object.values(map).reduce((s, m) => s + m.total, 0);
     return Object.values(map)
-      .map((m) => ({ ...m, avgTicket: m.count > 0 ? m.total / m.count : 0, pctOfTotal: totalGeral > 0 ? (m.total / totalGeral) * 100 : 0 }))
+      .map((m) => {
+        // Se o médico não tiver repasse configurado, não mostra cálculo
+        // (evita afirmar um número errado sem essa informação cadastrada).
+        let clinicaFica: number | null = null;
+        let medicoRecebe: number | null = null;
+        if (m.repasseType === 'percentual' && m.repasseValue != null) {
+          clinicaFica = m.total * (m.repasseValue / 100);
+          medicoRecebe = m.total - clinicaFica;
+        } else if (m.repasseType === 'fixo' && m.repasseValue != null) {
+          clinicaFica = Math.min(m.total, m.repasseValue * m.count);
+          medicoRecebe = m.total - clinicaFica;
+        }
+        return {
+          ...m,
+          avgTicket: m.count > 0 ? m.total / m.count : 0,
+          pctOfTotal: totalGeral > 0 ? (m.total / totalGeral) * 100 : 0,
+          clinicaFica,
+          medicoRecebe,
+        };
+      })
       .sort((a, b) => b.total - a.total);
   }, [receitasNoPeriodo, doctors]);
 
@@ -865,6 +892,21 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
                     <span>Ticket médio: {formatBRL(m.avgTicket)}</span>
                     <span>{m.pctOfTotal.toFixed(0)}% da receita total</span>
                   </div>
+                  {m.clinicaFica != null && m.medicoRecebe != null ? (
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-4 text-[10px] font-sans">
+                      <span className="text-slate-500">
+                        Repasse configurado ({m.repasseType === 'percentual' ? `${m.repasseValue}% pra clínica` : `${formatBRL(m.repasseValue || 0)}/consulta pra clínica`}):
+                      </span>
+                      <span className="font-bold text-[#1A6FA8]">Clínica: {formatBRL(m.clinicaFica)}</span>
+                      <span className="font-bold text-emerald-600">Médico recebe: {formatBRL(m.medicoRecebe)}</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2 pt-2 border-t border-slate-100">
+                      <span className="text-[10px] text-amber-600 font-sans">
+                        ⚠️ Repasse não configurado pra esse médico — vá em Médicos → Editar pra definir.
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
