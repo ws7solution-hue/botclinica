@@ -61,6 +61,13 @@ export interface Doctor {
   // Bot Behavior
   botName: string;
   botTone: 'Cordial' | 'Formal' | 'Descontraído';
+
+  // Repasse financeiro — quanto do valor da consulta fica pra clínica vs
+  // pro médico. Comum em clínicas onde o médico não é CLT, é "associado"
+  // ou presta serviço (padrão de mercado, não é exclusividade de nenhuma
+  // especialidade).
+  repasseType?: 'percentual' | 'fixo'; // % sobre o valor da consulta, ou valor fixo por consulta
+  repasseValue?: number; // se percentual: 0-100 (% que fica pra clínica); se fixo: valor em R$ que fica pra clínica
 }
 
 export interface Appointment {
