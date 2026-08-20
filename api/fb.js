@@ -613,6 +613,8 @@ module.exports = async (req, res) => {
           schedulingPolicy: g("schedulingPolicy"), preparationInstructions: g("preparationInstructions"),
           additionalNotes: g("additionalNotes"),
           botName: g("botName") || "Sofia", botTone: g("botTone") || "Cordial",
+          repasseType: g("repasseType") || undefined,
+          repasseValue: f.repasseValue ? parseFloat(f.repasseValue?.doubleValue || f.repasseValue?.integerValue || "0") : undefined,
         };
       });
       return res.status(200).json({ doctors: docs });
