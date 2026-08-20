@@ -212,9 +212,33 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
   const receitasNoPeriodo = allReceitas.filter((e) => inRange(e.date));
   const despesasNoPeriodo = allDespesas.filter((e) => inRange(e.date));
 
+  // Quanto das receitas geradas por consulta na verdade pertence ao médico
+  // (repasse/comissão) — sem descontar isso, o "Lucro Líquido" mostraria o
+  // valor CHEIO da consulta como se fosse tudo da clínica, o que está
+  // errado sempre que o médico é comissionado (padrão comum de mercado).
+  const calcRepasseAosMedicos = (entriesList: any[]) => {
+    return entriesList.reduce((sum: number, e: any) => {
+      const doctorName = e.description?.split(' — ')[1];
+      if (!doctorName) return sum;
+      const doctor = doctors.find((d) => d.name === doctorName);
+      if (!doctor || !doctor.repasseType || doctor.repasseValue == null) return sum;
+      const amount = Number(e.amount || 0);
+      if (doctor.repasseType === 'percentual') {
+        return sum + amount * (1 - doctor.repasseValue / 100);
+      }
+      const clinicaFica = Math.min(amount, doctor.repasseValue);
+      return sum + (amount - clinicaFica);
+    }, 0);
+  };
+
+  const totalRepasseAosMedicos = useMemo(
+    () => calcRepasseAosMedicos(receitasNoPeriodo),
+    [receitasNoPeriodo, doctors]
+  );
+
   const totalReceitas = receitasNoPeriodo.reduce((s, e) => s + Number(e.amount || 0), 0);
   const totalDespesas = despesasNoPeriodo.reduce((s, e) => s + Number(e.amount || 0), 0);
-  const lucro = totalReceitas - totalDespesas;
+  const lucro = totalReceitas - totalDespesas - totalRepasseAosMedicos;
   const ticketMedio = receitasNoPeriodo.length > 0 ? totalReceitas / receitasNoPeriodo.length : 0;
 
   // ── 1) Comparação mês a mês (período anterior de mesma duração) ─────────
@@ -226,15 +250,17 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
     const prevFrom = new Date(prevTo.getTime() - (durationDays - 1) * 86400000);
     const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const prevFromStr = toISO(prevFrom), prevToStr = toISO(prevTo);
-    const prevReceitas = allReceitas.filter((e) => e.date >= prevFromStr && e.date <= prevToStr).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const prevReceitasEntries = allReceitas.filter((e) => e.date >= prevFromStr && e.date <= prevToStr);
+    const prevReceitas = prevReceitasEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
     const prevDespesas = allDespesas.filter((e) => e.date >= prevFromStr && e.date <= prevToStr).reduce((s, e) => s + Number(e.amount || 0), 0);
+    const prevRepasse = calcRepasseAosMedicos(prevReceitasEntries);
     const pct = (curr: number, prev: number) => prev === 0 ? (curr > 0 ? 100 : 0) : ((curr - prev) / prev) * 100;
     return {
       receitaPct: pct(totalReceitas, prevReceitas),
       despesaPct: pct(totalDespesas, prevDespesas),
-      lucroPct: pct(lucro, prevReceitas - prevDespesas),
+      lucroPct: pct(lucro, prevReceitas - prevDespesas - prevRepasse),
     };
-  }, [dateFrom, dateTo, allReceitas, allDespesas, totalReceitas, totalDespesas, lucro]);
+  }, [dateFrom, dateTo, allReceitas, allDespesas, totalReceitas, totalDespesas, lucro, doctors]);
 
   // ── 2) Alerta de despesa fora do padrão (mês atual vs média 3 meses anteriores) ──
   const despesaAlertas = useMemo(() => {
@@ -675,6 +701,11 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
             {periodComparison.lucroPct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {Math.abs(periodComparison.lucroPct).toFixed(0)}% vs período anterior
           </p>
+          {totalRepasseAosMedicos > 0 && (
+            <p className="text-[10px] text-slate-400 font-sans mt-1">
+              Já descontando {formatBRL(totalRepasseAosMedicos)} de repasse a médicos
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-slate-500 mb-1"><Calendar className="w-4 h-4" /><span className="text-[10px] font-bold uppercase font-sans">Ticket Médio</span></div>
