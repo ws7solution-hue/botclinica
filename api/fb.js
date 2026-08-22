@@ -1793,6 +1793,7 @@ module.exports = async (req, res) => {
       const { leadId, partnerId, nome, email, telefone, plano, addon, status, reuniaoData, notas } = payload;
       if (!partnerId || !nome) return res.status(400).json({ error: "partnerId e nome são obrigatórios" });
       const id = leadId || `lead_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const isNewLead = !leadId;
 
       const existing = leadId ? await (await fetch(`${FS}/leads/${id}?key=${API_KEY}`)).json() : {};
 
@@ -1818,14 +1819,36 @@ module.exports = async (req, res) => {
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
 
+      // Busca o nome do parceiro uma vez só, reaproveitado nas duas
+      // notificações possíveis abaixo (lead novo e/ou marcado como vendido).
+      let partnerName = partnerId;
+      try {
+        const partnerRes = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
+        const partnerData = await partnerRes.json();
+        partnerName = partnerData.fields?.name?.stringValue || partnerId;
+      } catch (e) { /* usa o id mesmo, sem travar o resto */ }
+
+      // Avisa você por WhatsApp toda vez que um parceiro cadastra um lead
+      // NOVO — mesmo padrão já usado pra "novo lead" da Luna.
+      if (isNewLead) {
+        try {
+          await fetch("https://whatsapp.botclinica.com.br/notify-owner", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "🆕 Novo lead — Parceiro",
+              body: `${partnerName} cadastrou um lead novo: ${nome}${plano ? ` (interesse: ${plano})` : ""}.`,
+              url: "https://botclinica.com.br/crm",
+            }),
+          });
+        } catch (e) { /* não bloqueia o salvamento do lead se a notificação falhar */ }
+      }
+
       // Avisa você por WhatsApp quando um parceiro marca "Vendido" — sem
       // isso, só descobre olhando o CRM manualmente de vez em quando.
       const previousStatus = existing.fields?.status?.stringValue;
       if (status === "vendido" && previousStatus !== "vendido") {
         try {
-          const partnerRes = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
-          const partnerData = await partnerRes.json();
-          const partnerName = partnerData.fields?.name?.stringValue || partnerId;
           await fetch("https://whatsapp.botclinica.com.br/notify-owner", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
