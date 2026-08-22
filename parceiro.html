@@ -107,6 +107,12 @@ button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
   </div>
 
   <div class="container">
+    <div class="card" id="earnings-card" style="background:linear-gradient(135deg,var(--navy),var(--blue2));color:#fff">
+      <div style="font-size:12px;opacity:.8;font-weight:700;text-transform:uppercase">Total já ganho + pendente</div>
+      <div style="font-size:32px;font-weight:800;margin-top:4px" id="earnings-total">R$ 0,00</div>
+      <div style="font-size:12px;opacity:.85;margin-top:6px" id="earnings-breakdown">Carregando...</div>
+    </div>
+
     <div class="grid-3">
       <div class="kpi"><div class="label">Meus leads</div><div class="val" id="kpi-total">0</div></div>
       <div class="kpi"><div class="label">Vendidos</div><div class="val" id="kpi-vendidos">0</div></div>
@@ -119,6 +125,11 @@ button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
         <button class="btn-save" onclick="openLeadModal()" style="padding:9px 16px">+ Novo Lead</button>
       </div>
       <div id="leads-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>Minhas comissões</span></div>
+      <div id="commissions-list"></div>
     </div>
   </div>
 </div>
@@ -177,6 +188,7 @@ function showApp(){
   document.getElementById('partner-name').textContent = currentPartner.name;
   document.getElementById('partner-rate').textContent = currentPartner.commissionRate;
   loadMyLeads();
+  loadMyCommissions();
 }
 
 // Restaura sessão se já estava logado (evita pedir senha de novo a cada F5)
@@ -227,6 +239,54 @@ function renderLeads(){
       ${l.reuniaoData?`<div style="font-size:12px;color:var(--muted)">Reunião: ${new Date(l.reuniaoData+'T12:00:00').toLocaleDateString('pt-BR')}</div>`:''}
       ${l.notas?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${l.notas}</div>`:''}
       ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button></div>`:''}
+    </div>
+  `).join('');
+}
+
+const COMM_STATUS_LABEL = {
+  aguardando_carencia: '⏳ Aguardando período de garantia',
+  elegivel: '✅ Liberado pra receber',
+  pago: '💰 Já recebido',
+  cancelado: '🚫 Cancelado (cliente desistiu)',
+};
+const COMM_STATUS_BADGE = {
+  aguardando_carencia: 'badge-yellow', elegivel: 'badge-green', pago: 'badge-blue', cancelado: 'badge-red',
+};
+
+let myCommissions = [];
+
+async function loadMyCommissions(){
+  const d = await api('listPartnerCommissions', {partnerId: currentPartner.id});
+  myCommissions = Array.isArray(d) ? d : [];
+  renderCommissions();
+}
+
+function renderCommissions(){
+  const pendente = myCommissions.filter(c=>c.status==='aguardando_carencia'||c.status==='elegivel').reduce((s,c)=>s+c.valorComissao,0);
+  const recebido = myCommissions.filter(c=>c.status==='pago').reduce((s,c)=>s+c.valorComissao,0);
+  const total = pendente + recebido;
+
+  document.getElementById('earnings-total').textContent = 'R$ ' + total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('earnings-breakdown').textContent =
+    `Já recebido: R$ ${recebido.toLocaleString('pt-BR',{minimumFractionDigits:2})} · Ainda a receber: R$ ${pendente.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+
+  const el = document.getElementById('commissions-list');
+  if(myCommissions.length===0){
+    el.innerHTML = '<div class="empty">Suas comissões aparecem aqui assim que uma venda sua for confirmada.</div>';
+    return;
+  }
+  el.innerHTML = myCommissions.map(c => `
+    <div class="lead-item">
+      <div class="top">
+        <div>
+          <div class="nome">${c.clinicName || c.clinicEmail}</div>
+          <div class="contato">Plano ${PLAN_LABEL[c.plano]||c.plano} · Comissão de ${c.commissionRate}%</div>
+        </div>
+        <span class="badge ${COMM_STATUS_BADGE[c.status]||'badge-yellow'}">${COMM_STATUS_LABEL[c.status]||c.status}</span>
+      </div>
+      <div style="font-size:18px;font-weight:800;margin-top:8px;color:var(--navy)">R$ ${c.valorComissao.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+      ${c.status==='aguardando_carencia'?`<div style="font-size:12px;color:var(--muted);margin-top:4px">Libera em ${new Date(c.eligibleDate).toLocaleDateString('pt-BR')}</div>`:''}
+      ${c.status==='pago'?`<div style="font-size:12px;color:var(--muted);margin-top:4px">Pago em ${new Date(c.paidAt).toLocaleDateString('pt-BR')}</div>`:''}
     </div>
   `).join('');
 }
