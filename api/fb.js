@@ -114,6 +114,27 @@ function emailToKey(email) {
   return email.toLowerCase().replace(/[@.]/g, "_");
 }
 
+// Converte um documento bruto do Firestore (coleção "leads") pro formato
+// já pronto pro frontend usar direto.
+function parseLeadDoc(doc) {
+  const f = doc.fields || {};
+  return {
+    id: doc.name.split("/").pop(),
+    partnerId: f.partnerId?.stringValue || "",
+    nome: f.nome?.stringValue || "",
+    email: f.email?.stringValue || "",
+    telefone: f.telefone?.stringValue || "",
+    plano: f.plano?.stringValue || "",
+    addon: f.addon?.booleanValue || false,
+    status: f.status?.stringValue || "novo",
+    reuniaoData: f.reuniaoData?.stringValue || "",
+    notas: f.notas?.stringValue || "",
+    vendaConfirmada: f.vendaConfirmada?.booleanValue || false,
+    createdAt: f.createdAt?.stringValue || "",
+    updatedAt: f.updatedAt?.stringValue || "",
+  };
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -1618,6 +1639,265 @@ module.exports = async (req, res) => {
       if (!id) return res.status(400).json({ error: "id obrigatório" });
       const col = `schedule_blocks_${emailToKey(clinicId || "")}`;
       await fsReq(`${col}/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── Programa de parceiros/indicação ("captadores") ───────────────────
+    if (action === "listPartners") {
+      const r = await fsReq("partners");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const partners = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          name: f.name?.stringValue || "",
+          phone: f.phone?.stringValue || "",
+          commissionRate: f.commissionRate ? parseFloat(f.commissionRate.doubleValue || f.commissionRate.integerValue || 50) : 50,
+          createdAt: f.createdAt?.stringValue || "",
+        };
+      });
+      return res.status(200).json(partners);
+    }
+
+    if (action === "savePartner") {
+      const { id, name, phone, commissionRate, password } = payload;
+      if (!id || !name) return res.status(400).json({ error: "id (código do link) e name são obrigatórios" });
+      // O "id" é o próprio código usado no link (ex: joao → ?ref=joao) —
+      // por isso precisa ser só letras/números/hífen, sem espaço ou acento,
+      // já que vai direto numa URL.
+      const cleanId = id.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      if (!cleanId) return res.status(400).json({ error: "Código inválido — use só letras e números" });
+
+      const existing = await fetch(`${FS}/partners/${cleanId}?key=${API_KEY}`);
+      const existingD = await existing.json();
+
+      const fields = {
+        name: { stringValue: name },
+        phone: { stringValue: phone || "" },
+        commissionRate: { doubleValue: Number(commissionRate ?? 50) },
+        // Só sobrescreve a senha se uma nova foi enviada — assim editar
+        // nome/telefone não obriga redigitar a senha toda vez.
+        password: { stringValue: password || existingD.fields?.password?.stringValue || "" },
+        createdAt: { stringValue: existingD.fields?.createdAt?.stringValue || new Date().toISOString() },
+      };
+      const r = await fetch(`${FS}/partners/${cleanId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true, id: cleanId });
+    }
+
+    if (action === "deletePartner") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/partners/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Lista as comissões — calcula "elegível" na hora (não fica um status
+    // desatualizado esperando alguém rodar um job) comparando a data atual
+    // com a data de elegibilidade salva.
+    if (action === "listCommissions") {
+      const r = await fsReq("commissions");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const now = new Date();
+      const commissions = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        let status = f.status?.stringValue || "aguardando_carencia";
+        const eligibleDate = f.eligibleDate?.stringValue;
+        if (status === "aguardando_carencia" && eligibleDate && new Date(eligibleDate) <= now) {
+          status = "elegivel";
+        }
+        return {
+          id: doc.name.split("/").pop(),
+          clinicEmail: f.clinicEmail?.stringValue || "",
+          clinicName: f.clinicName?.stringValue || "",
+          partnerId: f.partnerId?.stringValue || "",
+          plano: f.plano?.stringValue || "",
+          valorPlano: parseFloat(f.valorPlano?.doubleValue || f.valorPlano?.integerValue || 0),
+          commissionRate: parseFloat(f.commissionRate?.doubleValue || f.commissionRate?.integerValue || 0),
+          valorComissao: parseFloat(f.valorComissao?.doubleValue || f.valorComissao?.integerValue || 0),
+          paymentDate: f.paymentDate?.stringValue || "",
+          eligibleDate: eligibleDate || "",
+          status,
+          paidAt: f.paidAt?.stringValue || "",
+        };
+      }).sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+      return res.status(200).json(commissions);
+    }
+
+    if (action === "markCommissionPaid") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      const r = await fetch(`${FS}/commissions/${id}?key=${API_KEY}&updateMask.fieldPaths=status&updateMask.fieldPaths=paidAt`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            status: { stringValue: "pago" },
+            paidAt: { stringValue: new Date().toISOString() },
+          },
+        }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── Login do parceiro na página própria dele (/parceiro) ────────────
+    if (action === "partnerLogin") {
+      const { id, password } = payload;
+      if (!id || !password) return res.status(400).json({ error: "Código e senha são obrigatórios" });
+      const cleanId = id.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      const r = await fetch(`${FS}/partners/${cleanId}?key=${API_KEY}`);
+      const d = await r.json();
+      if (!d.fields) return res.status(200).json({ error: "Parceiro não encontrado" });
+      const storedPassword = d.fields.password?.stringValue || "";
+      if (!storedPassword || storedPassword !== password) {
+        return res.status(200).json({ error: "Senha incorreta" });
+      }
+      return res.status(200).json({
+        ok: true,
+        partner: {
+          id: cleanId,
+          name: d.fields.name?.stringValue || "",
+          commissionRate: parseFloat(d.fields.commissionRate?.doubleValue || d.fields.commissionRate?.integerValue || 50),
+        },
+      });
+    }
+
+    // ── Leads cadastrados pelos parceiros ────────────────────────────────
+    // status possíveis: novo | reuniao_marcada | negociando | vendido | perdido
+    if (action === "savePartnerLead") {
+      const { leadId, partnerId, nome, email, telefone, plano, addon, status, reuniaoData, notas } = payload;
+      if (!partnerId || !nome) return res.status(400).json({ error: "partnerId e nome são obrigatórios" });
+      const id = leadId || `lead_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      const existing = leadId ? await (await fetch(`${FS}/leads/${id}?key=${API_KEY}`)).json() : {};
+
+      const fields = {
+        partnerId: { stringValue: partnerId },
+        nome: { stringValue: nome },
+        email: { stringValue: email || "" },
+        telefone: { stringValue: telefone || "" },
+        plano: { stringValue: plano || "" },
+        addon: { booleanValue: !!addon },
+        status: { stringValue: status || "novo" },
+        reuniaoData: { stringValue: reuniaoData || "" },
+        notas: { stringValue: notas || "" },
+        vendaConfirmada: { booleanValue: existing.fields?.vendaConfirmada?.booleanValue || false },
+        createdAt: { stringValue: existing.fields?.createdAt?.stringValue || new Date().toISOString() },
+        updatedAt: { stringValue: new Date().toISOString() },
+      };
+      const r = await fetch(`${FS}/leads/${id}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true, id });
+    }
+
+    // Lista só os leads DAQUELE parceiro (usado na página /parceiro dele)
+    if (action === "listPartnerLeads") {
+      const { partnerId } = payload;
+      if (!partnerId) return res.status(400).json({ error: "partnerId obrigatório" });
+      const r = await fsReq("leads");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const leads = (d.documents || [])
+        .map((doc) => parseLeadDoc(doc))
+        .filter((l) => l.partnerId === partnerId)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return res.status(200).json(leads);
+    }
+
+    // Lista TODOS os leads, de todos os parceiros (usado no CRM)
+    if (action === "listAllLeads") {
+      const r = await fsReq("leads");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const leads = (d.documents || [])
+        .map((doc) => parseLeadDoc(doc))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return res.status(200).json(leads);
+    }
+
+    if (action === "deletePartnerLead") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/leads/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Confirmação MANUAL de venda, feita por você no CRM (depois de checar
+    // que o pagamento realmente caiu) — só isso gera a comissão de verdade.
+    // O parceiro marcar "vendido" sozinho não cria comissão automaticamente,
+    // exatamente pra evitar depender só da palavra dele.
+    if (action === "confirmLeadSale") {
+      const { leadId } = payload;
+      if (!leadId) return res.status(400).json({ error: "leadId obrigatório" });
+
+      const leadR = await fetch(`${FS}/leads/${leadId}?key=${API_KEY}`);
+      const leadD = await leadR.json();
+      if (!leadD.fields) return res.status(200).json({ error: "Lead não encontrado" });
+      if (leadD.fields.vendaConfirmada?.booleanValue) {
+        return res.status(200).json({ error: "Essa venda já foi confirmada antes" });
+      }
+
+      const partnerId = leadD.fields.partnerId?.stringValue || "";
+      const plano = leadD.fields.plano?.stringValue || "starter";
+      const nome = leadD.fields.nome?.stringValue || "";
+
+      const partnerR = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
+      const partnerD = await partnerR.json();
+      const commissionRate = parseFloat(partnerD.fields?.commissionRate?.doubleValue || partnerD.fields?.commissionRate?.integerValue || 50);
+
+      const PLAN_PRICES_LOCAL = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
+      const valorPlano = PLAN_PRICES_LOCAL[plano] || 0;
+      const valorComissao = valorPlano * (commissionRate / 100);
+      const now = new Date();
+      const eligibleDate = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const commissionId = `comm_lead_${leadId}`;
+
+      await fetch(`${FS}/commissions/${commissionId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            clinicEmail: { stringValue: leadD.fields.email?.stringValue || "" },
+            clinicName: { stringValue: nome },
+            partnerId: { stringValue: partnerId },
+            plano: { stringValue: plano },
+            valorPlano: { doubleValue: valorPlano },
+            commissionRate: { doubleValue: commissionRate },
+            valorComissao: { doubleValue: valorComissao },
+            paymentDate: { stringValue: now.toISOString() },
+            eligibleDate: { stringValue: eligibleDate.toISOString() },
+            status: { stringValue: "aguardando_carencia" },
+            paidAt: { stringValue: "" },
+            leadId: { stringValue: leadId },
+          },
+        }),
+      });
+
+      await fetch(`${FS}/leads/${leadId}?key=${API_KEY}&updateMask.fieldPaths=vendaConfirmada&updateMask.fieldPaths=status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            vendaConfirmada: { booleanValue: true },
+            status: { stringValue: "vendido" },
+          },
+        }),
+      });
+
       return res.status(200).json({ ok: true });
     }
 
