@@ -116,6 +116,38 @@ function emailToKey(email) {
 
 // Converte um documento bruto do Firestore (coleção "leads") pro formato
 // já pronto pro frontend usar direto.
+// Busca todas as comissões, já calculando o status "elegível" em tempo
+// real (comparando com hoje) — reaproveitada tanto pela visão completa do
+// CRM quanto pela visão filtrada de cada parceiro.
+async function fetchAllCommissions() {
+  const r = await fsReq("commissions");
+  const d = await r.json();
+  if (d.error) return [];
+  const now = new Date();
+  return (d.documents || []).map((doc) => {
+    const f = doc.fields || {};
+    let status = f.status?.stringValue || "aguardando_carencia";
+    const eligibleDate = f.eligibleDate?.stringValue;
+    if (status === "aguardando_carencia" && eligibleDate && new Date(eligibleDate) <= now) {
+      status = "elegivel";
+    }
+    return {
+      id: doc.name.split("/").pop(),
+      clinicEmail: f.clinicEmail?.stringValue || "",
+      clinicName: f.clinicName?.stringValue || "",
+      partnerId: f.partnerId?.stringValue || "",
+      plano: f.plano?.stringValue || "",
+      valorPlano: parseFloat(f.valorPlano?.doubleValue || f.valorPlano?.integerValue || 0),
+      commissionRate: parseFloat(f.commissionRate?.doubleValue || f.commissionRate?.integerValue || 0),
+      valorComissao: parseFloat(f.valorComissao?.doubleValue || f.valorComissao?.integerValue || 0),
+      paymentDate: f.paymentDate?.stringValue || "",
+      eligibleDate: eligibleDate || "",
+      status,
+      paidAt: f.paidAt?.stringValue || "",
+    };
+  }).sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+}
+
 function parseLeadDoc(doc) {
   const f = doc.fields || {};
   return {
@@ -1702,33 +1734,17 @@ module.exports = async (req, res) => {
     // desatualizado esperando alguém rodar um job) comparando a data atual
     // com a data de elegibilidade salva.
     if (action === "listCommissions") {
-      const r = await fsReq("commissions");
-      const d = await r.json();
-      if (d.error) return res.status(200).json([]);
-      const now = new Date();
-      const commissions = (d.documents || []).map((doc) => {
-        const f = doc.fields || {};
-        let status = f.status?.stringValue || "aguardando_carencia";
-        const eligibleDate = f.eligibleDate?.stringValue;
-        if (status === "aguardando_carencia" && eligibleDate && new Date(eligibleDate) <= now) {
-          status = "elegivel";
-        }
-        return {
-          id: doc.name.split("/").pop(),
-          clinicEmail: f.clinicEmail?.stringValue || "",
-          clinicName: f.clinicName?.stringValue || "",
-          partnerId: f.partnerId?.stringValue || "",
-          plano: f.plano?.stringValue || "",
-          valorPlano: parseFloat(f.valorPlano?.doubleValue || f.valorPlano?.integerValue || 0),
-          commissionRate: parseFloat(f.commissionRate?.doubleValue || f.commissionRate?.integerValue || 0),
-          valorComissao: parseFloat(f.valorComissao?.doubleValue || f.valorComissao?.integerValue || 0),
-          paymentDate: f.paymentDate?.stringValue || "",
-          eligibleDate: eligibleDate || "",
-          status,
-          paidAt: f.paidAt?.stringValue || "",
-        };
-      }).sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+      const commissions = await fetchAllCommissions();
       return res.status(200).json(commissions);
+    }
+
+    // Versão filtrada — usada na página /parceiro, pra cada parceiro só
+    // ver as PRÓPRIAS comissões, nunca as dos outros (privacidade).
+    if (action === "listPartnerCommissions") {
+      const { partnerId } = payload;
+      if (!partnerId) return res.status(400).json({ error: "partnerId obrigatório" });
+      const all = await fetchAllCommissions();
+      return res.status(200).json(all.filter((c) => c.partnerId === partnerId));
     }
 
     if (action === "markCommissionPaid") {
@@ -1801,6 +1817,27 @@ module.exports = async (req, res) => {
       });
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
+
+      // Avisa você por WhatsApp quando um parceiro marca "Vendido" — sem
+      // isso, só descobre olhando o CRM manualmente de vez em quando.
+      const previousStatus = existing.fields?.status?.stringValue;
+      if (status === "vendido" && previousStatus !== "vendido") {
+        try {
+          const partnerRes = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
+          const partnerData = await partnerRes.json();
+          const partnerName = partnerData.fields?.name?.stringValue || partnerId;
+          await fetch("https://whatsapp.botclinica.com.br/notify-owner", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "💰 Parceiro marcou uma venda",
+              body: `${partnerName} marcou "${nome}" como vendido! Confirme no CRM (aba Parceiros) pra liberar a comissão.`,
+              url: "https://botclinica.com.br/crm",
+            }),
+          });
+        } catch (e) { /* não bloqueia o salvamento do lead se a notificação falhar */ }
+      }
+
       return res.status(200).json({ ok: true, id });
     }
 
