@@ -9,6 +9,7 @@
     { "source": "/checkout",          "destination": "/checkout.html" },
     { "source": "/admin",             "destination": "/admin.html" },
     { "source": "/crm",               "destination": "/crm.html" },
+    { "source": "/parceiro",          "destination": "/parceiro.html" },
     { "source": "/",                  "destination": "/index.html" }
   ]
 }

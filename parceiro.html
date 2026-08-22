@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BotClínica — Área do Parceiro</title>
+<link rel="icon" type="image/png" href="/logo-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --navy:#0D2A3D; --blue:#1A6FA8; --blue2:#135480; --green:#06AA48;
+  --bg:#F0F2F5; --card:#FFFFFF; --border:#E2E8F0; --text:#1F2937; --muted:#6B7280;
+  --yellow:#B45309; --yellow-l:#FEF3C7; --red:#DC2626; --red-l:#FEE2E2; --green-l:#D1FAE5;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+body{background:var(--bg);color:var(--text)}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy),var(--blue2));padding:20px}
+.login-card{background:var(--card);border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-card img{width:64px;display:block;margin:0 auto 16px}
+.login-card h1{font-size:20px;text-align:center;margin-bottom:4px;color:var(--navy)}
+.login-card p{font-size:13px;text-align:center;color:var(--muted);margin-bottom:24px}
+label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px}
+input,select,textarea{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;margin-bottom:14px;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue)}
+button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
+.btn-primary{background:var(--blue);color:#fff;padding:12px;border-radius:10px;width:100%;font-size:14px}
+.btn-primary:hover{background:var(--blue2)}
+.error-msg{background:var(--red-l);color:var(--red);padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:none}
+
+.app{display:none}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.topbar-left img{width:32px}
+.topbar-left .name{font-weight:800;font-size:15px}
+.topbar-left .sub{font-size:11px;color:var(--muted)}
+.btn-logout{background:transparent;color:var(--muted);font-size:12px;padding:8px 12px;border-radius:8px}
+.btn-logout:hover{background:var(--bg)}
+
+.container{max-width:1000px;margin:0 auto;padding:24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:700px){.grid-3{grid-template-columns:1fr}}
+.kpi{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--border)}
+.kpi .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.kpi .val{font-size:26px;font-weight:800;margin-top:4px}
+
+.card{background:var(--card);border-radius:16px;padding:22px;border:1px solid var(--border);margin-bottom:20px}
+.card-title{font-size:15px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.form-row{grid-template-columns:1fr}}
+
+.lead-item{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.lead-item .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.lead-item .nome{font-weight:700;font-size:14px}
+.lead-item .contato{font-size:12px;color:var(--muted);margin-top:2px}
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-blue{background:#DBEAFE;color:var(--blue2)}
+.badge-yellow{background:var(--yellow-l);color:var(--yellow)}
+.badge-green{background:var(--green-l);color:var(--green)}
+.badge-red{background:var(--red-l);color:var(--red)}
+.lead-actions{display:flex;gap:8px;margin-top:10px}
+.btn-sm{padding:6px 12px;border-radius:8px;font-size:12px;background:var(--bg);color:var(--text)}
+.btn-sm:hover{background:#E5E9EE}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:18px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:17px;margin-bottom:18px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.btn-outline{background:transparent;border:1px solid var(--border);padding:11px 18px;border-radius:10px;font-size:13px}
+.btn-save{background:var(--blue);color:#fff;padding:11px 18px;border-radius:10px;font-size:13px}
+
+.fab{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;width:56px;height:56px;border-radius:50%;font-size:26px;box-shadow:0 8px 24px rgba(6,170,72,.4);display:flex;align-items:center;justify-content:center}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;display:none}
+</style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-card">
+    <img src="/logo-icon.png" alt="BotClínica"/>
+    <h1>Área do Parceiro</h1>
+    <p>Cadastre seus leads e acompanhe suas comissões</p>
+    <div class="error-msg" id="login-error"></div>
+    <label>Código de acesso</label>
+    <input type="text" id="login-id" placeholder="Ex: joao" autocomplete="username"/>
+    <label>Senha</label>
+    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+    <button class="btn-primary" onclick="doLogin()" id="login-btn">Entrar</button>
+  </div>
+</div>
+
+<!-- APP (depois do login) -->
+<div class="app" id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <img src="/logo-icon.png" alt="BotClínica"/>
+      <div>
+        <div class="name" id="partner-name">—</div>
+        <div class="sub">Área do Parceiro · <span id="partner-rate">—</span>% de comissão</div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+
+  <div class="container">
+    <div class="grid-3">
+      <div class="kpi"><div class="label">Meus leads</div><div class="val" id="kpi-total">0</div></div>
+      <div class="kpi"><div class="label">Vendidos</div><div class="val" id="kpi-vendidos">0</div></div>
+      <div class="kpi"><div class="label">Reunião marcada</div><div class="val" id="kpi-reunioes">0</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Meus leads</span>
+        <button class="btn-save" onclick="openLeadModal()" style="padding:9px 16px">+ Novo Lead</button>
+      </div>
+      <div id="leads-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROXY = '/api/fb';
+let currentPartner = null;
+let myLeads = [];
+let editingLeadId = null;
+
+async function api(action, payload){
+  const r = await fetch(PROXY, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload})});
+  return r.json();
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(()=>{ t.style.display = 'none'; }, 2500);
+}
+
+// ── Login / sessão ──────────────────────────────────────────────────────
+async function doLogin(){
+  const id = document.getElementById('login-id').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  if(!id || !password){ errEl.textContent = 'Preencha código e senha.'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Entrando...'; btn.disabled = true;
+
+  const r = await api('partnerLogin', {id, password});
+  btn.textContent = 'Entrar'; btn.disabled = false;
+
+  if(r.error){ errEl.textContent = r.error; errEl.style.display = 'block'; return; }
+
+  currentPartner = r.partner;
+  sessionStorage.setItem('parceiro_session', JSON.stringify(currentPartner));
+  showApp();
+}
+
+function doLogout(){
+  sessionStorage.removeItem('parceiro_session');
+  currentPartner = null;
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('partner-name').textContent = currentPartner.name;
+  document.getElementById('partner-rate').textContent = currentPartner.commissionRate;
+  loadMyLeads();
+}
+
+// Restaura sessão se já estava logado (evita pedir senha de novo a cada F5)
+(function restoreSession(){
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('parceiro_session') || 'null');
+    if(saved && saved.id){ currentPartner = saved; showApp(); }
+  } catch(e){}
+})();
+
+// ── Leads ───────────────────────────────────────────────────────────────
+const STATUS_LABEL = {
+  novo: '🆕 Novo', reuniao_marcada: '📅 Reunião marcada', negociando: '💬 Negociando',
+  vendido: '💰 Vendido', perdido: '❌ Perdido',
+};
+const STATUS_BADGE = {
+  novo: 'badge-blue', reuniao_marcada: 'badge-yellow', negociando: 'badge-yellow',
+  vendido: 'badge-green', perdido: 'badge-red',
+};
+const PLAN_LABEL = { starter:'Starter', profissional:'Profissional', clinica:'Clínica', premium:'Premium' };
+
+async function loadMyLeads(){
+  const d = await api('listPartnerLeads', {partnerId: currentPartner.id});
+  myLeads = Array.isArray(d) ? d : [];
+  renderLeads();
+}
+
+function renderLeads(){
+  document.getElementById('kpi-total').textContent = myLeads.length;
+  document.getElementById('kpi-vendidos').textContent = myLeads.filter(l=>l.status==='vendido').length;
+  document.getElementById('kpi-reunioes').textContent = myLeads.filter(l=>l.status==='reuniao_marcada').length;
+
+  const el = document.getElementById('leads-list');
+  if(myLeads.length===0){
+    el.innerHTML = '<div class="empty">Nenhum lead cadastrado ainda. Clique em "+ Novo Lead" pra começar.</div>';
+    return;
+  }
+  el.innerHTML = myLeads.map(l => `
+    <div class="lead-item">
+      <div class="top">
+        <div>
+          <div class="nome">${l.nome}</div>
+          <div class="contato">${l.email||''} ${l.telefone?'· '+l.telefone:''}</div>
+        </div>
+        <span class="badge ${l.vendaConfirmada?'badge-green':(STATUS_BADGE[l.status]||'badge-blue')}">${l.vendaConfirmada?'✅ Confirmado':(STATUS_LABEL[l.status]||l.status)}</span>
+      </div>
+      ${l.plano?`<div style="font-size:12px;color:var(--muted);margin-top:8px">Plano: ${PLAN_LABEL[l.plano]||l.plano}${l.addon?' + Add-on Documentos':''}</div>`:''}
+      ${l.reuniaoData?`<div style="font-size:12px;color:var(--muted)">Reunião: ${new Date(l.reuniaoData+'T12:00:00').toLocaleDateString('pt-BR')}</div>`:''}
+      ${l.notas?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${l.notas}</div>`:''}
+      ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button></div>`:''}
+    </div>
+  `).join('');
+}
+
+function openLeadModal(lead){
+  editingLeadId = lead ? lead.id : null;
+  const l = lead || {nome:'',email:'',telefone:'',plano:'',addon:false,status:'novo',reuniaoData:'',notas:''};
+  const html = `
+    <div class="modal-overlay open" id="modal-lead">
+      <div class="modal">
+        <h2>${lead?'Editar':'Novo'} Lead</h2>
+        <label>Nome do responsável pela clínica</label>
+        <input id="lf-nome" value="${l.nome}" placeholder="Ex: Dra. Ana Souza"/>
+        <div class="form-row">
+          <div><label>E-mail</label><input id="lf-email" value="${l.email}" placeholder="ana@clinica.com"/></div>
+          <div><label>Telefone/WhatsApp</label><input id="lf-telefone" value="${l.telefone}" placeholder="(31) 99999-9999"/></div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Plano de interesse</label>
+            <select id="lf-plano">
+              <option value="">— Ainda não definido —</option>
+              <option value="starter" ${l.plano==='starter'?'selected':''}>Starter</option>
+              <option value="profissional" ${l.plano==='profissional'?'selected':''}>Profissional</option>
+              <option value="clinica" ${l.plano==='clinica'?'selected':''}>Clínica</option>
+              <option value="premium" ${l.plano==='premium'?'selected':''}>Premium</option>
+            </select>
+          </div>
+          <div>
+            <label>Status</label>
+            <select id="lf-status">
+              <option value="novo" ${l.status==='novo'?'selected':''}>🆕 Novo</option>
+              <option value="reuniao_marcada" ${l.status==='reuniao_marcada'?'selected':''}>📅 Reunião marcada</option>
+              <option value="negociando" ${l.status==='negociando'?'selected':''}>💬 Negociando</option>
+              <option value="vendido" ${l.status==='vendido'?'selected':''}>💰 Vendido</option>
+              <option value="perdido" ${l.status==='perdido'?'selected':''}>❌ Perdido</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label><input type="checkbox" id="lf-addon" ${l.addon?'checked':''} style="width:auto;display:inline;margin-right:6px"/>Interessado no add-on de Documentos</label>
+          </div>
+          <div><label>Data da reunião (se houver)</label><input id="lf-reuniao" type="date" value="${l.reuniaoData}"/></div>
+        </div>
+        <label>Notas (opcional)</label>
+        <textarea id="lf-notas" rows="3" placeholder="Qualquer observação relevante sobre essa negociação...">${l.notas}</textarea>
+        <div class="modal-actions">
+          <button class="btn-outline" onclick="closeLeadModal()">Cancelar</button>
+          <button class="btn-save" onclick="saveLead()">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeLeadModal(){
+  const m = document.getElementById('modal-lead');
+  if(m) m.remove();
+  editingLeadId = null;
+}
+
+async function saveLead(){
+  const nome = document.getElementById('lf-nome').value.trim();
+  if(!nome){ toast('Preencha o nome.'); return; }
+  const payload = {
+    leadId: editingLeadId,
+    partnerId: currentPartner.id,
+    nome,
+    email: document.getElementById('lf-email').value.trim(),
+    telefone: document.getElementById('lf-telefone').value.trim(),
+    plano: document.getElementById('lf-plano').value,
+    addon: document.getElementById('lf-addon').checked,
+    status: document.getElementById('lf-status').value,
+    reuniaoData: document.getElementById('lf-reuniao').value,
+    notas: document.getElementById('lf-notas').value.trim(),
+  };
+  const r = await api('savePartnerLead', payload);
+  if(r.error){ toast('Erro: '+r.error); return; }
+  closeLeadModal();
+  await loadMyLeads();
+  toast('Lead salvo com sucesso!');
+}
+
+// Enter no campo de senha já envia o login
+document.getElementById('login-password').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>

@@ -231,6 +231,7 @@ tr:hover td{background:rgba(26,111,168,.04)}
       <button class="nav-btn" onclick="goTo('wa_vendas')" id="nav-wa-vendas"><span class="nav-icon">💼</span><span>Luna (Vendas)</span><span class="nav-badge" id="badge-wa-vendas" style="display:none">0</span></button>
       <div class="sidebar-section" style="margin-top:12px">Análise</div>
       <button class="nav-btn" onclick="goTo('financeiro')"><span class="nav-icon">💰</span><span>Financeiro</span></button>
+      <button class="nav-btn" onclick="goTo('parceiros')"><span class="nav-icon">🤝</span><span>Parceiros</span></button>
       <button class="nav-btn" onclick="goTo('alertas')"><span class="nav-icon">🔔</span><span>Alertas</span></button>
       <div class="sidebar-section" style="margin-top:12px">Config</div>
       <button class="nav-btn" onclick="goTo('config')"><span class="nav-icon">⚙️</span><span>Configurações</span></button>
@@ -355,6 +356,9 @@ const CRM_PWD = "botclinica2026";
 const PROXY = "/api/fb";
 let clientes = [];
 let tickets = [];
+let partners = [];
+let commissions = [];
+let leads = [];
 let activeTicket = null;
 let supportInterval = null;
 let config = {
@@ -414,7 +418,7 @@ async function api(action, payload){
 
 // LOAD
 async function loadAll(){
-  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas()]);
+  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads()]);
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
@@ -451,6 +455,21 @@ async function loadAll(){
       }
     }
   }, 10000);
+}
+
+async function loadPartners(){
+  const d = await api('listPartners', {});
+  partners = Array.isArray(d) ? d : [];
+}
+
+async function loadCommissions(){
+  const d = await api('listCommissions', {});
+  commissions = Array.isArray(d) ? d : [];
+}
+
+async function loadLeads(){
+  const d = await api('listAllLeads', {});
+  leads = Array.isArray(d) ? d : [];
 }
 
 async function loadClientes(){
@@ -673,12 +692,12 @@ function goTo(page){
   currentPage = page;
   localStorage.setItem('crm_currentPage', page);
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  const map = {dashboard:0,clientes:1,suporte:2,wa_suporte:3,wa_vendas:4,financeiro:5,alertas:6,config:7};
+  const map = {dashboard:0,clientes:1,suporte:2,wa_suporte:3,wa_vendas:4,financeiro:5,parceiros:6,alertas:7,config:8};
   const btns = document.querySelectorAll('.nav-btn');
   if(map[page]!==undefined && btns[map[page]]) btns[map[page]].classList.add('active');
   Object.values(chartInstances).forEach(c=>{ try{c.destroy();}catch(e){} });
   chartInstances = {};
-  const renders = {dashboard:renderDashboard, clientes:renderClientes, suporte:renderSuporte, wa_suporte:renderWaSuporte, wa_vendas:renderWaVendas, financeiro:renderFinanceiro, alertas:renderAlertas, config:renderConfig};
+  const renders = {dashboard:renderDashboard, clientes:renderClientes, suporte:renderSuporte, wa_suporte:renderWaSuporte, wa_vendas:renderWaVendas, financeiro:renderFinanceiro, parceiros:renderParceiros, alertas:renderAlertas, config:renderConfig};
   if(renders[page]) renders[page]();
   if(page === 'config') checkPushSubscriptionStatus();
 }
@@ -1549,6 +1568,222 @@ function renderFinanceiro(){
     const ctx=document.getElementById('chart-fin');
     if(ctx) chartInstances.fin=new Chart(ctx,{type:'bar',data:{labels:['Starter','Profissional','Clínica','Premium'],datasets:[{label:'Receita',data:[byPlan.starter.rev,byPlan.profissional.rev,byPlan.clinica.rev,byPlan.premium.rev],backgroundColor:'#00D4A0',borderRadius:6},{label:'Custo',data:[byPlan.starter.custo,byPlan.profissional.custo,byPlan.clinica.custo,byPlan.premium.custo],backgroundColor:'#E03E3E',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#8AAAC8'},grid:{color:'#1E3048'}},y:{ticks:{color:'#8AAAC8'},grid:{color:'#1E3048'}}},plugins:{legend:{labels:{color:'#8AAAC8'}}}}});
   },100);
+}
+
+// PARCEIROS (programa de indicação/comissão)
+const COMMISSION_STATUS_LABEL = {
+  aguardando_carencia: '⏳ Aguardando carência',
+  elegivel: '✅ Elegível pra pagar',
+  pago: '💰 Pago',
+  cancelado: '🚫 Cancelado',
+};
+const COMMISSION_STATUS_BADGE = {
+  aguardando_carencia: 'badge-yellow',
+  elegivel: 'badge-green',
+  pago: 'badge-blue',
+  cancelado: 'badge-red',
+};
+
+function renderParceiros(){
+  const totalAPagar = commissions.filter(c=>c.status==='elegivel').reduce((s,c)=>s+c.valorComissao,0);
+  const totalAguardando = commissions.filter(c=>c.status==='aguardando_carencia').reduce((s,c)=>s+c.valorComissao,0);
+  const totalPago = commissions.filter(c=>c.status==='pago').reduce((s,c)=>s+c.valorComissao,0);
+
+  document.getElementById('main-content').innerHTML=`
+  <div class="topbar">
+    <div><div class="page-title">Parceiros</div><div class="page-sub">Programa de indicação — captadores ganham comissão por cliente fechado</div></div>
+    <div class="topbar-right"><button class="btn btn-primary" onclick="openPartnerModal()">+ Novo Parceiro</button></div>
+  </div>
+
+  <div class="grid-4">
+    <div class="card kpi-yellow"><div class="kpi-label">Aguardando carência</div><div class="kpi-val">${fmtBRL(totalAguardando)}</div><div class="kpi-sub">ainda no período de proteção</div></div>
+    <div class="card kpi-green"><div class="kpi-label">Elegível pra pagar</div><div class="kpi-val">${fmtBRL(totalAPagar)}</div><div class="kpi-sub">já passou a carência</div></div>
+    <div class="card"><div class="kpi-label">Já pago (histórico)</div><div class="kpi-val">${fmtBRL(totalPago)}</div><div class="kpi-sub">total pago aos parceiros</div></div>
+    <div class="card"><div class="kpi-label">Parceiros ativos</div><div class="kpi-val">${partners.length}</div><div class="kpi-sub">cadastrados</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Parceiros cadastrados</div>
+    ${partners.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum parceiro cadastrado ainda.</div>':`
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>Contato</th><th>Login</th><th>Comissão</th><th>Leads cadastrados</th><th></th></tr></thead>
+      <tbody>
+        ${partners.map(p=>{
+          const leadCount = leads.filter(l=>l.partnerId===p.id).length;
+          return `<tr>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.phone||'—'}</td>
+            <td><code style="font-size:11px;background:var(--bg);padding:3px 6px;border-radius:6px">botclinica.com.br/parceiro</code><br><span style="font-size:11px;color:var(--muted)">código: ${p.id}</span></td>
+            <td>${p.commissionRate}%</td>
+            <td>${leadCount}</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-outline btn-sm" onclick='openPartnerModal(${JSON.stringify(p).replace(/'/g,"&apos;")})'>✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deletePartner('${p.id}','${p.name}')">🗑️</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`}
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Leads cadastrados pelos parceiros</div>
+    ${leads.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum lead cadastrado ainda.</div>':`
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>Contato</th><th>Parceiro</th><th>Plano</th><th>Add-on</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${leads.map(l=>{
+          const partner = partners.find(p=>p.id===l.partnerId);
+          const canConfirm = l.status==='vendido' && !l.vendaConfirmada;
+          return `<tr>
+            <td><strong>${l.nome}</strong>${l.notas?`<br><span style="font-size:11px;color:var(--muted)">${l.notas}</span>`:''}</td>
+            <td>${l.email||'—'}<br><span style="font-size:11px;color:var(--muted)">${l.telefone||''}</span></td>
+            <td>${partner?partner.name:l.partnerId}</td>
+            <td>${l.plano?`<span class="${planClass(l.plano)}">${planLabel(l.plano)}</span>`:'—'}</td>
+            <td>${l.addon?'✅':'—'}</td>
+            <td>${LEAD_STATUS_BADGE(l)}</td>
+            <td>${canConfirm?`<button class="btn btn-green btn-sm" onclick="confirmLeadSale('${l.id}')">Confirmar venda</button>`:(l.vendaConfirmada?'<span style="font-size:11px;color:var(--green)">✓ confirmado</span>':'')}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Comissões</div>
+    ${commissions.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma indicação registrada ainda.</div>':`
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Cliente</th><th>Parceiro</th><th>Plano</th><th>Comissão</th><th>Pagamento</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${commissions.map(c=>{
+          const partner = partners.find(p=>p.id===c.partnerId);
+          return `<tr>
+            <td>${c.clinicName||c.clinicEmail}</td>
+            <td>${partner?partner.name:c.partnerId}</td>
+            <td><span class="${planClass(c.plano)}">${planLabel(c.plano)}</span></td>
+            <td><strong>${fmtBRL(c.valorComissao)}</strong></td>
+            <td>${fmtDate(c.paymentDate)}</td>
+            <td><span class="badge ${COMMISSION_STATUS_BADGE[c.status]||'badge-yellow'}">${COMMISSION_STATUS_LABEL[c.status]||c.status}</span></td>
+            <td>${c.status==='elegivel'?`<button class="btn btn-green btn-sm" onclick="markCommissionPaid('${c.id}')">Marcar pago</button>`:''}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`}
+  </div>`;
+}
+
+const LEAD_STATUS_LABEL = {
+  novo: '🆕 Novo',
+  reuniao_marcada: '📅 Reunião marcada',
+  negociando: '💬 Negociando',
+  vendido: '💰 Vendido (aguardando confirmação)',
+  perdido: '❌ Perdido',
+};
+const LEAD_STATUS_BADGE_CLASS = {
+  novo: 'badge-blue',
+  reuniao_marcada: 'badge-yellow',
+  negociando: 'badge-yellow',
+  vendido: 'badge-green',
+  perdido: 'badge-red',
+};
+function LEAD_STATUS_BADGE(l){
+  const label = l.vendaConfirmada ? '💰 Vendido (confirmado)' : (LEAD_STATUS_LABEL[l.status]||l.status);
+  const cls = l.vendaConfirmada ? 'badge-green' : (LEAD_STATUS_BADGE_CLASS[l.status]||'badge-blue');
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+async function confirmLeadSale(leadId){
+  if(!confirm('Confirma que essa venda é real (pagamento já caiu)? Isso vai criar a comissão do parceiro.')) return;
+  const r = await api('confirmLeadSale', {leadId});
+  if(r.error){ toast('Erro: '+r.error); return; }
+  await Promise.all([loadLeads(), loadCommissions()]);
+  renderParceiros();
+  toast('Venda confirmada, comissão criada!');
+}
+
+function openPartnerModal(partner){
+  const p = partner || {id:'',name:'',phone:'',commissionRate:50};
+  const isEdit = !!partner;
+  const html = `
+    <div class="modal-overlay open" id="modal-partner">
+      <div class="modal">
+        <h2>${isEdit?'Editar':'Novo'} Parceiro</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nome</label>
+            <input class="form-input" id="pf-name" value="${p.name}" placeholder="Ex: João Silva"/>
+          </div>
+          <div class="form-group">
+            <label>Telefone/WhatsApp</label>
+            <input class="form-input" id="pf-phone" value="${p.phone}" placeholder="(31) 99999-9999"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Código de login ${isEdit?'(não pode mudar depois)':''}</label>
+            <input class="form-input" id="pf-id" value="${p.id}" placeholder="Ex: joao" ${isEdit?'disabled':''}/>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Ele usa isso pra entrar em botclinica.com.br/parceiro</div>
+          </div>
+          <div class="form-group">
+            <label>% de comissão sobre o 1º pagamento</label>
+            <input class="form-input" id="pf-rate" type="number" value="${p.commissionRate}" placeholder="50"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Senha de acesso ${isEdit?'(deixe em branco pra manter a atual)':''}</label>
+            <input class="form-input" id="pf-password" type="text" placeholder="${isEdit?'••••••••':'Crie uma senha'}"/>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closePartnerModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="savePartner(${isEdit})">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closePartnerModal(){
+  const m = document.getElementById('modal-partner');
+  if(m) m.remove();
+}
+
+async function savePartner(isEdit){
+  const id = document.getElementById('pf-id').value.trim();
+  const name = document.getElementById('pf-name').value.trim();
+  const phone = document.getElementById('pf-phone').value.trim();
+  const commissionRate = document.getElementById('pf-rate').value;
+  const password = document.getElementById('pf-password').value.trim();
+  if(!id || !name){ toast('Preencha nome e código de login'); return; }
+  if(!isEdit && !password){ toast('Defina uma senha pro parceiro novo'); return; }
+  const r = await api('savePartner', {id, name, phone, commissionRate, password});
+  if(r.error){ toast('Erro: '+r.error); return; }
+  closePartnerModal();
+  await loadPartners();
+  renderParceiros();
+  toast(isEdit?'Parceiro atualizado!':'Parceiro criado!');
+}
+
+async function deletePartner(id, name){
+  if(!confirm(`Remover o parceiro "${name}"? As comissões já geradas não são apagadas.`)) return;
+  await api('deletePartner', {id});
+  await loadPartners();
+  renderParceiros();
+}
+
+async function markCommissionPaid(id){
+  if(!confirm('Confirma que essa comissão já foi paga de verdade pro parceiro?')) return;
+  await api('markCommissionPaid', {id});
+  await loadCommissions();
+  renderParceiros();
+  toast('Comissão marcada como paga!');
 }
 
 // ALERTAS
