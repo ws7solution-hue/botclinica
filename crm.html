@@ -1633,7 +1633,7 @@ function renderParceiros(){
     ${leads.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum lead cadastrado ainda.</div>':`
     <div class="table-wrap">
     <table>
-      <thead><tr><th>Nome</th><th>Contato</th><th>Parceiro</th><th>Plano</th><th>Add-on</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Contato</th><th>Parceiro</th><th>Plano</th><th>Add-on</th><th>Status</th><th></th><th></th></tr></thead>
       <tbody>
         ${leads.map(l=>{
           const partner = partners.find(p=>p.id===l.partnerId);
@@ -1646,6 +1646,7 @@ function renderParceiros(){
             <td>${l.addon?'✅':'—'}</td>
             <td>${LEAD_STATUS_BADGE(l)}</td>
             <td>${canConfirm?`<button class="btn btn-green btn-sm" onclick="confirmLeadSale('${l.id}')">Confirmar venda</button>`:(l.vendaConfirmada?'<span style="font-size:11px;color:var(--green)">✓ confirmado</span>':'')}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1705,6 +1706,14 @@ async function confirmLeadSale(leadId){
   await Promise.all([loadLeads(), loadCommissions()]);
   renderParceiros();
   toast('Venda confirmada, comissão criada!');
+}
+
+async function deleteLead(id, nome){
+  if(!confirm(`Excluir o lead "${nome}"? Essa ação não pode ser desfeita.`)) return;
+  await api('deletePartnerLead', {id});
+  await loadLeads();
+  renderParceiros();
+  toast('Lead excluído.');
 }
 
 function openPartnerModal(partner){

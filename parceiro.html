@@ -238,7 +238,7 @@ function renderLeads(){
       ${l.plano?`<div style="font-size:12px;color:var(--muted);margin-top:8px">Plano: ${PLAN_LABEL[l.plano]||l.plano}${l.addon?' + Add-on Documentos':''}</div>`:''}
       ${l.reuniaoData?`<div style="font-size:12px;color:var(--muted)">Reunião: ${new Date(l.reuniaoData+'T12:00:00').toLocaleDateString('pt-BR')}</div>`:''}
       ${l.notas?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${l.notas}</div>`:''}
-      ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button></div>`:''}
+      ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button><button class="btn-sm" style="color:var(--red)" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️ Excluir</button></div>`:''}
     </div>
   `).join('');
 }
@@ -369,6 +369,14 @@ async function saveLead(){
   closeLeadModal();
   await loadMyLeads();
   toast('Lead salvo com sucesso!');
+}
+
+async function deleteLead(id, nome){
+  if(!confirm(`Excluir o lead "${nome}"? Essa ação não pode ser desfeita.`)) return;
+  const r = await api('deletePartnerLead', {id});
+  if(r.error){ toast('Erro: '+r.error); return; }
+  await loadMyLeads();
+  toast('Lead excluído.');
 }
 
 // Enter no campo de senha já envia o login
