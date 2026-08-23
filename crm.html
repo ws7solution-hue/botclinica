@@ -1687,7 +1687,7 @@ function renderParceiros(){
     ${commissions.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma indicação registrada ainda.</div>':`
     <div class="table-wrap">
     <table>
-      <thead><tr><th>Cliente</th><th>Parceiro</th><th>Plano</th><th>Comissão</th><th>Pagamento</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Cliente</th><th>Parceiro</th><th>Plano</th><th>Comissão</th><th>Pagamento</th><th>Status</th><th></th><th></th></tr></thead>
       <tbody>
         ${commissions.map(c=>{
           const partner = partners.find(p=>p.id===c.partnerId);
@@ -1699,6 +1699,7 @@ function renderParceiros(){
             <td>${fmtDate(c.paymentDate)}</td>
             <td><span class="badge ${COMMISSION_STATUS_BADGE[c.status]||'badge-yellow'}">${COMMISSION_STATUS_LABEL[c.status]||c.status}</span></td>
             <td>${c.status==='elegivel'?`<button class="btn btn-green btn-sm" onclick="markCommissionPaid('${c.id}')">Marcar pago</button>`:''}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteCommissionCRM('${c.id}','${(c.clinicName||c.clinicEmail).replace(/'/g,"\\'")}')">🗑️</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1821,6 +1822,14 @@ async function markCommissionPaid(id){
   await loadCommissions();
   renderParceiros();
   toast('Comissão marcada como paga!');
+}
+
+async function deleteCommissionCRM(id, nome){
+  if(!confirm(`Excluir a comissão de "${nome}"? Essa ação não pode ser desfeita.`)) return;
+  await api('deleteCommission', {id});
+  await loadCommissions();
+  renderParceiros();
+  toast('Comissão excluída.');
 }
 
 // ALERTAS
