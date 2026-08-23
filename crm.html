@@ -502,7 +502,14 @@ async function loadClientes(){
     };
   });
   crmClientes.forEach(cc => {
+    // BUGFIX: esse merge sobrescrevia "inicio" (data real de pagamento,
+    // vinda do createdAt) com qualquer valor manual que estivesse salvo em
+    // crm_clientes — fazendo o CRM mostrar uma data diferente da que o
+    // resto do sistema usa (inclusive a Clara, no cálculo de prazo de
+    // estorno). Agora, a data real do Firebase sempre prevalece.
+    const dataRealDeInicio = map[cc.id]?.inicio;
     map[cc.id] = { ...map[cc.id], ...cc, source: 'crm' };
+    if (dataRealDeInicio) map[cc.id].inicio = dataRealDeInicio;
   });
   clientes = Object.values(map);
 }
