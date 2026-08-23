@@ -1958,6 +1958,22 @@ module.exports = async (req, res) => {
         }),
       });
 
+      // NOVO: manda uma mensagem de parabéns pro PARCEIRO via WhatsApp,
+      // reaproveitando o número do Suporte — se ele responder, a conversa
+      // já cai automaticamente etiquetada como "Parceiro" no CRM.
+      try {
+        const partnerPhone = partnerD.fields?.phone?.stringValue;
+        const partnerName = partnerD.fields?.name?.stringValue || "";
+        if (partnerPhone) {
+          const mensagem = `🎉 Parabéns, ${partnerName}! Sua indicação de "${nome}" foi confirmada e virou uma venda de verdade!\n\nSua comissão de R$${valorComissao.toFixed(2)} já está registrada e libera pra pagamento em ${eligibleDate.toLocaleDateString('pt-BR')}. Você pode acompanhar tudo em botclinica.com.br/parceiro. 🚀`;
+          await fetch("https://whatsapp.botclinica.com.br/notify-partner", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: partnerPhone, message: mensagem }),
+          });
+        }
+      } catch (e) { /* não bloqueia a confirmação da venda se a notificação falhar */ }
+
       return res.status(200).json({ ok: true });
     }
 
