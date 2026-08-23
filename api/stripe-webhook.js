@@ -96,6 +96,7 @@ module.exports = async (req, res) => {
         const { email } = sub.metadata || {};
         if (email) {
           await deactivateAccount(email);
+          await cancelCommissionIfPending(email);
           console.log(`🚫 Conta desativada (assinatura cancelada): ${email}`);
         }
         break;
@@ -255,6 +256,67 @@ async function deactivateAccount(email) {
       }
     }),
   });
+}
+
+// ── Cancela a comissão do parceiro se o cliente indicado por ele cancelar
+// a assinatura ANTES da comissão já ter sido paga — e avisa o parceiro por
+// WhatsApp, pra ele nunca ficar sem saber o motivo da mudança de status.
+// BUGFIX: antes, essa checagem assumia um ID de documento fixo baseado no
+// e-mail — mas a comissão de verdade (criada quando você confirma uma
+// venda no CRM) usa um ID diferente (baseado no ID do lead). Por isso,
+// agora busca em TODAS as comissões procurando qual tem esse e-mail no
+// campo "clinicEmail", em vez de tentar adivinhar o ID do documento.
+async function cancelCommissionIfPending(email) {
+  try {
+    const r = await fetch(`${FS}/commissions?key=${FB_KEY}&pageSize=300`);
+    const d = await r.json();
+    const docs = d.documents || [];
+    const emailLower = (email || '').toLowerCase();
+
+    for (const doc of docs) {
+      const f = doc.fields || {};
+      const docEmail = (f.clinicEmail?.stringValue || '').toLowerCase();
+      if (docEmail !== emailLower) continue;
+
+      const currentStatus = f.status?.stringValue;
+      if (currentStatus === 'pago') continue; // já foi paga — não mexe retroativamente
+
+      const commissionId = doc.name.split('/').pop();
+      await fetch(`${FS}/commissions/${commissionId}?updateMask.fieldPaths=status&key=${FB_KEY}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: { status: { stringValue: 'cancelado' } } }),
+      });
+      console.log(`🚫 Comissão cancelada (cliente cancelou/estornou antes de pagar): ${email}`);
+
+      // Avisa o parceiro — ele merece saber que essa comissão específica
+      // não vai mais ser paga, e por qual motivo.
+      try {
+        const partnerId = f.partnerId?.stringValue;
+        if (partnerId) {
+          const partnerRes = await fetch(`${FS}/partners/${partnerId}?key=${FB_KEY}`);
+          const partnerData = await partnerRes.json();
+          const partnerPhone = partnerData.fields?.phone?.stringValue;
+          const partnerName = partnerData.fields?.name?.stringValue || '';
+          const clinicName = f.clinicName?.stringValue || email;
+          if (partnerPhone) {
+            await fetch('https://whatsapp.botclinica.com.br/notify-partner', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: partnerPhone,
+                message: `Oi, ${partnerName}. Preciso te avisar: a comissão da venda de "${clinicName}" foi cancelada, porque o cliente cancelou ou pediu estorno da assinatura antes do pagamento ser liberado. Isso pode acontecer às vezes — continue mandando leads, combinado? 🙏`,
+              }),
+            });
+          }
+        }
+      } catch (e) {
+        console.error('❌ Falha ao notificar parceiro sobre cancelamento de comissão:', e.message);
+      }
+    }
+  } catch (e) {
+    console.error('❌ Falha ao verificar/cancelar comissão pendente:', e.message);
+  }
 }
 
 // ── NOVO: sincroniza status de pagamento + data da próxima cobrança real ─────
