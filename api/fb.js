@@ -1961,6 +1961,81 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── Despesas operacionais customizáveis (VPS, Anthropic, Meta, etc) ──
+    // Diferente do Financeiro de cada clínica (que é sobre o NEGÓCIO DELAS),
+    // isso é sobre o custo de rodar o BotClínica em si — usado só no seu
+    // CRM interno.
+    if (action === "listDespesas") {
+      const r = await fsReq("crm_despesas");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const despesas = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        const historicoValues = (f.historico?.arrayValue?.values || []).map((v) => ({
+          valor: parseFloat(v.mapValue?.fields?.valor?.doubleValue || v.mapValue?.fields?.valor?.integerValue || 0),
+          data: v.mapValue?.fields?.data?.stringValue || "",
+        }));
+        return {
+          id: doc.name.split("/").pop(),
+          nome: f.nome?.stringValue || "",
+          categoria: f.categoria?.stringValue || "outro",
+          tipo: f.tipo?.stringValue || "fixo",
+          valor: parseFloat(f.valor?.doubleValue || f.valor?.integerValue || 0),
+          recorrente: f.recorrente?.booleanValue !== false,
+          historico: historicoValues,
+        };
+      }).sort((a, b) => a.nome.localeCompare(b.nome));
+      return res.status(200).json(despesas);
+    }
+
+    if (action === "saveDespesa") {
+      const { id, nome, categoria, tipo, valor, recorrente } = payload;
+      if (!nome) return res.status(400).json({ error: "nome obrigatório" });
+      const despesaId = id || `desp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      const existing = id ? await (await fetch(`${FS}/crm_despesas/${despesaId}?key=${API_KEY}`)).json() : {};
+      const historicoRaw = existing.fields?.historico?.arrayValue?.values || [];
+      const valorAnterior = existing.fields?.valor
+        ? parseFloat(existing.fields.valor.doubleValue || existing.fields.valor.integerValue || 0)
+        : null;
+
+      // Só registra no histórico quando o VALOR realmente muda — é isso
+      // que permite calcular a "média dos últimos meses" depois, sem
+      // duplicar entrada toda vez que só o nome/categoria é editado.
+      const novoValor = Number(valor ?? 0);
+      let historicoAtualizado = historicoRaw;
+      if (valorAnterior !== null && valorAnterior !== novoValor) {
+        historicoAtualizado = [
+          ...historicoRaw,
+          { mapValue: { fields: { valor: { doubleValue: valorAnterior }, data: { stringValue: new Date().toISOString().slice(0, 10) } } } },
+        ].slice(-12); // guarda só os últimos 12 valores (1 ano de histórico já basta)
+      }
+
+      const fields = {
+        nome: { stringValue: nome },
+        categoria: { stringValue: categoria || "outro" },
+        tipo: { stringValue: tipo || "fixo" },
+        valor: { doubleValue: novoValor },
+        recorrente: { booleanValue: recorrente !== false },
+        historico: { arrayValue: { values: historicoAtualizado } },
+      };
+      const r = await fetch(`${FS}/crm_despesas/${despesaId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true, id: despesaId });
+    }
+
+    if (action === "deleteDespesa") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/crm_despesas/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
 
   } catch (err) {
