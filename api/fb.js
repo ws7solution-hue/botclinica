@@ -1765,6 +1765,16 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // Excluir comissão — só existe essa action aqui no backend do CRM,
+    // não tem equivalente no parceiro.html (proposital: o parceiro nunca
+    // deve poder apagar o próprio histórico de comissões).
+    if (action === "deleteCommission") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/commissions/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Login do parceiro na página própria dele (/parceiro) ────────────
     if (action === "partnerLogin") {
       const { id, password } = payload;
