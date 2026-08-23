@@ -1132,7 +1132,7 @@ function renderWaSuporteList(list){
     const statusColor = {human_needed:'priority-aberto',human_active:'priority-andamento',bot:'priority-resolvido'}[c.status]||'priority-resolvido';
     return `<div class="support-item${activeWaSuporteConversa===c.id?' active':''}" onclick="openWaSuporteConversa('${c.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div class="support-item-name">${c.patientName||c.phone||'Contato'}</div>
+        <div class="support-item-name">${c.patientName||c.phone||'Contato'}${c.category==='Parceiro'?' <span class="badge badge-yellow" style="font-size:9px;padding:2px 6px;margin-left:4px">🤝 Parceiro</span>':''}</div>
         <span class="${statusColor}">${statusLbl}</span>
       </div>
       <div class="support-item-preview">${(c.last||'').slice(0,60)}</div>
