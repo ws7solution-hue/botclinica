@@ -359,6 +359,7 @@ let tickets = [];
 let partners = [];
 let commissions = [];
 let leads = [];
+let despesas = [];
 let activeTicket = null;
 let supportInterval = null;
 let config = {
@@ -418,7 +419,7 @@ async function api(action, payload){
 
 // LOAD
 async function loadAll(){
-  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads()]);
+  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads(), loadDespesas()]);
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
@@ -470,6 +471,11 @@ async function loadCommissions(){
 async function loadLeads(){
   const d = await api('listAllLeads', {});
   leads = Array.isArray(d) ? d : [];
+}
+
+async function loadDespesas(){
+  const d = await api('listDespesas', {});
+  despesas = Array.isArray(d) ? d : [];
 }
 
 async function loadClientes(){
@@ -730,7 +736,18 @@ function statusLabel(s){ return {ativo:'✅ Ativo',atrasado:'⚠️ Atrasado',ca
 function precoPlano(p){ return config.precos[p]||0; }
 function ativos(){ return clientes.filter(c=>c.status==='ativo'||c.status==='vencendo'); }
 function mrr(){ return ativos().reduce((s,c)=>s+precoPlano(c.plano),0); }
-function custoTotal(n){ const c=config.custos; return (parseFloat(c.vps)||0)+(parseFloat(c.email)||0)+(parseFloat(c.outros)||0)+((parseFloat(c.anthropic_por_cliente)||0)*n)+((parseFloat(c.meta)||0)*n); }
+// BUGFIX/EVOLUÇÃO: antes isso lia campos fixos (config.custos.vps, etc).
+// Agora lê da lista de despesas customizáveis — cada uma pode ser fixa
+// (valor em R$) ou percentual (% sobre a receita do mês), e só entra na
+// conta se estiver marcada como recorrente (uma despesa pontual não deve
+// "contaminar" a projeção dos meses seguintes).
+function custoTotal(n){
+  const receita = mrr();
+  return despesas.filter(d=>d.recorrente).reduce((sum,d)=>{
+    if(d.tipo==='percentual') return sum + receita*((parseFloat(d.valor)||0)/100);
+    return sum + (parseFloat(d.valor)||0);
+  }, 0);
+}
 function lucroLiq(){ return mrr()-custoTotal(ativos().length); }
 function keyId(email){ return email.replace(/[@.]/g,'_'); }
 function nextMonth(){ const d=new Date(); d.setMonth(d.getMonth()+1); return d.toISOString().split('T')[0]; }
@@ -742,12 +759,10 @@ function fmtVenc(dateStr){
   return fmtDate(dateStr);
 }
 function calcBreakeven(){
-  const fixo=(parseFloat(config.custos.vps)||0)+(parseFloat(config.custos.email)||0)+(parseFloat(config.custos.outros)||0);
+  const fixo=despesas.filter(d=>d.recorrente && d.tipo==='fixo').reduce((s,d)=>s+(parseFloat(d.valor)||0),0);
   const ticket=config.precos.starter||397;
-  const custoVar=(parseFloat(config.custos.anthropic_por_cliente)||0)+(parseFloat(config.custos.meta)||0);
-  const margVar=ticket-custoVar;
-  if(margVar<=0) return '∞';
-  return Math.ceil(fixo/margVar);
+  if(ticket<=0) return '∞';
+  return Math.ceil(fixo/ticket);
 }
 
 // DASHBOARD
@@ -807,7 +822,10 @@ function renderDashboard(){
       <div class="kpi-label">Custos mensais</div>
       <div class="kpi-val kpi-red" style="font-size:24px">${fmtBRL(totalCusto)}</div>
       <div class="divider"></div>
-      ${Object.entries({'VPS':config.custos.vps,'Email':config.custos.email,'Anthropic×clientes':(config.custos.anthropic_por_cliente||0)*ativ.length,'Meta×clientes':(config.custos.meta||0)*ativ.length,'Outros':config.custos.outros}).map(([k,v])=>v>0?`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">${k}</span><span>${fmtBRL(v)}</span></div>`:'').join('')}
+      ${despesas.filter(d=>d.recorrente).map(d=>{
+        const valorCalc = d.tipo==='percentual' ? mrr()*((parseFloat(d.valor)||0)/100) : (parseFloat(d.valor)||0);
+        return valorCalc>0?`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span style="color:var(--muted)">${d.nome}${d.tipo==='percentual'?` (${d.valor}%)`:''}</span><span>${fmtBRL(valorCalc)}</span></div>`:'';
+      }).join('') || '<div style="font-size:12px;color:var(--muted)">Nenhuma despesa cadastrada ainda — vá em Configurações.</div>'}
     </div>
     <div class="card">
       <div class="kpi-label">Ticket médio</div>
@@ -1545,9 +1563,12 @@ function renderFinanceiro(){
   const totalCusto=custoTotal(ativ.length);
   const lucro=lucroLiq();
   const byPlan={starter:{n:0,rev:0,custo:0},profissional:{n:0,rev:0,custo:0},clinica:{n:0,rev:0,custo:0},premium:{n:0,rev:0,custo:0}};
-  const custoFixoPorCliente=ativ.length>0?((parseFloat(config.custos.vps)||0)+(parseFloat(config.custos.email)||0)+(parseFloat(config.custos.outros)||0))/Math.max(ativ.length,1):0;
-  const custoVar=(parseFloat(config.custos.anthropic_por_cliente)||0)+(parseFloat(config.custos.meta)||0);
-  ativ.forEach(c=>{ const p=c.plano||'starter'; byPlan[p].n++; byPlan[p].rev+=precoPlano(p); byPlan[p].custo+=custoFixoPorCliente+custoVar; });
+  const despesaTotalRecorrente=despesas.filter(d=>d.recorrente).reduce((s,d)=>{
+    if(d.tipo==='percentual') return s+totalMRR*((parseFloat(d.valor)||0)/100);
+    return s+(parseFloat(d.valor)||0);
+  },0);
+  const custoPorCliente=ativ.length>0?despesaTotalRecorrente/ativ.length:0;
+  ativ.forEach(c=>{ const p=c.plano||'starter'; byPlan[p].n++; byPlan[p].rev+=precoPlano(p); byPlan[p].custo+=custoPorCliente; });
 
   document.getElementById('main-content').innerHTML=`
   <div class="topbar"><div><div class="page-title">Financeiro</div><div class="page-sub">Receita, custos e margem por plano</div></div></div>
@@ -1839,7 +1860,7 @@ function renderConfig(){
     </div>
   </div>
   <div class="card" style="margin-bottom:16px">
-    <div class="config-section">
+    <div class="config-section" style="margin-bottom:0">
       <h3>💰 Preços por plano (R$/mês)</h3>
       <div class="config-grid" style="grid-template-columns:repeat(4,1fr)">
         <div class="config-item"><label>🌱 Starter</label><input class="config-input" id="cfg-p-starter" type="number" value="${config.precos.starter}"/></div>
@@ -1848,25 +1869,127 @@ function renderConfig(){
         <div class="config-item"><label>👑 Premium</label><input class="config-input" id="cfg-p-prem" type="number" value="${config.precos.premium}"/></div>
       </div>
     </div>
-    <div class="config-section">
-      <h3>📦 Custos fixos mensais</h3>
-      <div class="config-grid">
-        <div class="config-item"><label>VPS / Hospedagem</label><input class="config-input" id="cfg-c-vps" type="number" step="0.01" value="${config.custos.vps}"/></div>
-        <div class="config-item"><label>Email profissional</label><input class="config-input" id="cfg-c-email" type="number" step="0.01" value="${config.custos.email}"/></div>
-        <div class="config-item"><label>Outros</label><input class="config-input" id="cfg-c-outros" type="number" step="0.01" value="${config.custos.outros}"/></div>
-      </div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">
+      <span>📦 Despesas operacionais</span>
+      <button class="btn btn-primary btn-sm" onclick="openDespesaModal()">+ Nova Despesa</button>
     </div>
-    <div class="config-section" style="margin-bottom:0">
-      <h3>📈 Custos variáveis (por cliente/mês)</h3>
-      <div class="config-grid">
-        <div class="config-item"><label>Anthropic API</label><input class="config-input" id="cfg-c-anthropic" type="number" step="0.01" value="${config.custos.anthropic_por_cliente}"/></div>
-        <div class="config-item"><label>Meta / WhatsApp</label><input class="config-input" id="cfg-c-meta" type="number" step="0.01" value="${config.custos.meta}"/></div>
-      </div>
-    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Custos reais de rodar o BotClínica (VPS, Anthropic, Meta/WhatsApp, etc). Marque como "recorrente" pra contar todo mês na projeção — despesas pontuais (não recorrentes) ficam só de registro, sem entrar na conta do mês seguinte.</p>
+    ${despesas.length===0?'<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nenhuma despesa cadastrada ainda.</div>':`
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Valor atual</th><th>Média (últimos meses)</th><th>Recorrente?</th><th></th></tr></thead>
+      <tbody>
+        ${despesas.map(d=>{
+          const media = mediaDespesa(d);
+          return `<tr>
+            <td><strong>${d.nome}</strong></td>
+            <td>${d.tipo==='percentual'?'% da receita':'Valor fixo'}</td>
+            <td>${d.tipo==='percentual'?d.valor+'%':fmtBRL(d.valor)}</td>
+            <td>${media!==null?(d.tipo==='percentual'?media.toFixed(1)+'%':fmtBRL(media)):'<span style="color:var(--muted)">sem histórico ainda</span>'}</td>
+            <td>${d.recorrente?'✅ Sim':'—'}</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-outline btn-sm" onclick='openDespesaModal(${JSON.stringify(d).replace(/'/g,"&apos;")})'>✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteDespesaCRM('${d.id}','${d.nome.replace(/'/g,"\\'")}')">🗑️</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`}
   </div>
   <div class="card" style="background:var(--green-l);border-color:rgba(0,212,160,.3)">
     <div style="font-size:13px;color:var(--green)">💡 Preview: MRR de <strong>${fmtBRL(mrr())}</strong> − custos de <strong>${fmtBRL(custoTotal(ativos().length))}</strong> = lucro de <strong>${fmtBRL(lucroLiq())}</strong>/mês</div>
   </div>`;
+}
+
+// Calcula a média dos valores anteriores + o valor atual — é isso que
+// permite acompanhar como o gasto de Anthropic/Meta variou mês a mês,
+// sem precisar de planilha separada.
+function mediaDespesa(d){
+  const valores = [...(d.historico||[]).map(h=>h.valor), d.valor];
+  if(valores.length<2) return null; // só tem o valor atual, ainda não dá pra falar de "média"
+  return valores.reduce((s,v)=>s+v,0)/valores.length;
+}
+
+function openDespesaModal(despesa){
+  const d = despesa || {id:'',nome:'',categoria:'outro',tipo:'fixo',valor:0,recorrente:true};
+  const isEdit = !!despesa;
+  const html = `
+    <div class="modal-overlay open" id="modal-despesa">
+      <div class="modal">
+        <h2>${isEdit?'Editar':'Nova'} Despesa</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nome</label>
+            <input class="form-input" id="df-nome" value="${d.nome}" placeholder="Ex: Anthropic API"/>
+          </div>
+          <div class="form-group">
+            <label>Categoria</label>
+            <select class="form-input" id="df-categoria">
+              <option value="vps" ${d.categoria==='vps'?'selected':''}>VPS / Hospedagem</option>
+              <option value="anthropic" ${d.categoria==='anthropic'?'selected':''}>Anthropic (Claude)</option>
+              <option value="meta" ${d.categoria==='meta'?'selected':''}>Meta / WhatsApp</option>
+              <option value="outro" ${(!d.categoria||d.categoria==='outro')?'selected':''}>Outro</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo</label>
+            <select class="form-input" id="df-tipo">
+              <option value="fixo" ${d.tipo==='fixo'?'selected':''}>Valor fixo (R$)</option>
+              <option value="percentual" ${d.tipo==='percentual'?'selected':''}>Percentual da receita (%)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Valor</label>
+            <input class="form-input" id="df-valor" type="number" step="0.01" value="${d.valor}"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="df-recorrente" ${d.recorrente?'checked':''} style="width:auto;display:inline;margin-right:6px"/>É uma despesa recorrente (conta todo mês)</label>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeDespesaModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveDespesaModal('${d.id}')">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeDespesaModal(){
+  const m = document.getElementById('modal-despesa');
+  if(m) m.remove();
+}
+
+async function saveDespesaModal(id){
+  const nome = document.getElementById('df-nome').value.trim();
+  if(!nome){ toast('Preencha o nome da despesa'); return; }
+  const payload = {
+    id: id || undefined,
+    nome,
+    categoria: document.getElementById('df-categoria').value,
+    tipo: document.getElementById('df-tipo').value,
+    valor: parseFloat(document.getElementById('df-valor').value) || 0,
+    recorrente: document.getElementById('df-recorrente').checked,
+  };
+  const r = await api('saveDespesa', payload);
+  if(r.error){ toast('Erro: '+r.error); return; }
+  closeDespesaModal();
+  await loadDespesas();
+  renderConfig();
+  toast('Despesa salva!');
+}
+
+async function deleteDespesaCRM(id, nome){
+  if(!confirm(`Excluir a despesa "${nome}"?`)) return;
+  await api('deleteDespesa', {id});
+  await loadDespesas();
+  renderConfig();
+  toast('Despesa excluída.');
 }
 
 async function saveConfig(){
@@ -1874,11 +1997,6 @@ async function saveConfig(){
   config.precos.profissional=parseFloat(document.getElementById('cfg-p-prof').value)||597;
   config.precos.clinica=parseFloat(document.getElementById('cfg-p-clin').value)||997;
   config.precos.premium=parseFloat(document.getElementById('cfg-p-prem').value)||1497;
-  config.custos.vps=parseFloat(document.getElementById('cfg-c-vps').value)||0;
-  config.custos.email=parseFloat(document.getElementById('cfg-c-email').value)||11.99;
-  config.custos.outros=parseFloat(document.getElementById('cfg-c-outros').value)||0;
-  config.custos.anthropic_por_cliente=parseFloat(document.getElementById('cfg-c-anthropic').value)||0;
-  config.custos.meta=parseFloat(document.getElementById('cfg-c-meta').value)||0;
   await api('crmSaveConfig',{config});
   toast('✅ Configurações salvas!');
   renderConfig();
