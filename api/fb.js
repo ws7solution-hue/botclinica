@@ -2041,7 +2041,7 @@ module.exports = async (req, res) => {
         addon: false,
         status: "novo",
         reuniaoData: "",
-        notas: `Importado do pool de leads (${poolD.fields.cidade?.stringValue || ""}).${poolD.fields.sinalPotencial ? " Sinal: " + poolD.fields.sinalPotencial : ""}`,
+        notas: `Importado do pool de leads (${poolD.fields.cidade?.stringValue || ""}).${poolD.fields.sinalPotencial?.stringValue ? " Sinal: " + poolD.fields.sinalPotencial.stringValue : ""}`,
         vendaConfirmada: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
