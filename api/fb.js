@@ -1903,6 +1903,152 @@ module.exports = async (req, res) => {
       return res.status(200).json(leads);
     }
 
+    // ── Piscina de leads (clínicas em potencial) ──────────────────────────
+    // NOVO: admin importa uma lista de clínicas (planilha/CSV gerada fora do
+    // sistema) pra uma "piscina" compartilhada. Parceiros reivindicam dali,
+    // o que evita dois parceiros ligando pra mesma clínica.
+
+    // Admin sobe uma lista de clínicas encontradas (ex: via CRM → Parceiros
+    // → Importar Leads). Deduplica por telefone: se o telefone já existe na
+    // piscina, pula (não sobrescreve — evita "resetar" um lead já
+    // reivindicado por outro parceiro).
+    if (action === "importLeadsPool") {
+      const { leads: incoming } = payload;
+      if (!Array.isArray(incoming) || incoming.length === 0) {
+        return res.status(400).json({ error: "Nenhum lead enviado (esperado um array em 'leads')" });
+      }
+
+      let imported = 0, skipped = 0;
+      for (const item of incoming) {
+        const phoneDigits = String(item.telefone || "").replace(/\D/g, "");
+        if (!phoneDigits || !item.nome) { skipped++; continue; }
+
+        const docId = phoneDigits;
+        const existingRes = await fsReq(`leads_pool/${docId}`);
+        const existingD = await existingRes.json();
+        if (existingD.fields) { skipped++; continue; } // já existe, não sobrescreve
+
+        const fields = toFsFields({
+          nome: item.nome || "",
+          cidade: item.cidade || "",
+          telefone: item.telefone || "",
+          endereco: item.endereco || "",
+          tipo: item.tipo || "",
+          avaliacao: item.avaliacao || "",
+          sinalPotencial: item.sinalPotencial || "",
+          status: "disponivel",
+          importedAt: new Date().toISOString(),
+        });
+        await fsReq(`leads_pool/${docId}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+        imported++;
+      }
+      return res.status(200).json({ ok: true, imported, skipped });
+    }
+
+    // Lista a piscina de leads. onlyAvailable=true filtra só os que ainda
+    // não foram reivindicados (usado no painel do parceiro). Sem esse
+    // filtro, retorna tudo (usado no resumo do CRM).
+    if (action === "listLeadsPool") {
+      const { onlyAvailable } = payload || {};
+      const r = await fsReq("leads_pool");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      let items = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          nome: f.nome?.stringValue || "",
+          cidade: f.cidade?.stringValue || "",
+          telefone: f.telefone?.stringValue || "",
+          endereco: f.endereco?.stringValue || "",
+          tipo: f.tipo?.stringValue || "",
+          avaliacao: f.avaliacao?.stringValue || "",
+          sinalPotencial: f.sinalPotencial?.stringValue || "",
+          status: f.status?.stringValue || "disponivel",
+          claimedBy: f.claimedBy?.stringValue || "",
+          importedAt: f.importedAt?.stringValue || "",
+        };
+      });
+      if (onlyAvailable) items = items.filter((l) => l.status === "disponivel");
+      items.sort((a, b) => (b.importedAt || "").localeCompare(a.importedAt || ""));
+      return res.status(200).json(items);
+    }
+
+    // Parceiro reivindica um lead da piscina. Checa se ainda está
+    // disponível (evita corrida entre dois parceiros clicando quase ao
+    // mesmo tempo — não é 100% atômico, mas o volume é baixo o bastante
+    // pra isso não ser um problema prático). Ao reivindicar, cria
+    // automaticamente uma entrada normal em "leads" pro parceiro, pra ele
+    // já poder acompanhar como qualquer outro lead dele (reunião marcada,
+    // negociando, vendido etc.) sem precisar recadastrar nada.
+    if (action === "claimLead") {
+      const { leadPoolId, partnerId } = payload;
+      if (!leadPoolId || !partnerId) {
+        return res.status(400).json({ error: "leadPoolId e partnerId são obrigatórios" });
+      }
+
+      const poolRes = await fsReq(`leads_pool/${leadPoolId}`);
+      const poolD = await poolRes.json();
+      if (!poolD.fields) return res.status(404).json({ error: "Lead não encontrado na piscina" });
+      if (poolD.fields.status?.stringValue !== "disponivel") {
+        return res.status(409).json({ error: "Esse lead já foi reivindicado por outro parceiro" });
+      }
+
+      // LIMITE DIÁRIO: no máximo 5 reivindicações por parceiro por dia —
+      // evita que um único parceiro (ou um clique automatizado) esvazie a
+      // piscina inteira de uma vez, sem chance pros outros. "Dia" aqui é a
+      // data UTC (mesmo padrão de toISOString usado no resto do arquivo),
+      // reseta à meia-noite UTC.
+      const DAILY_CLAIM_LIMIT = 5;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const allPoolRes = await fsReq("leads_pool");
+      const allPoolD = await allPoolRes.json();
+      const claimsToday = (allPoolD.documents || []).filter((doc) => {
+        const f = doc.fields || {};
+        return f.claimedBy?.stringValue === partnerId && (f.claimedAt?.stringValue || "").slice(0, 10) === todayStr;
+      }).length;
+      if (claimsToday >= DAILY_CLAIM_LIMIT) {
+        return res.status(429).json({
+          error: `Você já reivindicou ${DAILY_CLAIM_LIMIT} leads hoje — o limite diário existe pra dar chance a todos os parceiros. Volte amanhã pra pegar mais.`,
+        });
+      }
+
+      const newLeadId = `pool_${leadPoolId}_${Date.now()}`;
+      const leadFields = toFsFields({
+        partnerId,
+        nome: poolD.fields.nome?.stringValue || "",
+        email: "",
+        telefone: poolD.fields.telefone?.stringValue || "",
+        plano: "",
+        addon: false,
+        status: "novo",
+        reuniaoData: "",
+        notas: `Importado do pool de leads (${poolD.fields.cidade?.stringValue || ""}).${poolD.fields.sinalPotencial ? " Sinal: " + poolD.fields.sinalPotencial : ""}`,
+        vendaConfirmada: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      await fsReq(`leads/${newLeadId}`, { method: "PATCH", body: JSON.stringify({ fields: leadFields }) });
+
+      // Não precisamos montar o updateMask manualmente aqui — o bugfix
+      // automático no topo do arquivo já detecta este PATCH e adiciona o
+      // updateMask certo sozinho, evitando URL malformada (dois "?" na
+      // mesma string, que quebraria o "key=" da API).
+      await fsReq(`leads_pool/${leadPoolId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          fields: toFsFields({
+            status: "reivindicado",
+            claimedBy: partnerId,
+            claimedAt: new Date().toISOString(),
+            linkedLeadId: newLeadId,
+          }),
+        }),
+      });
+
+      return res.status(200).json({ ok: true, leadId: newLeadId });
+    }
+
     // Lista TODOS os leads, de todos os parceiros (usado no CRM)
     if (action === "listAllLeads") {
       const r = await fsReq("leads");
