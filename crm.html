@@ -359,6 +359,7 @@ let tickets = [];
 let partners = [];
 let commissions = [];
 let leads = [];
+let leadsPool = [];
 let despesas = [];
 let activeTicket = null;
 let supportInterval = null;
@@ -419,7 +420,7 @@ async function api(action, payload){
 
 // LOAD
 async function loadAll(){
-  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads(), loadDespesas()]);
+  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads(), loadLeadsPool(), loadDespesas()]);
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
@@ -471,6 +472,11 @@ async function loadCommissions(){
 async function loadLeads(){
   const d = await api('listAllLeads', {});
   leads = Array.isArray(d) ? d : [];
+}
+
+async function loadLeadsPool(){
+  const d = await api('listLeadsPool', {});
+  leadsPool = Array.isArray(d) ? d : [];
 }
 
 async function loadDespesas(){
@@ -1631,6 +1637,24 @@ function renderParceiros(){
   </div>
 
   <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Piscina de Leads (clínicas em potencial)</span>
+      <div>
+        <input type="file" id="leadsPoolFileInput" accept=".csv" style="display:none" onchange="handleImportLeadsFile(event)">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('leadsPoolFileInput').click()">📥 Importar Leads (CSV)</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:24px;padding:12px 4px;font-size:13px;flex-wrap:wrap">
+      <div><strong>${leadsPool.filter(l=>l.status==='disponivel').length}</strong> disponíveis na piscina</div>
+      <div><strong>${leadsPool.filter(l=>l.status==='reivindicado').length}</strong> reivindicados por parceiros</div>
+      <div style="color:var(--muted)">Limite: 5 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
+    </div>
+    <div style="padding:0 4px;font-size:11px;color:var(--muted)">
+      CSV esperado com colunas: <code>nome,cidade,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios)
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
     <div class="card-title">Parceiros cadastrados</div>
     ${partners.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum parceiro cadastrado ainda.</div>':`
     <div class="table-wrap">
@@ -1791,6 +1815,72 @@ function openPartnerModal(partner){
 function closePartnerModal(){
   const m = document.getElementById('modal-partner');
   if(m) m.remove();
+}
+
+// ── Piscina de leads (importação por CSV) ──────────────────────────────────
+// Parser simples de CSV (sem dependência externa) — respeita campos entre
+// aspas, pra endereços que tenham vírgula dentro (ex: "Av. X, 123").
+function parseCsvLine(line){
+  const result = [];
+  let cur = '';
+  let inQuotes = false;
+  for(let i=0;i<line.length;i++){
+    const c = line[i];
+    if(c === '"'){ inQuotes = !inQuotes; continue; }
+    if(c === ',' && !inQuotes){ result.push(cur); cur=''; continue; }
+    cur += c;
+  }
+  result.push(cur);
+  return result.map(v=>v.trim());
+}
+
+async function handleImportLeadsFile(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+  if(lines.length < 2){ toast('Arquivo vazio ou sem linhas de dados'); evt.target.value=''; return; }
+
+  const headers = parseCsvLine(lines[0]).map(h=>h.toLowerCase());
+  const idx = {
+    nome: headers.indexOf('nome'),
+    cidade: headers.indexOf('cidade'),
+    telefone: headers.indexOf('telefone'),
+    endereco: headers.indexOf('endereco'),
+    tipo: headers.indexOf('tipo'),
+    avaliacao: headers.indexOf('avaliacao'),
+    sinalpotencial: headers.indexOf('sinalpotencial'),
+  };
+  if(idx.nome === -1 || idx.telefone === -1){
+    toast('O CSV precisa ter pelo menos as colunas "nome" e "telefone" no cabeçalho');
+    evt.target.value = '';
+    return;
+  }
+
+  const leadsToImport = lines.slice(1).map(parseCsvLine).map(cols => ({
+    nome: cols[idx.nome] || '',
+    cidade: idx.cidade > -1 ? (cols[idx.cidade] || '') : '',
+    telefone: cols[idx.telefone] || '',
+    endereco: idx.endereco > -1 ? (cols[idx.endereco] || '') : '',
+    tipo: idx.tipo > -1 ? (cols[idx.tipo] || '') : '',
+    avaliacao: idx.avaliacao > -1 ? (cols[idx.avaliacao] || '') : '',
+    sinalPotencial: idx.sinalpotencial > -1 ? (cols[idx.sinalpotencial] || '') : '',
+  })).filter(l => l.nome && l.telefone);
+
+  if(leadsToImport.length === 0){
+    toast('Nenhuma linha válida encontrada (confira se nome e telefone estão preenchidos)');
+    evt.target.value = '';
+    return;
+  }
+
+  const r = await api('importLeadsPool', { leads: leadsToImport });
+  if(r.error){ toast('Erro ao importar: ' + r.error); evt.target.value=''; return; }
+
+  toast(`✅ ${r.imported} lead(s) importado(s) — ${r.skipped} já existiam ou foram ignorados`);
+  await loadLeadsPool();
+  renderParceiros();
+  evt.target.value = '';
 }
 
 async function savePartner(isEdit){

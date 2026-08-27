@@ -121,6 +121,14 @@ button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
 
     <div class="card">
       <div class="card-title">
+        <span>🎯 Leads Disponíveis pra Pegar</span>
+        <span style="font-size:11px;font-weight:600;color:var(--muted)" id="pool-limit-info">Limite: 5/dia</span>
+      </div>
+      <div id="pool-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
         <span>Meus leads</span>
         <button class="btn-save" onclick="openLeadModal()" style="padding:9px 16px">+ Novo Lead</button>
       </div>
@@ -189,6 +197,7 @@ function showApp(){
   document.getElementById('partner-rate').textContent = currentPartner.commissionRate;
   loadMyLeads();
   loadMyCommissions();
+  loadAvailablePool();
 }
 
 // Restaura sessão se já estava logado (evita pedir senha de novo a cada F5)
@@ -198,6 +207,48 @@ function showApp(){
     if(saved && saved.id){ currentPartner = saved; showApp(); }
   } catch(e){}
 })();
+
+// ── Piscina de leads (clínicas encontradas, disponíveis pra reivindicar) ──
+let availablePool = [];
+
+async function loadAvailablePool(){
+  const d = await api('listLeadsPool', {onlyAvailable: true});
+  availablePool = Array.isArray(d) ? d : [];
+  renderAvailablePool();
+}
+
+function renderAvailablePool(){
+  const el = document.getElementById('pool-list');
+  if(availablePool.length===0){
+    el.innerHTML = '<div class="empty">Nenhum lead disponível na piscina agora. Volta mais tarde — novas clínicas são adicionadas periodicamente.</div>';
+    return;
+  }
+  el.innerHTML = availablePool.map(l => `
+    <div class="lead-item">
+      <div class="top">
+        <div>
+          <div class="nome">${l.nome}</div>
+          <div class="contato">${l.cidade||''}${l.telefone?' · '+l.telefone:''}</div>
+        </div>
+        ${l.tipo?`<span class="badge badge-blue">${l.tipo}</span>`:''}
+      </div>
+      ${l.endereco?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${l.endereco}</div>`:''}
+      ${l.avaliacao?`<div style="font-size:12px;color:var(--muted)">⭐ ${l.avaliacao}</div>`:''}
+      ${l.sinalPotencial?`<div style="font-size:12px;color:var(--navy);margin-top:4px;font-weight:600">💡 ${l.sinalPotencial}</div>`:''}
+      <div class="lead-actions">
+        <button class="btn-sm" style="background:var(--green);color:#fff" onclick="claimPoolLead('${l.id}')">✋ Pegar esse lead</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function claimPoolLead(id){
+  const r = await api('claimLead', {leadPoolId: id, partnerId: currentPartner.id});
+  if(r.error){ toast(r.error); return; }
+  toast('✅ Lead reivindicado! Já apareceu em "Meus leads".');
+  await loadAvailablePool();
+  await loadMyLeads();
+}
 
 // ── Leads ───────────────────────────────────────────────────────────────
 const STATUS_LABEL = {
