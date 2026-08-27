@@ -1703,6 +1703,7 @@ module.exports = async (req, res) => {
 
       const existing = await fetch(`${FS}/partners/${cleanId}?key=${API_KEY}`);
       const existingD = await existing.json();
+      const isNewPartner = !existingD.fields;
 
       const fields = {
         name: { stringValue: name },
@@ -1720,6 +1721,20 @@ module.exports = async (req, res) => {
       });
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
+
+      // NOVO — Conversions API: se é um parceiro novo (não edição) e tem
+      // telefone, avisa o Meta que esse lead do anúncio de recrutamento
+      // virou cadastro. Só funciona se esse telefone conversou com a Luna
+      // vindo de um clique de anúncio (senão o endpoint ignora). Não
+      // bloqueia a resposta se isso falhar.
+      if (isNewPartner && phone) {
+        fetch("https://whatsapp.botclinica.com.br/capi-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-internal-key": process.env.INTERNAL_API_KEY || "" },
+          body: JSON.stringify({ phone, eventName: "CompleteRegistration" }),
+        }).catch(() => {});
+      }
+
       return res.status(200).json({ ok: true, id: cleanId });
     }
 
@@ -1981,6 +1996,17 @@ module.exports = async (req, res) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ to: partnerPhone, message: mensagem }),
           });
+
+          // NOVO — Conversions API: avisa o Meta que essa venda confirmada
+          // é uma "Compra" gerada por esse parceiro, pra otimizar o anúncio
+          // de recrutamento com base em quem realmente trouxe clínica
+          // pagante, não só quem virou parceiro. Só funciona se o telefone
+          // do parceiro tiver um ctwa_clid salvo (veio desse anúncio).
+          fetch("https://whatsapp.botclinica.com.br/capi-event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-internal-key": process.env.INTERNAL_API_KEY || "" },
+            body: JSON.stringify({ phone: partnerPhone, eventName: "Purchase", value: valorPlano, currency: "BRL" }),
+          }).catch(() => {});
         }
       } catch (e) { /* não bloqueia a confirmação da venda se a notificação falhar */ }
 
