@@ -2075,6 +2075,46 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, leadId: newLeadId });
     }
 
+    // ── Candidatos a parceiro (triagem feita pela Luna) ────────────────────
+    // Lista os candidatos que a Luna qualificou (ou marcou como sem
+    // experiência) durante a conversa de recrutamento.
+    if (action === "listCandidatosParceiro") {
+      const r = await fsReq("candidatos_parceiro");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const candidatos = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          nome: f.nome?.stringValue || "",
+          telefone: f.telefone?.stringValue || "",
+          resumoExperiencia: f.resumoExperiencia?.stringValue || "",
+          status: f.status?.stringValue || "aguardando_contato",
+          createdAt: f.createdAt?.stringValue || "",
+        };
+      });
+      candidatos.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      return res.status(200).json(candidatos);
+    }
+
+    // Atualiza o status de um candidato (aguardando_contato, sem_experiencia,
+    // entrevista_marcada, aprovado, reprovado) — usado pelos botões do CRM.
+    if (action === "updateCandidatoStatus") {
+      const { id, status } = payload;
+      if (!id || !status) return res.status(400).json({ error: "id e status são obrigatórios" });
+      const validStatuses = ["aguardando_contato", "sem_experiencia", "entrevista_marcada", "aprovado", "reprovado"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: `status inválido — use um de: ${validStatuses.join(", ")}` });
+      }
+      const r = await fsReq(`candidatos_parceiro/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: toFsFields({ status }) }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(500).json({ error: `Firestore recusou atualizar: ${d.error.message}` });
+      return res.status(200).json({ ok: true });
+    }
+
     // Lista TODOS os leads, de todos os parceiros (usado no CRM)
     if (action === "listAllLeads") {
       const r = await fsReq("leads");
