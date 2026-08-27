@@ -226,6 +226,28 @@ function switchLeadsTab(tab){
   document.getElementById('tab-btn-mine').classList.toggle('active', tab === 'mine');
 }
 
+// Monta o link "wa.me" pra abrir o WhatsApp direto com o número da clínica,
+// já com uma mensagem sugerida preenchida (o vendedor pode editar antes de
+// mandar — o WhatsApp só preenche o campo, não envia sozinho).
+function whatsappLink(phone, message){
+  const digits = (phone || '').replace(/\D/g, '');
+  const text = message ? '?text=' + encodeURIComponent(message) : '';
+  return `https://wa.me/${digits}${text}`;
+}
+
+function openWhatsAppForPoolLead(id){
+  const l = availablePool.find(x => x.id === id);
+  if(!l || !l.telefone){ toast('Esse lead não tem telefone cadastrado.'); return; }
+  const msg = `Oi! Tudo bem? Meu nome é ${currentPartner.name}, sou parceiro comercial do BotClínica. Trabalho ajudando clínicas a organizarem melhor o atendimento via WhatsApp — principalmente marcação e confirmação de consulta, que costuma tomar bastante tempo da recepção. Como funciona hoje aí na ${l.nome}? É tudo manual, ou já usam alguma ferramenta?`;
+  window.open(whatsappLink(l.telefone, msg), '_blank');
+}
+
+function openWhatsAppForLead(id){
+  const l = myLeads.find(x => x.id === id);
+  if(!l || !l.telefone){ toast('Esse lead não tem telefone cadastrado.'); return; }
+  window.open(whatsappLink(l.telefone), '_blank');
+}
+
 // ── Piscina de leads (clínicas encontradas, disponíveis pra reivindicar) ──
 let availablePool = [];
 
@@ -256,6 +278,7 @@ function renderAvailablePool(){
       ${l.sinalPotencial?`<div style="font-size:12px;color:var(--navy);margin-top:4px;font-weight:600">💡 ${l.sinalPotencial}</div>`:''}
       <div class="lead-actions">
         <button class="btn-sm" style="background:var(--green);color:#fff" onclick="claimPoolLead('${l.id}')">✋ Pegar esse lead</button>
+        ${l.telefone?`<button class="btn-sm" style="background:#25D366;color:#fff" onclick="openWhatsAppForPoolLead('${l.id}')">💬 Chamar no WhatsApp</button>`:''}
       </div>
     </div>
   `).join('');
@@ -310,7 +333,7 @@ function renderLeads(){
       ${l.plano?`<div style="font-size:12px;color:var(--muted);margin-top:8px">Plano: ${PLAN_LABEL[l.plano]||l.plano}${l.addon?' + Add-on Documentos':''}</div>`:''}
       ${l.reuniaoData?`<div style="font-size:12px;color:var(--muted)">Reunião: ${new Date(l.reuniaoData+'T12:00:00').toLocaleDateString('pt-BR')}</div>`:''}
       ${l.notas?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${l.notas}</div>`:''}
-      ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button><button class="btn-sm" style="color:var(--red)" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️ Excluir</button></div>`:''}
+      ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button>${l.telefone?`<button class="btn-sm" style="background:#25D366;color:#fff" onclick="openWhatsAppForLead('${l.id}')">💬 WhatsApp</button>`:''}<button class="btn-sm" style="color:var(--red)" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️ Excluir</button></div>`:''}
     </div>
   `).join('');
 }
