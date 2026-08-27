@@ -1919,6 +1919,7 @@ module.exports = async (req, res) => {
       }
 
       let imported = 0, skipped = 0;
+      let firstError = null;
       for (const item of incoming) {
         const phoneDigits = String(item.telefone || "").replace(/\D/g, "");
         if (!phoneDigits || !item.nome) { skipped++; continue; }
@@ -1939,9 +1940,26 @@ module.exports = async (req, res) => {
           status: "disponivel",
           importedAt: new Date().toISOString(),
         });
-        await fsReq(`leads_pool/${docId}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+        const writeRes = await fsReq(`leads_pool/${docId}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+        const writeD = await writeRes.json();
+        // BUGFIX: antes, contava como "importado" mesmo se o Firestore
+        // recusasse a gravação (ex: Regras de Segurança bloqueando a
+        // coleção nova "leads_pool") — a mensagem dizia "sucesso" mas nada
+        // tinha sido salvo de verdade. Agora só conta se realmente gravou.
+        if (writeD.error) {
+          skipped++;
+          if (!firstError) firstError = writeD.error.message || JSON.stringify(writeD.error);
+          continue;
+        }
         imported++;
       }
+
+      if (imported === 0 && firstError) {
+        return res.status(200).json({
+          error: `Nenhum lead foi gravado — o Firestore recusou (provável problema nas Regras de Segurança pra coleção "leads_pool"). Detalhe: ${firstError}`,
+        });
+      }
+
       return res.status(200).json({ ok: true, imported, skipped });
     }
 
@@ -2028,13 +2046,17 @@ module.exports = async (req, res) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-      await fsReq(`leads/${newLeadId}`, { method: "PATCH", body: JSON.stringify({ fields: leadFields }) });
+      const writeLeadRes = await fsReq(`leads/${newLeadId}`, { method: "PATCH", body: JSON.stringify({ fields: leadFields }) });
+      const writeLeadD = await writeLeadRes.json();
+      if (writeLeadD.error) {
+        return res.status(500).json({ error: `Firestore recusou salvar o lead reivindicado: ${writeLeadD.error.message}` });
+      }
 
       // Não precisamos montar o updateMask manualmente aqui — o bugfix
       // automático no topo do arquivo já detecta este PATCH e adiciona o
       // updateMask certo sozinho, evitando URL malformada (dois "?" na
       // mesma string, que quebraria o "key=" da API).
-      await fsReq(`leads_pool/${leadPoolId}`, {
+      const writePoolRes = await fsReq(`leads_pool/${leadPoolId}`, {
         method: "PATCH",
         body: JSON.stringify({
           fields: toFsFields({
@@ -2045,6 +2067,10 @@ module.exports = async (req, res) => {
           }),
         }),
       });
+      const writePoolD = await writePoolRes.json();
+      if (writePoolD.error) {
+        return res.status(500).json({ error: `Firestore recusou marcar o lead como reivindicado: ${writePoolD.error.message}` });
+      }
 
       return res.status(200).json({ ok: true, leadId: newLeadId });
     }
