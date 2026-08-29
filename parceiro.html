@@ -132,7 +132,7 @@ button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
     <div class="card" id="card-pool">
       <div class="card-title">
         <span>🎯 Leads Disponíveis pra Pegar</span>
-        <span style="font-size:11px;font-weight:600;color:var(--muted)" id="pool-limit-info">Limite: 5/dia</span>
+        <span style="font-size:11px;font-weight:600;color:var(--muted)" id="pool-limit-info">Limite: 10/dia</span>
       </div>
       <div id="pool-list"></div>
     </div>
@@ -235,17 +235,11 @@ function whatsappLink(phone, message){
   return `https://wa.me/${digits}${text}`;
 }
 
-function openWhatsAppForPoolLead(id){
-  const l = availablePool.find(x => x.id === id);
-  if(!l || !l.telefone){ toast('Esse lead não tem telefone cadastrado.'); return; }
-  const msg = `Oi! Tudo bem? Meu nome é ${currentPartner.name}, sou parceiro comercial do BotClínica. Trabalho ajudando clínicas a organizarem melhor o atendimento via WhatsApp — principalmente marcação e confirmação de consulta, que costuma tomar bastante tempo da recepção. Como funciona hoje aí na ${l.nome}? É tudo manual, ou já usam alguma ferramenta?`;
-  window.open(whatsappLink(l.telefone, msg), '_blank');
-}
-
 function openWhatsAppForLead(id){
   const l = myLeads.find(x => x.id === id);
   if(!l || !l.telefone){ toast('Esse lead não tem telefone cadastrado.'); return; }
-  window.open(whatsappLink(l.telefone), '_blank');
+  const msg = `Oi! Tudo bem? Meu nome é ${currentPartner.name}, sou parceiro comercial do BotClínica. Trabalho ajudando clínicas a organizarem melhor o atendimento via WhatsApp — principalmente marcação e confirmação de consulta, que costuma tomar bastante tempo da recepção. Como funciona hoje aí na ${l.nome}? É tudo manual, ou já usam alguma ferramenta?`;
+  window.open(whatsappLink(l.telefone, msg), '_blank');
 }
 
 // ── Piscina de leads (clínicas encontradas, disponíveis pra reivindicar) ──
@@ -278,7 +272,6 @@ function renderAvailablePool(){
       ${l.sinalPotencial?`<div style="font-size:12px;color:var(--navy);margin-top:4px;font-weight:600">💡 ${l.sinalPotencial}</div>`:''}
       <div class="lead-actions">
         <button class="btn-sm" style="background:var(--green);color:#fff" onclick="claimPoolLead('${l.id}')">✋ Pegar esse lead</button>
-        ${l.telefone?`<button class="btn-sm" style="background:#25D366;color:#fff" onclick="openWhatsAppForPoolLead('${l.id}')">💬 Chamar no WhatsApp</button>`:''}
       </div>
     </div>
   `).join('');
