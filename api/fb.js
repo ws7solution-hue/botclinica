@@ -2132,7 +2132,7 @@ module.exports = async (req, res) => {
     if (action === "updateCandidatoStatus") {
       const { id, status, entrevistaData } = payload;
       if (!id || !status) return res.status(400).json({ error: "id e status são obrigatórios" });
-      const validStatuses = ["aguardando_contato", "sem_experiencia", "entrevista_marcada", "entrevista_realizada", "aprovado", "reprovado"];
+      const validStatuses = ["conversando", "aguardando_contato", "sem_experiencia", "entrevista_marcada", "entrevista_realizada", "aprovado", "reprovado"];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: `status inválido — use um de: ${validStatuses.join(", ")}` });
       }
