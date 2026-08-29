@@ -89,6 +89,9 @@ tr:hover td{background:rgba(26,111,168,.04)}
 .btn-primary{background:var(--accent);color:#fff}
 .btn-primary:hover{background:var(--accent2)}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.ptab-btn{padding:9px 16px;border-radius:10px;font-size:12.5px;font-weight:700;background:var(--card);border:1px solid var(--border);color:var(--muted);cursor:pointer}
+.ptab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ptab-btn:hover:not(.active){background:var(--bg)}
 .btn-outline:hover{border-color:var(--accent);color:var(--text)}
 .btn-danger{background:transparent;border:1px solid var(--border);color:var(--red)}
 .btn-danger:hover{background:var(--red-l)}
@@ -1624,6 +1627,18 @@ const COMMISSION_STATUS_BADGE = {
   cancelado: 'badge-red',
 };
 
+let currentParceirosTab = 'overview';
+
+function switchParceirosTab(tab){
+  currentParceirosTab = tab;
+  document.querySelectorAll('[data-ptab]').forEach(el=>{
+    el.style.display = (el.getAttribute('data-ptab')===tab) ? '' : 'none';
+  });
+  document.querySelectorAll('.ptab-btn').forEach(btn=>btn.classList.remove('active'));
+  const activeBtn = document.getElementById('ptabbtn-'+tab);
+  if(activeBtn) activeBtn.classList.add('active');
+}
+
 function renderParceiros(){
   const totalAPagar = commissions.filter(c=>c.status==='elegivel').reduce((s,c)=>s+c.valorComissao,0);
   const totalAguardando = commissions.filter(c=>c.status==='aguardando_carencia').reduce((s,c)=>s+c.valorComissao,0);
@@ -1635,13 +1650,24 @@ function renderParceiros(){
     <div class="topbar-right"><button class="btn btn-primary" onclick="openPartnerModal()">+ Novo Parceiro</button></div>
   </div>
 
+  <div class="ptabs-nav" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="ptab-btn active" id="ptabbtn-overview" onclick="switchParceirosTab('overview')">📊 Visão Geral</button>
+    <button class="ptab-btn" id="ptabbtn-candidatos" onclick="switchParceirosTab('candidatos')">🎯 Candidatos</button>
+    <button class="ptab-btn" id="ptabbtn-pool" onclick="switchParceirosTab('pool')">🏊 Piscina de Leads</button>
+    <button class="ptab-btn" id="ptabbtn-partners" onclick="switchParceirosTab('partners')">🤝 Parceiros</button>
+    <button class="ptab-btn" id="ptabbtn-leads" onclick="switchParceirosTab('leads')">📋 Leads em Andamento</button>
+  </div>
+
+  <div data-ptab="overview">
   <div class="grid-4">
     <div class="card kpi-yellow"><div class="kpi-label">Aguardando carência</div><div class="kpi-val">${fmtBRL(totalAguardando)}</div><div class="kpi-sub">ainda no período de proteção</div></div>
     <div class="card kpi-green"><div class="kpi-label">Elegível pra pagar</div><div class="kpi-val">${fmtBRL(totalAPagar)}</div><div class="kpi-sub">já passou a carência</div></div>
     <div class="card"><div class="kpi-label">Já pago (histórico)</div><div class="kpi-val">${fmtBRL(totalPago)}</div><div class="kpi-sub">total pago aos parceiros</div></div>
     <div class="card"><div class="kpi-label">Parceiros ativos</div><div class="kpi-val">${partners.length}</div><div class="kpi-sub">cadastrados</div></div>
   </div>
+  </div>
 
+  <div data-ptab="candidatos" style="display:none">
   <div class="card" style="margin-bottom:16px">
     <div class="card-title">
       <span>🎯 Candidatos a Parceiro</span>
@@ -1687,7 +1713,9 @@ function renderParceiros(){
       </div>`;
     }).join('')}
   </div>
+  </div>
 
+  <div data-ptab="pool" style="display:none">
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>Piscina de Leads (clínicas em potencial)</span>
@@ -1705,7 +1733,9 @@ function renderParceiros(){
       CSV esperado com colunas: <code>nome,cidade,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios)
     </div>
   </div>
+  </div>
 
+  <div data-ptab="partners" style="display:none">
   <div class="card" style="margin-bottom:16px">
     <div class="card-title">Parceiros cadastrados</div>
     ${partners.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum parceiro cadastrado ainda.</div>':`
@@ -1731,7 +1761,9 @@ function renderParceiros(){
     </table>
     </div>`}
   </div>
+  </div>
 
+  <div data-ptab="leads" style="display:none">
   <div class="card" style="margin-bottom:16px">
     <div class="card-title">Leads cadastrados pelos parceiros</div>
     ${leads.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum lead cadastrado ainda.</div>':`
@@ -1757,7 +1789,9 @@ function renderParceiros(){
     </table>
     </div>`}
   </div>
+  </div>
 
+  <div data-ptab="overview">
   <div class="card">
     <div class="card-title">Comissões</div>
     ${commissions.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma indicação registrada ainda.</div>':`
@@ -1781,7 +1815,9 @@ function renderParceiros(){
       </tbody>
     </table>
     </div>`}
+  </div>
   </div>`;
+  switchParceirosTab(currentParceirosTab);
 }
 
 const LEAD_STATUS_LABEL = {
