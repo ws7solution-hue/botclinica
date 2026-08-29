@@ -1049,7 +1049,7 @@ function renderTicketChat(ticket){
     <div class="support-input">
       <input type="file" id="ticket-image-input" accept="image/*" style="display:none" onchange="sendAgentImage('${ticket.id}', this)"/>
       <button class="btn btn-outline btn-sm" title="Anexar imagem (até 700KB)" onclick="document.getElementById('ticket-image-input').click()">📎</button>
-      <input type="text" id="agent-msg" placeholder="Digite sua resposta..." onkeydown="if(event.key==='Enter')sendAgentMsg('${ticket.id}')"/>
+      <input type="text" id="agent-msg" placeholder="Digite sua resposta..."/>
       <button class="btn btn-primary" onclick="sendAgentMsg('${ticket.id}')">Enviar →</button>
     </div>`;
   // Restaura o texto/foco que o atendente estava digitando
@@ -1213,7 +1213,7 @@ function renderWaSuporteChat(conversa){
     <div class="support-input">
       <input type="file" id="wa-image-input" accept="image/*" style="display:none" onchange="sendWaSuporteImage('${conversa.id}', this)"/>
       <button class="btn btn-outline btn-sm" title="Anexar imagem" onclick="document.getElementById('wa-image-input').click()">📎</button>
-      <input type="text" id="wa-agent-msg" placeholder="Digite pra assumir a conversa..." onkeydown="if(event.key==='Enter')sendWaSuporteMsg('${conversa.id}')"/>
+      <input type="text" id="wa-agent-msg" placeholder="Digite pra assumir a conversa..."/>
       <button class="btn btn-primary" onclick="sendWaSuporteMsg('${conversa.id}')">Enviar →</button>
     </div>`;
   const newInput = document.getElementById('wa-agent-msg');
@@ -1391,14 +1391,28 @@ function refreshWaVendasList(){
 
 function renderWaVendasList(list){
   if(!list.length) return `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhuma conversa ainda</div>`;
+  // Mesmas cores/labels usadas na aba Candidatos — reaproveita o status já
+  // registrado ali, em vez de criar uma etiqueta separada e desencontrada.
+  const candidatoLabelMap = {
+    conversando: ['Conversando', '#E0E7FF', '#3730A3'],
+    aguardando_contato: ['Aguardando contato', '#DBEAFE', '#1e40af'],
+    sem_experiencia: ['Sem experiência', '#F1F5F9', '#64748b'],
+    entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
+    entrevista_realizada: ['Entrevista realizada', '#EDE9FE', '#5B21B6'],
+    aprovado: ['Aprovado', '#D1FAE5', '#065F46'],
+    reprovado: ['Reprovado', '#FEE2E2', '#7F1D1D'],
+  };
   return [...list].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0)).map(c=>{
     const statusLbl = {human_needed:'Aguardando você',human_active:'Você está no controle',bot:'IA respondendo',resolved:'Resolvido'}[c.status]||'IA respondendo';
     const statusColor = {human_needed:'priority-aberto',human_active:'priority-andamento',bot:'priority-resolvido'}[c.status]||'priority-resolvido';
+    const candidato = candidatosParceiro.find(cand=>cand.id===c.id);
+    const candLabel = candidato ? (candidatoLabelMap[candidato.status] || null) : null;
     return `<div class="support-item${activeWaVendasConversa===c.id?' active':''}" onclick="openWaVendasConversa('${c.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <div class="support-item-name">${c.patientName||c.phone||'Contato'}</div>
         <span class="${statusColor}">${statusLbl}</span>
       </div>
+      ${candLabel?`<span style="display:inline-block;background:${candLabel[1]};color:${candLabel[2]};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:4px">🏷️ ${candLabel[0]}</span>`:''}
       <div class="support-item-preview">${(c.last||'').slice(0,60)}</div>
       <div class="support-item-meta"><span style="font-size:11px;color:var(--muted)">${c.time||''}</span></div>
     </div>`;
@@ -1440,6 +1454,18 @@ function renderWaVendasChat(conversa){
         <button class="btn btn-danger btn-sm" onclick="deleteWaConversa('luna','${conversa.id}')" title="Excluir conversa">🗑️</button>
       </div>
     </div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg)">
+      <span style="font-size:11px;color:var(--muted);font-weight:600">🏷️ Etiqueta:</span>
+      <select class="form-input" style="width:auto;font-size:12px;padding:4px 8px" onchange="setCandidatoLabelFromChat('${conversa.id}', this.value)">
+        <option value="conversando" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status||'conversando')==='conversando'?'selected':''}>Conversando</option>
+        <option value="aguardando_contato" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='aguardando_contato'?'selected':''}>Aguardando contato</option>
+        <option value="sem_experiencia" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='sem_experiencia'?'selected':''}>Sem experiência</option>
+        <option value="entrevista_marcada" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='entrevista_marcada'?'selected':''}>Entrevista marcada</option>
+        <option value="entrevista_realizada" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='entrevista_realizada'?'selected':''}>Entrevista realizada</option>
+        <option value="aprovado" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='aprovado'?'selected':''}>Aprovado</option>
+        <option value="reprovado" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='reprovado'?'selected':''}>Reprovado</option>
+      </select>
+    </div>
     <div class="support-messages" id="wa-vendas-chat-msgs">
       ${msgs.map(m=>{
         const isMine = m.sender==='human';
@@ -1462,7 +1488,7 @@ function renderWaVendasChat(conversa){
     <div class="support-input">
       <input type="file" id="wa-vendas-image-input" accept="image/*" style="display:none" onchange="sendWaVendasImage('${conversa.id}', this)"/>
       <button class="btn btn-outline btn-sm" title="Anexar imagem" onclick="document.getElementById('wa-vendas-image-input').click()">📎</button>
-      <input type="text" id="wa-vendas-agent-msg" placeholder="Digite pra assumir a conversa..." onkeydown="if(event.key==='Enter')sendWaVendasMsg('${conversa.id}')"/>
+      <input type="text" id="wa-vendas-agent-msg" placeholder="Digite pra assumir a conversa..."/>
       <button class="btn btn-primary" onclick="sendWaVendasMsg('${conversa.id}')">Enviar →</button>
     </div>`;
   const newInput = document.getElementById('wa-vendas-agent-msg');
@@ -1681,6 +1707,7 @@ function renderParceiros(){
     </div>
     ${candidatosParceiro.length===0?'<div class="empty">Nenhum candidato ainda.</div>':candidatosParceiro.map(c=>{
       const statusLabels = {
+        conversando: ['Conversando com a Luna', '#E0E7FF', '#3730A3'],
         aguardando_contato: ['Aguardando contato', '#DBEAFE', '#1e40af'],
         sem_experiencia: ['Sem experiência declarada', '#F1F5F9', '#64748b'],
         entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
@@ -1705,7 +1732,7 @@ function renderParceiros(){
           <button class="btn btn-outline btn-sm" onclick="window.open('https://wa.me/${(c.telefone||'').replace(/\D/g,'')}','_blank')">💬 WhatsApp</button>
           ${c.status==='entrevista_marcada'
             ? `<button class="btn btn-outline btn-sm" style="color:#5B21B6" onclick="updateCandidatoStatus('${c.id}','entrevista_realizada')">☑️ Entrevista realizada</button>`
-            : `<button class="btn btn-outline btn-sm" onclick="openEntrevistaModal('${c.id}','${c.nome.replace(/'/g,"&apos;")}')">📅 Marcar entrevista</button>`
+            : `<button class="btn btn-outline btn-sm" onclick="openEntrevistaModal('${c.id}','${c.nome.replace(/'/g,"\\'")}')">📅 Marcar entrevista</button>`
           }
           <button class="btn btn-outline btn-sm" style="color:#065F46" onclick="updateCandidatoStatus('${c.id}','aprovado')">✅ Aprovar</button>
           <button class="btn btn-outline btn-sm" style="color:#7F1D1D" onclick="updateCandidatoStatus('${c.id}','reprovado')">✕ Reprovar</button>
@@ -1727,7 +1754,7 @@ function renderParceiros(){
     <div style="display:flex;gap:24px;padding:12px 4px;font-size:13px;flex-wrap:wrap">
       <div><strong>${leadsPool.filter(l=>l.status==='disponivel').length}</strong> disponíveis na piscina</div>
       <div><strong>${leadsPool.filter(l=>l.status==='reivindicado').length}</strong> reivindicados por parceiros</div>
-      <div style="color:var(--muted)">Limite: 5 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
+      <div style="color:var(--muted)">Limite: 10 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
     </div>
     <div style="padding:0 4px;font-size:11px;color:var(--muted)">
       CSV esperado com colunas: <code>nome,cidade,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios)
@@ -1977,6 +2004,14 @@ async function saveCandidatoModal(){
 }
 
 // ── Marcar entrevista (calendário visual) ───────────────────────────────────
+async function setCandidatoLabelFromChat(conversaId, status){
+  const r = await api('updateCandidatoStatus', { id: conversaId, status });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('🏷️ Etiqueta atualizada');
+  await loadCandidatosParceiro();
+  refreshWaVendasList();
+}
+
 function openEntrevistaModal(id, nome){
   const html = `
     <div class="modal-overlay open" id="modal-entrevista">
