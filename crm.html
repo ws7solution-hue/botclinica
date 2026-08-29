@@ -1644,34 +1644,43 @@ function renderParceiros(){
 
   <div class="card" style="margin-bottom:16px">
     <div class="card-title">
-      <span>🎯 Candidatos a Parceiro (triagem da Luna)</span>
-      <span style="font-size:11px;font-weight:600;color:var(--muted)">${candidatosParceiro.filter(c=>c.status==='aguardando_contato').length} aguardando contato</span>
+      <span>🎯 Candidatos a Parceiro</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;font-weight:600;color:var(--muted)">${candidatosParceiro.filter(c=>c.status==='aguardando_contato').length} aguardando contato</span>
+        <button class="btn btn-outline btn-sm" onclick="openCandidatoModal()">+ Cadastrar Candidato</button>
+      </div>
     </div>
     <div style="padding:4px 4px 8px;font-size:11px;color:var(--muted)">
-      A Luna qualifica automaticamente quem responde às vagas/anúncio perguntando sobre experiência em vendas B2B. Veja aqui quem já foi triado.
+      A Luna qualifica automaticamente quem responde às vagas/anúncio. Se você assumir a conversa antes dela terminar, cadastre manualmente aqui pra não perder o registro.
     </div>
-    ${candidatosParceiro.length===0?'<div class="empty">Nenhum candidato triado ainda.</div>':candidatosParceiro.map(c=>{
+    ${candidatosParceiro.length===0?'<div class="empty">Nenhum candidato ainda.</div>':candidatosParceiro.map(c=>{
       const statusLabels = {
         aguardando_contato: ['Aguardando contato', '#DBEAFE', '#1e40af'],
         sem_experiencia: ['Sem experiência declarada', '#F1F5F9', '#64748b'],
         entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
+        entrevista_realizada: ['Entrevista realizada', '#EDE9FE', '#5B21B6'],
         aprovado: ['Aprovado', '#D1FAE5', '#065F46'],
         reprovado: ['Reprovado', '#FEE2E2', '#7F1D1D'],
       };
       const [label, bg, fg] = statusLabels[c.status] || statusLabels.aguardando_contato;
+      const dataFormatada = c.entrevistaData ? new Date(c.entrevistaData).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) : '';
       return `
       <div style="border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
           <div>
             <div style="font-weight:700;font-size:14px">${c.nome}</div>
-            <div style="font-size:12px;color:var(--muted)">${c.telefone}</div>
+            <div style="font-size:12px;color:var(--muted)">${c.telefone}${c.origem?` · Origem: ${c.origem}`:''}</div>
             ${c.resumoExperiencia?`<div style="font-size:12px;color:var(--text);margin-top:4px">💬 ${c.resumoExperiencia}</div>`:''}
+            ${dataFormatada?`<div style="font-size:12px;color:#B45309;margin-top:4px;font-weight:600">📅 Entrevista: ${dataFormatada}</div>`:''}
           </div>
           <span style="background:${bg};color:${fg};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">${label}</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="window.open('https://wa.me/${(c.telefone||'').replace(/\\D/g,'')}','_blank')">💬 WhatsApp</button>
-          <button class="btn btn-outline btn-sm" onclick="updateCandidatoStatus('${c.id}','entrevista_marcada')">📅 Marcar entrevista</button>
+          <button class="btn btn-outline btn-sm" onclick="window.open('https://wa.me/${(c.telefone||'').replace(/\D/g,'')}','_blank')">💬 WhatsApp</button>
+          ${c.status==='entrevista_marcada'
+            ? `<button class="btn btn-outline btn-sm" style="color:#5B21B6" onclick="updateCandidatoStatus('${c.id}','entrevista_realizada')">☑️ Entrevista realizada</button>`
+            : `<button class="btn btn-outline btn-sm" onclick="openEntrevistaModal('${c.id}','${c.nome.replace(/'/g,"&apos;")}')">📅 Marcar entrevista</button>`
+          }
           <button class="btn btn-outline btn-sm" style="color:#065F46" onclick="updateCandidatoStatus('${c.id}','aprovado')">✅ Aprovar</button>
           <button class="btn btn-outline btn-sm" style="color:#7F1D1D" onclick="updateCandidatoStatus('${c.id}','reprovado')">✕ Reprovar</button>
         </div>
@@ -1860,12 +1869,107 @@ function closePartnerModal(){
   if(m) m.remove();
 }
 
-async function updateCandidatoStatus(id, status){
-  const r = await api('updateCandidatoStatus', { id, status });
+async function updateCandidatoStatus(id, status, entrevistaData){
+  const payload = { id, status };
+  if(entrevistaData) payload.entrevistaData = entrevistaData;
+  const r = await api('updateCandidatoStatus', payload);
   if(r.error){ toast('Erro: ' + r.error); return; }
   toast('✅ Status atualizado');
   await loadCandidatosParceiro();
   renderParceiros();
+}
+
+// ── Cadastro manual de candidato ────────────────────────────────────────────
+function openCandidatoModal(){
+  const html = `
+    <div class="modal-overlay open" id="modal-candidato">
+      <div class="modal">
+        <h2>Cadastrar Candidato</h2>
+        <div class="form-group">
+          <label>Nome</label>
+          <input class="form-input" id="cand-nome" placeholder="Nome completo"/>
+        </div>
+        <div class="form-group">
+          <label>Telefone/WhatsApp</label>
+          <input class="form-input" id="cand-telefone" placeholder="+55 31 99999-9999"/>
+        </div>
+        <div class="form-group">
+          <label>Origem</label>
+          <select class="form-input" id="cand-origem">
+            <option value="">— Não informado —</option>
+            <option value="Catho">Catho</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Indeed">Indeed</option>
+            <option value="Vagas.com">Vagas.com</option>
+            <option value="Gupy">Gupy</option>
+            <option value="Grupo Facebook">Grupo Facebook</option>
+            <option value="Indicação">Indicação</option>
+            <option value="Anúncio Meta">Anúncio Meta</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Resumo da experiência (opcional)</label>
+          <textarea class="form-input" id="cand-resumo" rows="3" placeholder="Ex: 3 anos vendendo B2B no setor farmacêutico"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeCandidatoModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveCandidatoModal()">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeCandidatoModal(){
+  const m = document.getElementById('modal-candidato');
+  if(m) m.remove();
+}
+
+async function saveCandidatoModal(){
+  const nome = document.getElementById('cand-nome').value.trim();
+  const telefone = document.getElementById('cand-telefone').value.trim();
+  const origem = document.getElementById('cand-origem').value;
+  const resumoExperiencia = document.getElementById('cand-resumo').value.trim();
+  if(!nome || !telefone){ toast('Nome e telefone são obrigatórios'); return; }
+  const r = await api('addCandidatoParceiro', { nome, telefone, origem, resumoExperiencia });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('✅ Candidato cadastrado');
+  closeCandidatoModal();
+  await loadCandidatosParceiro();
+  renderParceiros();
+}
+
+// ── Marcar entrevista (calendário visual) ───────────────────────────────────
+function openEntrevistaModal(id, nome){
+  const html = `
+    <div class="modal-overlay open" id="modal-entrevista">
+      <div class="modal">
+        <h2>Marcar Entrevista</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Candidato: <strong>${nome}</strong></p>
+        <div class="form-group">
+          <label>Data e horário</label>
+          <input class="form-input" id="entrevista-datetime" type="datetime-local"/>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeEntrevistaModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveEntrevistaModal('${id}')">Confirmar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeEntrevistaModal(){
+  const m = document.getElementById('modal-entrevista');
+  if(m) m.remove();
+}
+
+async function saveEntrevistaModal(id){
+  const datetime = document.getElementById('entrevista-datetime').value;
+  if(!datetime){ toast('Escolha uma data e horário'); return; }
+  closeEntrevistaModal();
+  await updateCandidatoStatus(id, 'entrevista_marcada', new Date(datetime).toISOString());
 }
 
 // ── Piscina de leads (importação por CSV) ──────────────────────────────────
