@@ -2075,9 +2075,10 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, leadId: newLeadId });
     }
 
-    // ── Candidatos a parceiro (triagem feita pela Luna) ────────────────────
-    // Lista os candidatos que a Luna qualificou (ou marcou como sem
-    // experiência) durante a conversa de recrutamento.
+    // ── Candidatos a parceiro (triagem feita pela Luna, ou cadastro manual) ─
+    // Lista os candidatos — os que a Luna qualificou automaticamente E os
+    // que o admin cadastrou manualmente (ex: assumiu a conversa antes da
+    // Luna terminar a triagem).
     if (action === "listCandidatosParceiro") {
       const r = await fsReq("candidatos_parceiro");
       const d = await r.json();
@@ -2088,8 +2089,10 @@ module.exports = async (req, res) => {
           id: doc.name.split("/").pop(),
           nome: f.nome?.stringValue || "",
           telefone: f.telefone?.stringValue || "",
+          origem: f.origem?.stringValue || "",
           resumoExperiencia: f.resumoExperiencia?.stringValue || "",
           status: f.status?.stringValue || "aguardando_contato",
+          entrevistaData: f.entrevistaData?.stringValue || "",
           createdAt: f.createdAt?.stringValue || "",
         };
       });
@@ -2097,18 +2100,47 @@ module.exports = async (req, res) => {
       return res.status(200).json(candidatos);
     }
 
+    // Cadastro manual de candidato — usado quando o admin assume a conversa
+    // antes da Luna completar a triagem sozinha (nesse caso ela não registra
+    // automaticamente). Cria ou atualiza (se o telefone já existir).
+    if (action === "addCandidatoParceiro") {
+      const { nome, telefone, origem, resumoExperiencia } = payload;
+      if (!nome || !telefone) return res.status(400).json({ error: "nome e telefone são obrigatórios" });
+      const phoneDigits = String(telefone).replace(/\D/g, "");
+      if (!phoneDigits) return res.status(400).json({ error: "telefone inválido" });
+
+      const existingRes = await fsReq(`candidatos_parceiro/${phoneDigits}`);
+      const existingD = await existingRes.json();
+      const fields = toFsFields({
+        nome,
+        telefone,
+        origem: origem || "",
+        resumoExperiencia: resumoExperiencia || "",
+        status: existingD.fields?.status?.stringValue || "aguardando_contato",
+        createdAt: existingD.fields?.createdAt?.stringValue || new Date().toISOString(),
+      });
+      const r = await fsReq(`candidatos_parceiro/${phoneDigits}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+      const d = await r.json();
+      if (d.error) return res.status(500).json({ error: `Firestore recusou salvar: ${d.error.message}` });
+      return res.status(200).json({ ok: true, id: phoneDigits, isNew: !existingD.fields });
+    }
+
     // Atualiza o status de um candidato (aguardando_contato, sem_experiencia,
-    // entrevista_marcada, aprovado, reprovado) — usado pelos botões do CRM.
+    // entrevista_marcada, entrevista_realizada, aprovado, reprovado) — usado
+    // pelos botões do CRM. Aceita opcionalmente entrevistaData (data/hora
+    // marcada), salva junto quando enviado.
     if (action === "updateCandidatoStatus") {
-      const { id, status } = payload;
+      const { id, status, entrevistaData } = payload;
       if (!id || !status) return res.status(400).json({ error: "id e status são obrigatórios" });
-      const validStatuses = ["aguardando_contato", "sem_experiencia", "entrevista_marcada", "aprovado", "reprovado"];
+      const validStatuses = ["aguardando_contato", "sem_experiencia", "entrevista_marcada", "entrevista_realizada", "aprovado", "reprovado"];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: `status inválido — use um de: ${validStatuses.join(", ")}` });
       }
+      const fieldsToUpdate = { status };
+      if (entrevistaData) fieldsToUpdate.entrevistaData = entrevistaData;
       const r = await fsReq(`candidatos_parceiro/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ fields: toFsFields({ status }) }),
+        body: JSON.stringify({ fields: toFsFields(fieldsToUpdate) }),
       });
       const d = await r.json();
       if (d.error) return res.status(500).json({ error: `Firestore recusou atualizar: ${d.error.message}` });
