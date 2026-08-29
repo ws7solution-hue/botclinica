@@ -2012,12 +2012,12 @@ module.exports = async (req, res) => {
         return res.status(409).json({ error: "Esse lead já foi reivindicado por outro parceiro" });
       }
 
-      // LIMITE DIÁRIO: no máximo 5 reivindicações por parceiro por dia —
+      // LIMITE DIÁRIO: no máximo 10 reivindicações por parceiro por dia —
       // evita que um único parceiro (ou um clique automatizado) esvazie a
       // piscina inteira de uma vez, sem chance pros outros. "Dia" aqui é a
       // data UTC (mesmo padrão de toISOString usado no resto do arquivo),
       // reseta à meia-noite UTC.
-      const DAILY_CLAIM_LIMIT = 5;
+      const DAILY_CLAIM_LIMIT = 10;
       const todayStr = new Date().toISOString().slice(0, 10);
       const allPoolRes = await fsReq("leads_pool");
       const allPoolD = await allPoolRes.json();
