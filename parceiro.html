@@ -190,6 +190,55 @@ async function doLogin(){
 
   currentPartner = r.partner;
   sessionStorage.setItem('parceiro_session', JSON.stringify(currentPartner));
+
+  if(currentPartner.primeiroAcesso){
+    openFirstAccessModal();
+  } else {
+    showApp();
+  }
+}
+
+// ── Primeiro acesso — troca de senha obrigatória ────────────────────────────
+function openFirstAccessModal(){
+  const html = `
+    <div class="modal-overlay open" id="modal-first-access">
+      <div class="modal">
+        <h2>Bem-vindo(a), ${currentPartner.name}! 🎉</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Antes de começar, crie sua senha de acesso pessoal — a senha temporária que você recebeu não vale mais depois disso.</p>
+        <label>Nova senha</label>
+        <input id="fa-password" type="password" placeholder="Mínimo 6 caracteres"/>
+        <label>Confirmar senha</label>
+        <input id="fa-confirm" type="password" placeholder="Repita a senha"/>
+        <p id="fa-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+        <div class="modal-actions">
+          <button class="btn-save" id="fa-btn" onclick="submitFirstAccess()" style="width:100%">Definir Senha e Acessar o Painel →</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function submitFirstAccess(){
+  const password = document.getElementById('fa-password').value;
+  const confirm = document.getElementById('fa-confirm').value;
+  const errEl = document.getElementById('fa-error');
+  const btn = document.getElementById('fa-btn');
+  errEl.style.display = 'none';
+
+  if(password.length < 6){ errEl.textContent = 'A senha deve ter pelo menos 6 caracteres.'; errEl.style.display = 'block'; return; }
+  if(password !== confirm){ errEl.textContent = 'As senhas não coincidem.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Salvando...'; btn.disabled = true;
+  const r = await api('partnerSetPassword', { id: currentPartner.id, newPassword: password });
+  if(r.error){
+    errEl.textContent = r.error; errEl.style.display = 'block';
+    btn.textContent = 'Definir Senha e Acessar o Painel →'; btn.disabled = false;
+    return;
+  }
+
+  currentPartner.primeiroAcesso = false;
+  sessionStorage.setItem('parceiro_session', JSON.stringify(currentPartner));
+  document.getElementById('modal-first-access').remove();
   showApp();
 }
 
@@ -214,7 +263,11 @@ function showApp(){
 (function restoreSession(){
   try {
     const saved = JSON.parse(sessionStorage.getItem('parceiro_session') || 'null');
-    if(saved && saved.id){ currentPartner = saved; showApp(); }
+    if(saved && saved.id){
+      currentPartner = saved;
+      if(currentPartner.primeiroAcesso){ openFirstAccessModal(); }
+      else { showApp(); }
+    }
   } catch(e){}
 })();
 
