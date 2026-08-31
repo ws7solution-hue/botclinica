@@ -52,11 +52,11 @@ module.exports = async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        const { email, plano, clinicName, adminName } = session.metadata || {};
+        const { email, plano, clinicName, adminName, addon } = session.metadata || {};
 
         if (email) {
-          await activateAccount({ email, plano, clinicName, adminName });
-          console.log(`✅ Conta ativada: ${email} — Plano: ${plano}`);
+          await activateAccount({ email, plano, clinicName, adminName, addon: addon === 'true' });
+          console.log(`✅ Conta ativada: ${email} — Plano: ${plano}${addon === 'true' ? ' + Add-on Documentos' : ''}`);
         }
         break;
       }
@@ -156,7 +156,7 @@ module.exports.config = {
 // no momento em que a pessoa criou a sessão de checkout. Aqui só ligamos
 // o "ativo" de vez, sem mexer na senha já gerada, senão quebraríamos o
 // login automático de quem acabou de pagar). ─────────────────────────────
-async function activateAccount({ email, plano, clinicName, adminName }) {
+async function activateAccount({ email, plano, clinicName, adminName, addon }) {
   const key = emailToKey(email);
 
   // Confere se a conta já foi preparada antes (fluxo normal, via checkout)
@@ -166,17 +166,24 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
   if (existingD.fields?.senhaTemp) {
     // Conta já existe com senha já criada — só liga o "ativo", sem tocar
     // em mais nada (preserva a senha real do Firebase Auth).
-    const url = `${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=ativo&updateMask.fieldPaths=statusPagamento&updateMask.fieldPaths=plano&key=${FB_KEY}`;
+    const maskFields = ['ativo', 'statusPagamento', 'plano'];
+    const fields = {
+      ativo: { booleanValue: true },
+      statusPagamento: { stringValue: 'em_dia' },
+      plano: { stringValue: plano || existingD.fields?.plano?.stringValue || 'starter' },
+    };
+    // NOVO: se o checkout incluiu o add-on de Documentos, já liga ele
+    // também — sem isso, quem pagou pelo add-on no ato da assinatura
+    // continuaria vendo a tela de bloqueio, mesmo já tendo pago por ele.
+    if (addon) {
+      fields.documentsAddonActive = { booleanValue: true };
+      maskFields.push('documentsAddonActive');
+    }
+    const url = `${FS}/acessos_autorizados/${key}?${maskFields.map(f => `updateMask.fieldPaths=${f}`).join('&')}&key=${FB_KEY}`;
     await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fields: {
-          ativo: { booleanValue: true },
-          statusPagamento: { stringValue: 'em_dia' },
-          plano: { stringValue: plano || existingD.fields?.plano?.stringValue || 'starter' },
-        }
-      }),
+      body: JSON.stringify({ fields }),
     });
     return;
   }
@@ -213,6 +220,7 @@ async function activateAccount({ email, plano, clinicName, adminName }) {
         ativo: { booleanValue: true },
         statusPagamento: { stringValue: 'em_dia' },
         createdAt: { stringValue: new Date().toISOString() },
+        documentsAddonActive: { booleanValue: !!addon },
       }
     }),
   });

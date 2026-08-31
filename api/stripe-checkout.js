@@ -7,6 +7,7 @@ const PRICE_IDS = {
   clinica:      'price_1U0vwND2SvjWdknTABxXdeov',
   premium:      'price_1U0vwhD2SvjWdknToikbi9UW',
 };
+const ADDON_DOCUMENTOS_PRICE_ID = 'price_1UAQ0DD2SvjWdknTCuIN9qBA';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,7 +19,7 @@ module.exports = async (req, res) => {
 
   // ── Buscar dados da sessão para login automático ─────────────────────────
   if (req.method === 'POST' && !req.headers['stripe-signature']) {
-    const { action, sessionId, plano, email, clinicName, adminName } = req.body;
+    const { action, sessionId, plano, email, clinicName, adminName, incluirAddon } = req.body;
 
     if (action === 'getSession' && sessionId) {
       try {
@@ -53,22 +54,26 @@ module.exports = async (req, res) => {
       // ativa de verdade, depois que o Stripe confirmar o pagamento).
       await createPendingAccount({ email, plano, clinicName, adminName });
 
+      const lineItems = [{ price: priceId, quantity: 1 }];
+      if (incluirAddon) lineItems.push({ price: ADDON_DOCUMENTOS_PRICE_ID, quantity: 1 });
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         payment_method_types: ['card'],
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: lineItems,
         customer_email: email,
         metadata: {
           plano,
           email,
           clinicName: clinicName || '',
           adminName: adminName || '',
+          addon: incluirAddon ? 'true' : 'false',
         },
         success_url: `https://botclinica.com.br/app?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `https://botclinica.com.br/checkout?status=cancelled`,
         locale: 'pt-BR',
         subscription_data: {
-          metadata: { plano, email, clinicName: clinicName || '' },
+          metadata: { plano, email, clinicName: clinicName || '', addon: incluirAddon ? 'true' : 'false' },
         },
         allow_promotion_codes: true,
       });
