@@ -215,7 +215,7 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
       {!documentsAddonActive && (
         <AddonLockOverlay
           featureName="Documentos por IA"
-          price="R$ 197/mês"
+          price="R$ 97/mês"
           description="Envie exames, atestados, contas e contratos de convênio — a IA lê, organiza e resume tudo automaticamente, separado por categoria e por paciente."
         />
       )}
