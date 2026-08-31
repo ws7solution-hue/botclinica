@@ -23,10 +23,10 @@ export default function AddonLockOverlay({ featureName, price, description, clin
     setComprando(true);
     setErro('');
     try {
-      const r = await fetch('/api/stripe-add-addon', {
+      const r = await fetch('/api/stripe-change-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: clinicId }),
+        body: JSON.stringify({ action: 'addAddon', email: clinicId }),
       });
       const data = await r.json();
       if (!r.ok || data.error) {
