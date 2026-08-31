@@ -137,6 +137,7 @@ async function fetchAllCommissions() {
       clinicName: f.clinicName?.stringValue || "",
       partnerId: f.partnerId?.stringValue || "",
       plano: f.plano?.stringValue || "",
+      addon: f.addon?.booleanValue || false,
       valorPlano: parseFloat(f.valorPlano?.doubleValue || f.valorPlano?.integerValue || 0),
       commissionRate: parseFloat(f.commissionRate?.doubleValue || f.commissionRate?.integerValue || 0),
       valorComissao: parseFloat(f.valorComissao?.doubleValue || f.valorComissao?.integerValue || 0),
