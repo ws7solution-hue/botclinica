@@ -1,18 +1,46 @@
-import React from 'react';
-import { Lock, FileStack, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lock, FileStack, MessageCircle, Loader2 } from 'lucide-react';
 
 interface AddonLockOverlayProps {
   featureName: string;
   price: string;
   description: string;
+  clinicId: string;
+  onAddonAtivado?: () => void;
 }
 
 // Diferente do LockOverlay (que trava por PLANO), esse trava por ADD-ON —
 // um recurso vendido à parte, disponível pra qualquer plano (inclusive
 // Premium) que queira contratar, sem estar incluso automaticamente em
-// nenhum. Ainda não existe checkout self-service pra add-on, então o CTA
-// leva direto pro WhatsApp de Suporte.
-export default function AddonLockOverlay({ featureName, price, description }: AddonLockOverlayProps) {
+// nenhum. Agora com compra self-service (adiciona à assinatura já ativa,
+// com cobrança proporcional automática pela Stripe) — o WhatsApp continua
+// disponível como alternativa, pra quem preferir falar com alguém antes.
+export default function AddonLockOverlay({ featureName, price, description, clinicId, onAddonAtivado }: AddonLockOverlayProps) {
+  const [comprando, setComprando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  async function comprarAddon() {
+    setComprando(true);
+    setErro('');
+    try {
+      const r = await fetch('/api/stripe-add-addon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clinicId }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) {
+        setErro(data.error || 'Não foi possível ativar o add-on agora.');
+        setComprando(false);
+        return;
+      }
+      onAddonAtivado?.();
+    } catch (e) {
+      setErro('Erro de conexão — tente novamente em instantes.');
+      setComprando(false);
+    }
+  }
+
   return (
     <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6 text-center select-none">
       <div className="max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
@@ -45,14 +73,33 @@ export default function AddonLockOverlay({ featureName, price, description }: Ad
           </p>
         </div>
 
+        {erro && (
+          <p className="text-[11px] text-red-400 mb-3">{erro}</p>
+        )}
+
+        <button
+          onClick={comprarAddon}
+          disabled={comprando}
+          className="w-full py-3 bg-[#1A6FA8] hover:bg-[#15588a] active:bg-[#0f4066] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs transition-colors shadow-lg flex items-center justify-center gap-1.5 cursor-pointer mb-2"
+        >
+          {comprando ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Ativando...</span>
+            </>
+          ) : (
+            <span>Contratar agora — cobrança proporcional na hora</span>
+          )}
+        </button>
+
         <a
           href="https://wa.me/553191030288?text=Ol%C3%A1!%20Quero%20contratar%20o%20add-on%20de%20Documentos%20por%20IA%20do%20BotCl%C3%ADnica"
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full py-2.5 bg-transparent hover:bg-slate-800 text-slate-400 font-semibold rounded-xl text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-slate-800"
         >
-          <MessageCircle className="w-4 h-4" />
-          <span>Falar com o Suporte pra contratar</span>
+          <MessageCircle className="w-3.5 h-3.5" />
+          <span>Prefiro falar com o Suporte antes</span>
         </a>
       </div>
     </div>

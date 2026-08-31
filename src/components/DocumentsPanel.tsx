@@ -217,6 +217,11 @@ export default function DocumentsPanel({ clinicId, conversations, onAddSystemLog
           featureName="Documentos por IA"
           price="R$ 97/mês"
           description="Envie exames, atestados, contas e contratos de convênio — a IA lê, organiza e resume tudo automaticamente, separado por categoria e por paciente."
+          clinicId={clinicId}
+          onAddonAtivado={() => {
+            onAddSystemLog('success', 'Add-on de Documentos por IA ativado! Recarregando...');
+            setTimeout(() => window.location.reload(), 1200);
+          }}
         />
       )}
 
