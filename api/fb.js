@@ -1716,6 +1716,10 @@ module.exports = async (req, res) => {
         name: { stringValue: name },
         phone: { stringValue: phone || "" },
         commissionRate: { doubleValue: Number(commissionRate ?? 50) },
+        // NOVO: parceiro criado agora precisa trocar a senha temporária no
+        // primeiro login. Parceiro já existente mantém o valor que já tinha
+        // (não força passar por isso de novo só por editar nome/telefone).
+        primeiroAcesso: { booleanValue: isNewPartner ? true : (existingD.fields?.primeiroAcesso?.booleanValue ?? false) },
         // NOVO: qual funcionário (ex: coordenador de vendas) recebe override
         // sobre as vendas deste parceiro. Vazio = sem coordenador.
         coordenadorId: { stringValue: coordenadorId || "" },
@@ -1850,8 +1854,35 @@ module.exports = async (req, res) => {
           id: cleanId,
           name: d.fields.name?.stringValue || "",
           commissionRate: parseFloat(d.fields.commissionRate?.doubleValue || d.fields.commissionRate?.integerValue || 50),
+          primeiroAcesso: d.fields.primeiroAcesso?.booleanValue === true,
         },
       });
+    }
+
+    // Troca a senha do parceiro no primeiro acesso (ou quando ele quiser
+    // depois) — já desliga a flag de primeiroAcesso.
+    if (action === "partnerSetPassword") {
+      const { id, newPassword } = payload;
+      if (!id || !newPassword) return res.status(400).json({ error: "id e newPassword são obrigatórios" });
+      if (newPassword.length < 6) return res.status(400).json({ error: "A senha precisa ter pelo menos 6 caracteres" });
+      const cleanId = id.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      const existing = await fetch(`${FS}/partners/${cleanId}?key=${API_KEY}`);
+      const existingD = await existing.json();
+      if (!existingD.fields) return res.status(200).json({ error: "Parceiro não encontrado" });
+
+      const r = await fetch(`${FS}/partners/${cleanId}?updateMask.fieldPaths=password&updateMask.fieldPaths=primeiroAcesso&key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            password: { stringValue: newPassword },
+            primeiroAcesso: { booleanValue: false },
+          },
+        }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
     }
 
     // ── Leads cadastrados pelos parceiros ────────────────────────────────
