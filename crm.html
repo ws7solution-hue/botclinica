@@ -364,6 +364,8 @@ let commissions = [];
 let leads = [];
 let leadsPool = [];
 let candidatosParceiro = [];
+let funcionarios = [];
+let pagamentosFuncionario = [];
 let despesas = [];
 let activeTicket = null;
 let supportInterval = null;
@@ -424,7 +426,7 @@ async function api(action, payload){
 
 // LOAD
 async function loadAll(){
-  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads(), loadLeadsPool(), loadCandidatosParceiro(), loadDespesas()]);
+  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads(), loadLeadsPool(), loadCandidatosParceiro(), loadFuncionarios(), loadPagamentosFuncionario(), loadDespesas()]);
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
@@ -486,6 +488,16 @@ async function loadLeadsPool(){
 async function loadCandidatosParceiro(){
   const d = await api('listCandidatosParceiro', {});
   candidatosParceiro = Array.isArray(d) ? d : [];
+}
+
+async function loadFuncionarios(){
+  const d = await api('listFuncionarios', {});
+  funcionarios = Array.isArray(d) ? d : [];
+}
+
+async function loadPagamentosFuncionario(){
+  const d = await api('listPagamentosFuncionario', {});
+  pagamentosFuncionario = Array.isArray(d) ? d : [];
 }
 
 async function loadDespesas(){
@@ -1682,6 +1694,7 @@ function renderParceiros(){
     <button class="ptab-btn" id="ptabbtn-pool" onclick="switchParceirosTab('pool')">🏊 Piscina de Leads</button>
     <button class="ptab-btn" id="ptabbtn-partners" onclick="switchParceirosTab('partners')">🤝 Parceiros</button>
     <button class="ptab-btn" id="ptabbtn-leads" onclick="switchParceirosTab('leads')">📋 Leads em Andamento</button>
+    <button class="ptab-btn" id="ptabbtn-equipe" onclick="switchParceirosTab('equipe')">👔 Equipe</button>
   </div>
 
   <div data-ptab="overview">
@@ -1818,6 +1831,64 @@ function renderParceiros(){
   </div>
   </div>
 
+  <div data-ptab="equipe" style="display:none">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">
+      <span>👔 Equipe (funcionários e coordenadores)</span>
+      <button class="btn btn-primary btn-sm" onclick="openFuncionarioModal()">+ Novo Funcionário</button>
+    </div>
+    <div style="padding:4px 4px 8px;font-size:11px;color:var(--muted)">
+      Funcionários internos (ex: coordenador de vendas) — diferente de Parceiros, que usam a piscina de leads. Um funcionário pode ganhar salário fixo, % sobre vendas da equipe que coordena (única), e/ou % recorrente mensal.
+    </div>
+    ${funcionarios.length===0?'<div class="empty">Nenhum funcionário cadastrado ainda.</div>':funcionarios.map(fu=>{
+      const pendentes = pagamentosFuncionario.filter(p=>p.funcionarioId===fu.id && p.status!=='pago');
+      const totalPendente = pendentes.reduce((s,p)=>s+p.valorPagamento,0);
+      const tipoLabel = {fixo:'Salário fixo', comissao:'Comissão sobre equipe', misto:'Salário + Comissão'}[fu.tipoRemuneracao]||fu.tipoRemuneracao;
+      return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-weight:700;font-size:15px">${fu.nome} ${!fu.ativo?'<span style="font-size:10px;color:var(--muted)">(inativo)</span>':''}</div>
+            <div style="font-size:12px;color:var(--muted)">${fu.cargo||''}${fu.telefone?' · '+fu.telefone:''}</div>
+            <div style="font-size:12px;color:var(--text);margin-top:6px">
+              ${tipoLabel}
+              ${fu.salarioFixo>0?` · Salário: ${fmtBRL(fu.salarioFixo)}`:''}
+              ${fu.comissaoUnicaPct>0?` · ${fu.comissaoUnicaPct}% única sobre venda da equipe`:''}
+              ${fu.comissaoRecorrentePct>0?` · ${fu.comissaoRecorrentePct}% recorrente/mês`:''}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--muted)">Pendente</div>
+            <div style="font-weight:700;color:#B45309">${fmtBRL(totalPendente)}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick='openFuncionarioModal(${JSON.stringify(fu).replace(/'/g,"&apos;")})'>✏️ Editar</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleFuncionarioPagamentos('${fu.id}')">💰 Ver pagamentos (${pendentes.length} pendente${pendentes.length===1?'':'s'})</button>
+          ${fu.comissaoRecorrentePct>0?`<button class="btn btn-outline btn-sm" onclick="gerarRecorrenciaFuncionario('${fu.id}','${fu.nome.replace(/'/g,"&apos;")}')">🔄 Gerar recorrência do mês</button>`:''}
+        </div>
+        <div id="func-pagamentos-${fu.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+          ${pagamentosFuncionario.filter(p=>p.funcionarioId===fu.id).length===0?'<div style="font-size:12px;color:var(--muted)">Nenhum pagamento gerado ainda.</div>':pagamentosFuncionario.filter(p=>p.funcionarioId===fu.id).map(p=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <div>
+                <strong>${p.clinicName}</strong> — ${planLabel(p.plano)}${p.addon?' + Add-on':''}
+                <div style="color:var(--muted)">${p.tipo==='override_unico'?'Override único':'Recorrente · '+p.mesReferencia} · ${p.percentual}% de ${fmtBRL(p.valorBase)}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:700">${fmtBRL(p.valorPagamento)}</div>
+                ${p.status==='pago'
+                  ?`<span style="font-size:10px;color:#065F46">✅ Pago em ${fmtDate(p.paidAt)}</span>`
+                  :`<button class="btn btn-green btn-sm" onclick="confirmarPagamentoFuncionario('${p.id}','${fu.nome.replace(/'/g,"&apos;")}')">Confirmar Pagamento</button>`
+                }
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  </div>
+
   <div data-ptab="overview">
   <div class="card">
     <div class="card-title">Comissões</div>
@@ -1918,6 +1989,13 @@ function openPartnerModal(partner){
             <input class="form-input" id="pf-password" type="text" placeholder="${isEdit?'••••••••':'Crie uma senha'}"/>
           </div>
         </div>
+        <div class="form-group">
+          <label>Coordenador (funcionário que recebe override sobre as vendas dele)</label>
+          <select class="form-input" id="pf-coordenador">
+            <option value="">— Nenhum —</option>
+            ${funcionarios.map(fu=>`<option value="${fu.id}" ${p.coordenadorId===fu.id?'selected':''}>${fu.nome}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-actions">
           <button class="btn btn-outline" onclick="closePartnerModal()">Cancelar</button>
           <button class="btn btn-primary" onclick="savePartner(${isEdit})">Salvar</button>
@@ -1943,6 +2021,168 @@ async function updateCandidatoStatus(id, status, entrevistaData){
 }
 
 // ── Cadastro manual de candidato ────────────────────────────────────────────
+// ── Funcionários (equipe interna) ───────────────────────────────────────────
+function openFuncionarioModal(fu){
+  fu = fu || {};
+  const isEdit = !!fu.id;
+  const html = `
+    <div class="modal-overlay open" id="modal-funcionario">
+      <div class="modal">
+        <h2>${isEdit?'Editar':'Cadastrar'} Funcionário</h2>
+        <input type="hidden" id="func-id" value="${fu.id||''}"/>
+        <div class="form-group">
+          <label>Nome</label>
+          <input class="form-input" id="func-nome" value="${(fu.nome||'').replace(/"/g,'&quot;')}" placeholder="Nome completo"/>
+        </div>
+        <div class="form-group">
+          <label>Cargo</label>
+          <input class="form-input" id="func-cargo" value="${(fu.cargo||'').replace(/"/g,'&quot;')}" placeholder="Ex: Coordenador de Vendas"/>
+        </div>
+        <div class="form-group">
+          <label>Telefone/WhatsApp</label>
+          <input class="form-input" id="func-telefone" value="${fu.telefone||''}" placeholder="+55 31 99999-9999"/>
+        </div>
+        <div class="form-group">
+          <label>Tipo de remuneração</label>
+          <select class="form-input" id="func-tipo">
+            <option value="fixo" ${fu.tipoRemuneracao==='fixo'?'selected':''}>Salário fixo</option>
+            <option value="comissao" ${fu.tipoRemuneracao==='comissao'?'selected':''}>Comissão sobre equipe</option>
+            <option value="misto" ${fu.tipoRemuneracao==='misto'?'selected':''}>Salário + Comissão</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Salário fixo mensal (R$, deixe 0 se não tiver)</label>
+          <input class="form-input" type="number" step="0.01" id="func-salario" value="${fu.salarioFixo||0}"/>
+        </div>
+        <div class="form-group">
+          <label>% única sobre venda da equipe (override, deixe 0 se não tiver)</label>
+          <input class="form-input" type="number" step="0.1" id="func-unica" value="${fu.comissaoUnicaPct||0}"/>
+        </div>
+        <div class="form-group">
+          <label>% recorrente mensal sobre clientes ativos da equipe (deixe 0 se não tiver)</label>
+          <input class="form-input" type="number" step="0.1" id="func-recorrente" value="${fu.comissaoRecorrentePct||0}"/>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" id="func-ativo" ${fu.ativo!==false?'checked':''} style="width:auto;display:inline;margin-right:6px"/>Ativo</label>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeFuncionarioModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveFuncionarioModal()">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeFuncionarioModal(){
+  const m = document.getElementById('modal-funcionario');
+  if(m) m.remove();
+}
+
+async function saveFuncionarioModal(){
+  const id = document.getElementById('func-id').value;
+  const nome = document.getElementById('func-nome').value.trim();
+  if(!nome){ toast('Nome é obrigatório'); return; }
+  const payload = {
+    id: id || undefined,
+    nome,
+    cargo: document.getElementById('func-cargo').value.trim(),
+    telefone: document.getElementById('func-telefone').value.trim(),
+    tipoRemuneracao: document.getElementById('func-tipo').value,
+    salarioFixo: parseFloat(document.getElementById('func-salario').value) || 0,
+    comissaoUnicaPct: parseFloat(document.getElementById('func-unica').value) || 0,
+    comissaoRecorrentePct: parseFloat(document.getElementById('func-recorrente').value) || 0,
+    ativo: document.getElementById('func-ativo').checked,
+  };
+  const r = await api('saveFuncionario', payload);
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('✅ Funcionário salvo');
+  closeFuncionarioModal();
+  await loadFuncionarios();
+  renderParceiros();
+}
+
+function toggleFuncionarioPagamentos(id){
+  const el = document.getElementById('func-pagamentos-'+id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+async function gerarRecorrenciaFuncionario(id, nome){
+  if(!confirm(`Gerar cobrança recorrente deste mês para ${nome}? Isso não duplica se já foi gerado antes.`)) return;
+  const r = await api('gerarRecorrenciaFuncionario', { funcionarioId: id });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast(`✅ ${r.gerados} pagamento(s) recorrente(s) gerado(s)`);
+  await loadPagamentosFuncionario();
+  renderParceiros();
+}
+
+async function confirmarPagamentoFuncionario(pagamentoId, nomeFuncionario){
+  const pagamento = pagamentosFuncionario.find(p=>p.id===pagamentoId);
+  if(!pagamento){ toast('Pagamento não encontrado'); return; }
+  if(!confirm(`Confirmar pagamento de ${fmtBRL(pagamento.valorPagamento)} para ${nomeFuncionario}?`)) return;
+  const r = await api('confirmarPagamentoFuncionario', { id: pagamentoId });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('✅ Pagamento confirmado e registrado no Livro Caixa');
+  await loadPagamentosFuncionario();
+  renderParceiros();
+  abrirDocumentoPagamento({
+    nomeRecebedor: nomeFuncionario,
+    tipoRecebedor: pagamento.tipo==='override_unico' ? 'Override sobre venda' : `Comissão recorrente — ${pagamento.mesReferencia}`,
+    clinica: pagamento.clinicName,
+    plano: planLabel(pagamento.plano),
+    addon: pagamento.addon,
+    percentual: pagamento.percentual,
+    valorBase: pagamento.valorBase,
+    valor: pagamento.valorPagamento,
+    dataPagamento: new Date(),
+  });
+}
+
+// ── Documento de pagamento (recibo, gerado no navegador — sem depender
+// de backend pra PDF; usa a impressão nativa do navegador) ─────────────────
+function abrirDocumentoPagamento(dados){
+  const win = window.open('', '_blank');
+  const dataFmt = dados.dataPagamento.toLocaleDateString('pt-BR');
+  win.document.write(`
+    <!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Recibo de Pagamento — ${dados.nomeRecebedor}</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;max-width:640px;margin:40px auto;padding:0 24px}
+      .header{background:linear-gradient(135deg,#1A6FA8,#0D2A3D);color:#fff;padding:32px;border-radius:12px;margin-bottom:24px}
+      .header h1{font-size:22px;margin:0 0 4px}
+      .header p{margin:0;opacity:.8;font-size:13px}
+      .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;font-size:14px}
+      .row strong{color:#0D2A3D}
+      .total{background:#F0FDF4;border-radius:10px;padding:16px 20px;margin-top:16px;display:flex;justify-content:space-between;align-items:center}
+      .total .label{font-size:13px;color:#166534;font-weight:700}
+      .total .val{font-size:24px;font-weight:900;color:#065F46}
+      .actions{margin-top:24px;display:flex;gap:10px}
+      button{padding:10px 20px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-size:13px}
+      .btn-print{background:#1A6FA8;color:#fff}
+      .btn-wpp{background:#25D366;color:#fff}
+      @media print{.actions{display:none}}
+    </style></head><body>
+      <div class="header">
+        <h1>Recibo de Pagamento</h1>
+        <p>BotClínica — Programa de Parceiros/Equipe</p>
+      </div>
+      <div class="row"><span>Recebedor</span><strong>${dados.nomeRecebedor}</strong></div>
+      <div class="row"><span>Tipo</span><strong>${dados.tipoRecebedor}</strong></div>
+      ${dados.clinica?`<div class="row"><span>Clínica</span><strong>${dados.clinica}</strong></div>`:''}
+      ${dados.plano?`<div class="row"><span>Plano vendido</span><strong>${dados.plano}${dados.addon?' + Add-on Documentos':''}</strong></div>`:''}
+      ${dados.valorBase?`<div class="row"><span>Valor base</span><strong>${fmtBRL(dados.valorBase)}</strong></div>`:''}
+      ${dados.percentual?`<div class="row"><span>Percentual aplicado</span><strong>${dados.percentual}%</strong></div>`:''}
+      <div class="row"><span>Data do pagamento</span><strong>${dataFmt}</strong></div>
+      <div class="total"><span class="label">VALOR PAGO</span><span class="val">${fmtBRL(dados.valor)}</span></div>
+      <div class="actions">
+        <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+        <button class="btn-wpp" onclick="window.open('https://wa.me/?text='+encodeURIComponent('Recibo de pagamento — '+document.title))">💬 Preparar envio WhatsApp</button>
+      </div>
+    </body></html>
+  `);
+  win.document.close();
+}
+
 function openCandidatoModal(){
   const html = `
     <div class="modal-overlay open" id="modal-candidato">
@@ -2115,9 +2355,10 @@ async function savePartner(isEdit){
   const phone = document.getElementById('pf-phone').value.trim();
   const commissionRate = document.getElementById('pf-rate').value;
   const password = document.getElementById('pf-password').value.trim();
+  const coordenadorId = document.getElementById('pf-coordenador').value;
   if(!id || !name){ toast('Preencha nome e código de login'); return; }
   if(!isEdit && !password){ toast('Defina uma senha pro parceiro novo'); return; }
-  const r = await api('savePartner', {id, name, phone, commissionRate, password});
+  const r = await api('savePartner', {id, name, phone, commissionRate, password, coordenadorId});
   if(r.error){ toast('Erro: '+r.error); return; }
   closePartnerModal();
   await loadPartners();
@@ -2134,10 +2375,25 @@ async function deletePartner(id, name){
 
 async function markCommissionPaid(id){
   if(!confirm('Confirma que essa comissão já foi paga de verdade pro parceiro?')) return;
+  const commissao = commissions.find(c=>c.id===id);
   await api('markCommissionPaid', {id});
   await loadCommissions();
   renderParceiros();
-  toast('Comissão marcada como paga!');
+  toast('Comissão marcada como paga! Registrado no Livro Caixa.');
+  if(commissao){
+    const partner = partners.find(p=>p.id===commissao.partnerId);
+    abrirDocumentoPagamento({
+      nomeRecebedor: partner ? partner.name : commissao.partnerId,
+      tipoRecebedor: 'Comissão de venda (parceiro)',
+      clinica: commissao.clinicName,
+      plano: planLabel(commissao.plano),
+      addon: commissao.addon,
+      percentual: commissao.commissionRate,
+      valorBase: commissao.valorPlano,
+      valor: commissao.valorComissao,
+      dataPagamento: new Date(),
+    });
+  }
 }
 
 async function deleteCommissionCRM(id, nome){
