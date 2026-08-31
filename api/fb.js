@@ -1693,7 +1693,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === "savePartner") {
-      const { id, name, phone, commissionRate, password } = payload;
+      const { id, name, phone, commissionRate, password, coordenadorId } = payload;
       if (!id || !name) return res.status(400).json({ error: "id (código do link) e name são obrigatórios" });
       // O "id" é o próprio código usado no link (ex: joao → ?ref=joao) —
       // por isso precisa ser só letras/números/hífen, sem espaço ou acento,
@@ -1709,6 +1709,9 @@ module.exports = async (req, res) => {
         name: { stringValue: name },
         phone: { stringValue: phone || "" },
         commissionRate: { doubleValue: Number(commissionRate ?? 50) },
+        // NOVO: qual funcionário (ex: coordenador de vendas) recebe override
+        // sobre as vendas deste parceiro. Vazio = sem coordenador.
+        coordenadorId: { stringValue: coordenadorId || "" },
         // Só sobrescreve a senha se uma nova foi enviada — assim editar
         // nome/telefone não obriga redigitar a senha toda vez.
         password: { stringValue: password || existingD.fields?.password?.stringValue || "" },
@@ -1765,18 +1768,50 @@ module.exports = async (req, res) => {
     if (action === "markCommissionPaid") {
       const { id } = payload;
       if (!id) return res.status(400).json({ error: "id obrigatório" });
+      const commR = await fetch(`${FS}/commissions/${id}?key=${API_KEY}`);
+      const commD = await commR.json();
+      if (!commD.fields) return res.status(200).json({ error: "Comissão não encontrada" });
+
+      const now = new Date();
       const r = await fetch(`${FS}/commissions/${id}?key=${API_KEY}&updateMask.fieldPaths=status&updateMask.fieldPaths=paidAt`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fields: {
             status: { stringValue: "pago" },
-            paidAt: { stringValue: new Date().toISOString() },
+            paidAt: { stringValue: now.toISOString() },
           },
         }),
       });
       const d = await r.json();
       if (d.error) return res.status(200).json({ error: d.error.message });
+
+      // NOVO: registra a SAÍDA de verdade no Livro Caixa — sem isso, pagar
+      // comissão não descontava de lugar nenhum.
+      const valorComissao = parseFloat(commD.fields.valorComissao?.doubleValue || commD.fields.valorComissao?.integerValue || 0);
+      const clinicName = commD.fields.clinicName?.stringValue || "";
+      const partnerId = commD.fields.partnerId?.stringValue || "";
+      const partnerR = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
+      const partnerD = await partnerR.json();
+      const partnerName = partnerD.fields?.name?.stringValue || partnerId;
+
+      const lancId = `lanc_comm_${id}`;
+      await fetch(`${FS}/lancamentos_financeiros/${lancId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            tipo: { stringValue: "saida" },
+            categoria: { stringValue: "comissao_parceiro" },
+            valor: { doubleValue: valorComissao },
+            descricao: { stringValue: `Comissão paga a ${partnerName} — ${clinicName}` },
+            referenciaId: { stringValue: id },
+            data: { stringValue: now.toISOString() },
+            createdAt: { stringValue: now.toISOString() },
+          },
+        }),
+      });
+
       return res.status(200).json({ ok: true });
     }
 
@@ -2183,14 +2218,19 @@ module.exports = async (req, res) => {
       const partnerId = leadD.fields.partnerId?.stringValue || "";
       const plano = leadD.fields.plano?.stringValue || "starter";
       const nome = leadD.fields.nome?.stringValue || "";
+      const temAddon = !!leadD.fields.addon?.booleanValue;
 
       const partnerR = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
       const partnerD = await partnerR.json();
       const commissionRate = parseFloat(partnerD.fields?.commissionRate?.doubleValue || partnerD.fields?.commissionRate?.integerValue || 50);
+      const coordenadorId = partnerD.fields?.coordenadorId?.stringValue || "";
 
       const PLAN_PRICES_LOCAL = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
+      const ADDON_PRICE_LOCAL = 97; // TODO: confirmar valor real do add-on de Documentos por IA
       const valorPlano = PLAN_PRICES_LOCAL[plano] || 0;
-      const valorComissao = valorPlano * (commissionRate / 100);
+      const valorAddon = temAddon ? ADDON_PRICE_LOCAL : 0;
+      const valorTotal = valorPlano + valorAddon;
+      const valorComissao = valorTotal * (commissionRate / 100);
       const now = new Date();
       const eligibleDate = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
       const commissionId = `comm_lead_${leadId}`;
@@ -2204,7 +2244,8 @@ module.exports = async (req, res) => {
             clinicName: { stringValue: nome },
             partnerId: { stringValue: partnerId },
             plano: { stringValue: plano },
-            valorPlano: { doubleValue: valorPlano },
+            addon: { booleanValue: temAddon },
+            valorPlano: { doubleValue: valorTotal },
             commissionRate: { doubleValue: commissionRate },
             valorComissao: { doubleValue: valorComissao },
             paymentDate: { stringValue: now.toISOString() },
@@ -2226,6 +2267,65 @@ module.exports = async (req, res) => {
           },
         }),
       });
+
+      // NOVO: registra a ENTRADA no Livro Caixa — receita bruta reconhecida
+      // no momento da confirmação da venda (mesmo que o dinheiro em si só
+      // libere depois, isso já dá visibilidade de faturamento reconhecido).
+      const lancamentoEntradaId = `lanc_venda_${leadId}`;
+      await fetch(`${FS}/lancamentos_financeiros/${lancamentoEntradaId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            tipo: { stringValue: "entrada" },
+            categoria: { stringValue: "venda" },
+            valor: { doubleValue: valorTotal },
+            descricao: { stringValue: `Venda confirmada — ${nome} (${plano}${temAddon ? " + add-on" : ""})` },
+            referenciaId: { stringValue: leadId },
+            data: { stringValue: now.toISOString() },
+            createdAt: { stringValue: now.toISOString() },
+          },
+        }),
+      });
+
+      // NOVO: se o parceiro tem um coordenador (funcionário) vinculado,
+      // gera automaticamente o pagamento pendente do override dele sobre
+      // essa venda — % definida no cadastro do funcionário.
+      if (coordenadorId) {
+        try {
+          const funcR = await fetch(`${FS}/funcionarios/${coordenadorId}?key=${API_KEY}`);
+          const funcD = await funcR.json();
+          const overridePct = parseFloat(funcD.fields?.comissaoUnicaPct?.doubleValue || funcD.fields?.comissaoUnicaPct?.integerValue || 0);
+          if (funcD.fields && overridePct > 0) {
+            const valorOverride = valorTotal * (overridePct / 100);
+            const pagamentoId = `pgto_func_${coordenadorId}_${leadId}`;
+            await fetch(`${FS}/pagamentos_funcionario/${pagamentoId}?key=${API_KEY}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fields: {
+                  funcionarioId: { stringValue: coordenadorId },
+                  tipo: { stringValue: "override_unico" },
+                  clinicName: { stringValue: nome },
+                  plano: { stringValue: plano },
+                  addon: { booleanValue: temAddon },
+                  valorBase: { doubleValue: valorTotal },
+                  percentual: { doubleValue: overridePct },
+                  valorPagamento: { doubleValue: valorOverride },
+                  partnerId: { stringValue: partnerId },
+                  leadId: { stringValue: leadId },
+                  status: { stringValue: "aguardando_carencia" },
+                  eligibleDate: { stringValue: eligibleDate.toISOString() },
+                  createdAt: { stringValue: now.toISOString() },
+                  paidAt: { stringValue: "" },
+                },
+              }),
+            });
+          }
+        } catch (e) {
+          console.error("Falha ao gerar override do coordenador:", e.message);
+        }
+      }
 
       // NOVO: manda uma mensagem de parabéns pro PARCEIRO via WhatsApp,
       // reaproveitando o número do Suporte — se ele responder, a conversa
@@ -2255,6 +2355,273 @@ module.exports = async (req, res) => {
       } catch (e) { /* não bloqueia a confirmação da venda se a notificação falhar */ }
 
       return res.status(200).json({ ok: true });
+    }
+
+    // ── Funcionários (equipe interna: coordenadores, futuros contratados) ──
+    if (action === "listFuncionarios") {
+      const r = await fsReq("funcionarios");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const funcionarios = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          nome: f.nome?.stringValue || "",
+          telefone: f.telefone?.stringValue || "",
+          cargo: f.cargo?.stringValue || "",
+          tipoRemuneracao: f.tipoRemuneracao?.stringValue || "fixo",
+          salarioFixo: parseFloat(f.salarioFixo?.doubleValue || f.salarioFixo?.integerValue || 0),
+          comissaoUnicaPct: parseFloat(f.comissaoUnicaPct?.doubleValue || f.comissaoUnicaPct?.integerValue || 0),
+          comissaoRecorrentePct: parseFloat(f.comissaoRecorrentePct?.doubleValue || f.comissaoRecorrentePct?.integerValue || 0),
+          ativo: f.ativo?.booleanValue !== false,
+          createdAt: f.createdAt?.stringValue || "",
+        };
+      }).sort((a, b) => a.nome.localeCompare(b.nome));
+      return res.status(200).json(funcionarios);
+    }
+
+    if (action === "saveFuncionario") {
+      const { id, nome, telefone, cargo, tipoRemuneracao, salarioFixo, comissaoUnicaPct, comissaoRecorrentePct, ativo } = payload;
+      if (!nome) return res.status(400).json({ error: "nome é obrigatório" });
+      const funcId = id || `func_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const existing = id ? await (await fetch(`${FS}/funcionarios/${funcId}?key=${API_KEY}`)).json() : {};
+
+      const fields = toFsFields({
+        nome,
+        telefone: telefone || "",
+        cargo: cargo || "",
+        tipoRemuneracao: tipoRemuneracao || "fixo",
+        salarioFixo: Number(salarioFixo ?? 0),
+        comissaoUnicaPct: Number(comissaoUnicaPct ?? 0),
+        comissaoRecorrentePct: Number(comissaoRecorrentePct ?? 0),
+        ativo: ativo !== false,
+        createdAt: existing.fields?.createdAt?.stringValue || new Date().toISOString(),
+      });
+      const r = await fetch(`${FS}/funcionarios/${funcId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true, id: funcId });
+    }
+
+    if (action === "deleteFuncionario") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/funcionarios/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Lista os pagamentos pendentes/pagos de um funcionário (overrides únicos
+    // gerados automaticamente pelo confirmLeadSale, e recorrências geradas
+    // manualmente pelo botão "Gerar recorrência do mês").
+    if (action === "listPagamentosFuncionario") {
+      const { funcionarioId } = payload || {};
+      const r = await fsReq("pagamentos_funcionario");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      let pagamentos = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          funcionarioId: f.funcionarioId?.stringValue || "",
+          tipo: f.tipo?.stringValue || "",
+          clinicName: f.clinicName?.stringValue || "",
+          plano: f.plano?.stringValue || "",
+          addon: f.addon?.booleanValue || false,
+          mesReferencia: f.mesReferencia?.stringValue || "",
+          valorBase: parseFloat(f.valorBase?.doubleValue || f.valorBase?.integerValue || 0),
+          percentual: parseFloat(f.percentual?.doubleValue || f.percentual?.integerValue || 0),
+          valorPagamento: parseFloat(f.valorPagamento?.doubleValue || f.valorPagamento?.integerValue || 0),
+          partnerId: f.partnerId?.stringValue || "",
+          status: f.status?.stringValue || "aguardando_carencia",
+          eligibleDate: f.eligibleDate?.stringValue || "",
+          createdAt: f.createdAt?.stringValue || "",
+          paidAt: f.paidAt?.stringValue || "",
+        };
+      });
+      if (funcionarioId) pagamentos = pagamentos.filter((p) => p.funcionarioId === funcionarioId);
+      pagamentos.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      return res.status(200).json(pagamentos);
+    }
+
+    // Confirma o pagamento de UM item específico (override único ou
+    // recorrência de um mês) — marca como pago E registra a saída no Livro
+    // Caixa, na hora, sem precisar de nenhum passo manual extra.
+    if (action === "confirmarPagamentoFuncionario") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      const pagR = await fetch(`${FS}/pagamentos_funcionario/${id}?key=${API_KEY}`);
+      const pagD = await pagR.json();
+      if (!pagD.fields) return res.status(200).json({ error: "Pagamento não encontrado" });
+      if (pagD.fields.status?.stringValue === "pago") {
+        return res.status(200).json({ error: "Esse pagamento já foi confirmado antes" });
+      }
+
+      const now = new Date();
+      await fetch(`${FS}/pagamentos_funcionario/${id}?key=${API_KEY}&updateMask.fieldPaths=status&updateMask.fieldPaths=paidAt`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: { status: { stringValue: "pago" }, paidAt: { stringValue: now.toISOString() } },
+        }),
+      });
+
+      const valorPagamento = parseFloat(pagD.fields.valorPagamento?.doubleValue || pagD.fields.valorPagamento?.integerValue || 0);
+      const funcionarioId = pagD.fields.funcionarioId?.stringValue || "";
+      const clinicName = pagD.fields.clinicName?.stringValue || "";
+      const funcR = await fetch(`${FS}/funcionarios/${funcionarioId}?key=${API_KEY}`);
+      const funcD = await funcR.json();
+      const funcNome = funcD.fields?.nome?.stringValue || "Funcionário";
+
+      const lancamentoId = `lanc_pgto_func_${id}`;
+      await fetch(`${FS}/lancamentos_financeiros/${lancamentoId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            tipo: { stringValue: "saida" },
+            categoria: { stringValue: "comissao_funcionario" },
+            valor: { doubleValue: valorPagamento },
+            descricao: { stringValue: `Pagamento a ${funcNome} — ${clinicName}` },
+            referenciaId: { stringValue: id },
+            data: { stringValue: now.toISOString() },
+            createdAt: { stringValue: now.toISOString() },
+          },
+        }),
+      });
+
+      return res.status(200).json({ ok: true });
+    }
+
+    // Gera manualmente os pagamentos recorrentes do mês pra um funcionário —
+    // roda sobre os clientes ATIVOS (venda confirmada) de cada parceiro
+    // coordenado por ele. Evita duplicar: usa um ID determinístico por
+    // mês+lead, então rodar duas vezes no mesmo mês não duplica nada.
+    if (action === "gerarRecorrenciaFuncionario") {
+      const { funcionarioId } = payload;
+      if (!funcionarioId) return res.status(400).json({ error: "funcionarioId obrigatório" });
+
+      const funcR = await fetch(`${FS}/funcionarios/${funcionarioId}?key=${API_KEY}`);
+      const funcD = await funcR.json();
+      if (!funcD.fields) return res.status(200).json({ error: "Funcionário não encontrado" });
+      const recorrentePct = parseFloat(funcD.fields.comissaoRecorrentePct?.doubleValue || funcD.fields.comissaoRecorrentePct?.integerValue || 0);
+      if (recorrentePct <= 0) return res.status(200).json({ error: "Esse funcionário não tem % recorrente configurado" });
+
+      // Acha todos os parceiros coordenados por esse funcionário
+      const partnersR = await fetch(`${FS}/partners?key=${API_KEY}&pageSize=300`);
+      const partnersD = await partnersR.json();
+      const partnerIds = (partnersD.documents || [])
+        .filter((doc) => doc.fields?.coordenadorId?.stringValue === funcionarioId)
+        .map((doc) => doc.name.split("/").pop());
+
+      if (partnerIds.length === 0) {
+        return res.status(200).json({ ok: true, gerados: 0, aviso: "Nenhum parceiro coordenado por esse funcionário" });
+      }
+
+      // Acha todos os leads vendidos (vendaConfirmada) desses parceiros —
+      // só considera "cliente ativo" quem já teve venda confirmada. Não
+      // checa cancelamento aqui (ainda não existe esse campo no lead) —
+      // então, por enquanto, todo cliente vendido conta como ativo pra
+      // esse cálculo. Revisar quando existir status de cancelamento.
+      const leadsR = await fetch(`${FS}/leads?key=${API_KEY}&pageSize=500`);
+      const leadsD = await leadsR.json();
+      const mesReferencia = new Date().toISOString().slice(0, 7); // "2026-08"
+      const PLAN_PRICES_LOCAL = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
+      const ADDON_PRICE_LOCAL = 97;
+      const now = new Date();
+      let gerados = 0;
+
+      for (const doc of leadsD.documents || []) {
+        const f = doc.fields || {};
+        if (!f.vendaConfirmada?.booleanValue) continue;
+        const leadPartnerId = f.partnerId?.stringValue || "";
+        if (!partnerIds.includes(leadPartnerId)) continue;
+
+        const leadId = doc.name.split("/").pop();
+        const plano = f.plano?.stringValue || "starter";
+        const temAddon = !!f.addon?.booleanValue;
+        const valorTotal = (PLAN_PRICES_LOCAL[plano] || 0) + (temAddon ? ADDON_PRICE_LOCAL : 0);
+        const valorRecorrencia = valorTotal * (recorrentePct / 100);
+
+        const pagamentoId = `pgto_func_${funcionarioId}_rec_${leadId}_${mesReferencia}`;
+        const jaExisteR = await fetch(`${FS}/pagamentos_funcionario/${pagamentoId}?key=${API_KEY}`);
+        const jaExisteD = await jaExisteR.json();
+        if (jaExisteD.fields) continue; // já gerado esse mês pra esse cliente
+
+        await fetch(`${FS}/pagamentos_funcionario/${pagamentoId}?key=${API_KEY}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fields: {
+              funcionarioId: { stringValue: funcionarioId },
+              tipo: { stringValue: "recorrente" },
+              clinicName: { stringValue: f.nome?.stringValue || "" },
+              plano: { stringValue: plano },
+              addon: { booleanValue: temAddon },
+              mesReferencia: { stringValue: mesReferencia },
+              valorBase: { doubleValue: valorTotal },
+              percentual: { doubleValue: recorrentePct },
+              valorPagamento: { doubleValue: valorRecorrencia },
+              partnerId: { stringValue: leadPartnerId },
+              leadId: { stringValue: leadId },
+              status: { stringValue: "aguardando_carencia" },
+              eligibleDate: { stringValue: now.toISOString() },
+              createdAt: { stringValue: now.toISOString() },
+              paidAt: { stringValue: "" },
+            },
+          }),
+        });
+        gerados++;
+      }
+
+      return res.status(200).json({ ok: true, gerados });
+    }
+
+    // ── Livro Caixa (lançamentos financeiros reais — entradas e saídas) ────
+    if (action === "listLancamentos") {
+      const r = await fsReq("lancamentos_financeiros");
+      const d = await r.json();
+      if (d.error) return res.status(200).json([]);
+      const lancamentos = (d.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split("/").pop(),
+          tipo: f.tipo?.stringValue || "",
+          categoria: f.categoria?.stringValue || "",
+          valor: parseFloat(f.valor?.doubleValue || f.valor?.integerValue || 0),
+          descricao: f.descricao?.stringValue || "",
+          referenciaId: f.referenciaId?.stringValue || "",
+          data: f.data?.stringValue || "",
+        };
+      }).sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+      return res.status(200).json(lancamentos);
+    }
+
+    // Lançamento manual (ex: pagar uma despesa fixa, registrar imposto pago)
+    if (action === "addLancamentoManual") {
+      const { tipo, categoria, valor, descricao } = payload;
+      if (!tipo || !valor || !descricao) return res.status(400).json({ error: "tipo, valor e descricao são obrigatórios" });
+      const now = new Date();
+      const lancId = `lanc_manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await fetch(`${FS}/lancamentos_financeiros/${lancId}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            tipo: { stringValue: tipo },
+            categoria: { stringValue: categoria || "outro" },
+            valor: { doubleValue: Number(valor) },
+            descricao: { stringValue: descricao },
+            referenciaId: { stringValue: "" },
+            data: { stringValue: now.toISOString() },
+            createdAt: { stringValue: now.toISOString() },
+          },
+        }),
+      });
+      return res.status(200).json({ ok: true, id: lancId });
     }
 
     // ── Despesas operacionais customizáveis (VPS, Anthropic, Meta, etc) ──
