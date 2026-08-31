@@ -1411,6 +1411,7 @@ function renderWaVendasList(list){
     sem_experiencia: ['Sem experiência', '#F1F5F9', '#64748b'],
     entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
     entrevista_realizada: ['Entrevista realizada', '#EDE9FE', '#5B21B6'],
+    sumiu: ['Sumiu / Não compareceu', '#FFE4E6', '#9F1239'],
     aprovado: ['Aprovado', '#D1FAE5', '#065F46'],
     reprovado: ['Reprovado', '#FEE2E2', '#7F1D1D'],
   };
@@ -1474,6 +1475,7 @@ function renderWaVendasChat(conversa){
         <option value="sem_experiencia" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='sem_experiencia'?'selected':''}>Sem experiência</option>
         <option value="entrevista_marcada" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='entrevista_marcada'?'selected':''}>Entrevista marcada</option>
         <option value="entrevista_realizada" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='entrevista_realizada'?'selected':''}>Entrevista realizada</option>
+        <option value="sumiu" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='sumiu'?'selected':''}>Sumiu / Não compareceu</option>
         <option value="aprovado" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='aprovado'?'selected':''}>Aprovado</option>
         <option value="reprovado" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='reprovado'?'selected':''}>Reprovado</option>
       </select>
@@ -1566,7 +1568,8 @@ async function assumeWaVendasConversa(to){
 
 async function deleteWaConversa(tipo, id){
   if(!confirm('Tem certeza que deseja excluir esta conversa? Essa ação não pode ser desfeita.')) return;
-  await api('deleteConversation',{tipo, id});
+  const r = await api('deleteWaConversation',{tipo, id});
+  if(r.error){ toast('Erro ao excluir: ' + r.error); return; }
   if(tipo==='suporte'){
     waSuporteConversas = waSuporteConversas.filter(c=>c.id!==id);
     if(activeWaSuporteConversa===id) activeWaSuporteConversa=null;
@@ -1725,6 +1728,7 @@ function renderParceiros(){
         sem_experiencia: ['Sem experiência declarada', '#F1F5F9', '#64748b'],
         entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
         entrevista_realizada: ['Entrevista realizada', '#EDE9FE', '#5B21B6'],
+        sumiu: ['Sumiu / Não compareceu', '#FFE4E6', '#9F1239'],
         aprovado: ['Aprovado', '#D1FAE5', '#065F46'],
         reprovado: ['Reprovado', '#FEE2E2', '#7F1D1D'],
       };
@@ -1749,6 +1753,9 @@ function renderParceiros(){
           }
           <button class="btn btn-outline btn-sm" style="color:#065F46" onclick="updateCandidatoStatus('${c.id}','aprovado')">✅ Aprovar</button>
           <button class="btn btn-outline btn-sm" style="color:#7F1D1D" onclick="updateCandidatoStatus('${c.id}','reprovado')">✕ Reprovar</button>
+          <button class="btn btn-outline btn-sm" style="color:#9F1239" onclick="updateCandidatoStatus('${c.id}','sumiu')">👻 Sumiu</button>
+          <button class="btn btn-outline btn-sm" onclick='openCandidatoModal(${JSON.stringify(c).replace(/'/g,"&apos;")})'>✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCandidatoParceiro('${c.id}','${c.nome.replace(/'/g,"\\'")}')">🗑️</button>
         </div>
       </div>`;
     }).join('')}
@@ -2183,41 +2190,43 @@ function abrirDocumentoPagamento(dados){
   win.document.close();
 }
 
-function openCandidatoModal(){
+function openCandidatoModal(c){
+  c = c || {};
+  const isEdit = !!c.id;
   const html = `
     <div class="modal-overlay open" id="modal-candidato">
       <div class="modal">
-        <h2>Cadastrar Candidato</h2>
+        <h2>${isEdit?'Editar':'Cadastrar'} Candidato</h2>
         <div class="form-group">
           <label>Nome</label>
-          <input class="form-input" id="cand-nome" placeholder="Nome completo"/>
+          <input class="form-input" id="cand-nome" value="${(c.nome||'').replace(/"/g,'&quot;')}" placeholder="Nome completo"/>
         </div>
         <div class="form-group">
           <label>Telefone/WhatsApp</label>
-          <input class="form-input" id="cand-telefone" placeholder="+55 31 99999-9999"/>
+          <input class="form-input" id="cand-telefone" value="${c.telefone||''}" placeholder="+55 31 99999-9999" ${isEdit?'readonly title="Não é possível trocar o telefone por aqui — o telefone é o identificador do candidato. Exclua e recadastre se precisar mudar."':''}/>
         </div>
         <div class="form-group">
           <label>Origem</label>
           <select class="form-input" id="cand-origem">
             <option value="">— Não informado —</option>
-            <option value="Catho">Catho</option>
-            <option value="LinkedIn">LinkedIn</option>
-            <option value="Indeed">Indeed</option>
-            <option value="Vagas.com">Vagas.com</option>
-            <option value="Gupy">Gupy</option>
-            <option value="Grupo Facebook">Grupo Facebook</option>
-            <option value="Indicação">Indicação</option>
-            <option value="Anúncio Meta">Anúncio Meta</option>
-            <option value="Outro">Outro</option>
+            <option value="Catho" ${c.origem==='Catho'?'selected':''}>Catho</option>
+            <option value="LinkedIn" ${c.origem==='LinkedIn'?'selected':''}>LinkedIn</option>
+            <option value="Indeed" ${c.origem==='Indeed'?'selected':''}>Indeed</option>
+            <option value="Vagas.com" ${c.origem==='Vagas.com'?'selected':''}>Vagas.com</option>
+            <option value="Gupy" ${c.origem==='Gupy'?'selected':''}>Gupy</option>
+            <option value="Grupo Facebook" ${c.origem==='Grupo Facebook'?'selected':''}>Grupo Facebook</option>
+            <option value="Indicação" ${c.origem==='Indicação'?'selected':''}>Indicação</option>
+            <option value="Anúncio Meta" ${c.origem==='Anúncio Meta'?'selected':''}>Anúncio Meta</option>
+            <option value="Outro" ${c.origem==='Outro'?'selected':''}>Outro</option>
           </select>
         </div>
         <div class="form-group">
           <label>Resumo da experiência (opcional)</label>
-          <textarea class="form-input" id="cand-resumo" rows="3" placeholder="Ex: 3 anos vendendo B2B no setor farmacêutico"></textarea>
+          <textarea class="form-input" id="cand-resumo" rows="3" placeholder="Ex: 3 anos vendendo B2B no setor farmacêutico">${c.resumoExperiencia||''}</textarea>
         </div>
         <div class="form-actions">
           <button class="btn btn-outline" onclick="closeCandidatoModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveCandidatoModal()">Salvar</button>
+          <button class="btn btn-primary" onclick="saveCandidatoModal('${c.telefone||''}')">Salvar</button>
         </div>
       </div>
     </div>`;
@@ -2229,16 +2238,25 @@ function closeCandidatoModal(){
   if(m) m.remove();
 }
 
-async function saveCandidatoModal(){
+async function saveCandidatoModal(telefoneOriginal){
   const nome = document.getElementById('cand-nome').value.trim();
-  const telefone = document.getElementById('cand-telefone').value.trim();
+  const telefone = telefoneOriginal || document.getElementById('cand-telefone').value.trim();
   const origem = document.getElementById('cand-origem').value;
   const resumoExperiencia = document.getElementById('cand-resumo').value.trim();
   if(!nome || !telefone){ toast('Nome e telefone são obrigatórios'); return; }
   const r = await api('addCandidatoParceiro', { nome, telefone, origem, resumoExperiencia });
   if(r.error){ toast('Erro: ' + r.error); return; }
-  toast('✅ Candidato cadastrado');
+  toast('✅ Candidato salvo');
   closeCandidatoModal();
+  await loadCandidatosParceiro();
+  renderParceiros();
+}
+
+async function deleteCandidatoParceiro(id, nome){
+  if(!confirm(`Excluir o candidato "${nome}"? Essa ação não pode ser desfeita.`)) return;
+  const r = await api('deleteCandidatoParceiro', { id });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('🗑️ Candidato excluído');
   await loadCandidatosParceiro();
   renderParceiros();
 }
