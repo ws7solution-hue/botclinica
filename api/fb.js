@@ -1602,7 +1602,13 @@ module.exports = async (req, res) => {
     }
 
     // ── CRM: excluir conversa (Suporte WhatsApp, Luna/Vendas ou Ticket) ──
-    if (action === "deleteConversation") {
+    // RENOMEADO de "deleteConversation" pra "deleteWaConversation" — havia
+    // duas ações com o MESMO nome nesse arquivo (essa e a de conversas de
+    // clínica, lá em cima). Como a primeira sempre respondia primeiro, essa
+    // aqui nunca rodava de verdade — o CRM achava que tinha apagado (recebia
+    // "ok:true" da ação errada), mas o documento real em conversations_luna/
+    // conversations_suporte nunca era excluído, por isso a conversa "voltava".
+    if (action === "deleteWaConversation") {
       const { tipo, id } = payload;
       if (!tipo || !id) return res.status(400).json({ error: "tipo e id são obrigatórios" });
       const colecoes = {
@@ -2161,6 +2167,13 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, id: phoneDigits, isNew: !existingD.fields });
     }
 
+    if (action === "deleteCandidatoParceiro") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/candidatos_parceiro/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     // Atualiza o status de um candidato (aguardando_contato, sem_experiencia,
     // entrevista_marcada, entrevista_realizada, aprovado, reprovado) — usado
     // pelos botões do CRM. Aceita opcionalmente entrevistaData (data/hora
@@ -2168,7 +2181,7 @@ module.exports = async (req, res) => {
     if (action === "updateCandidatoStatus") {
       const { id, status, entrevistaData } = payload;
       if (!id || !status) return res.status(400).json({ error: "id e status são obrigatórios" });
-      const validStatuses = ["conversando", "aguardando_contato", "sem_experiencia", "entrevista_marcada", "entrevista_realizada", "aprovado", "reprovado"];
+      const validStatuses = ["conversando", "aguardando_contato", "sem_experiencia", "entrevista_marcada", "entrevista_realizada", "sumiu", "aprovado", "reprovado"];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: `status inválido — use um de: ${validStatuses.join(", ")}` });
       }
