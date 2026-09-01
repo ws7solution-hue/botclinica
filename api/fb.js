@@ -2470,6 +2470,7 @@ module.exports = async (req, res) => {
           comissaoUnicaPct: parseFloat(f.comissaoUnicaPct?.doubleValue || f.comissaoUnicaPct?.integerValue || 0),
           comissaoRecorrentePct: parseFloat(f.comissaoRecorrentePct?.doubleValue || f.comissaoRecorrentePct?.integerValue || 0),
           ativo: f.ativo?.booleanValue !== false,
+          loginId: f.loginId?.stringValue || "",
           createdAt: f.createdAt?.stringValue || "",
         };
       }).sort((a, b) => a.nome.localeCompare(b.nome));
