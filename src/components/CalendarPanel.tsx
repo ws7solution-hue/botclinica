@@ -243,6 +243,11 @@ export default function CalendarPanel({
                           appt.patientPhone.includes(searchTerm);
     const matchesDay = !selectedDay || appt.date === selectedDay;
     return matchesDoc && matchesStatus && matchesSearch && matchesDay;
+  }).sort((a, b) => {
+    // Mais recente primeiro (data desc, e dentro do mesmo dia, horário desc)
+    const dateCompare = b.date.localeCompare(a.date);
+    if (dateCompare !== 0) return dateCompare;
+    return b.time.localeCompare(a.time);
   });
 
   return (
@@ -415,7 +420,7 @@ export default function CalendarPanel({
 
                       <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-slate-400 font-mono">
                         <span className="flex items-center gap-1 text-slate-500 font-sans">
-                          <Calendar className="w-3.5 h-3.5" /> {appt.date}
+                          <Calendar className="w-3.5 h-3.5" /> {new Date(appt.date + 'T12:00:00').toLocaleDateString('pt-BR')}
                         </span>
                         <span className="flex items-center gap-1 text-slate-500 font-sans">
                           <Clock className="w-3.5 h-3.5" /> {appt.time}
