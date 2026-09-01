@@ -2072,9 +2072,23 @@ function openFuncionarioModal(fu){
         <div class="form-group">
           <label><input type="checkbox" id="func-ativo" ${fu.ativo!==false?'checked':''} style="width:auto;display:inline;margin-right:6px"/>Ativo</label>
         </div>
-        <div class="form-actions">
-          <button class="btn btn-outline" onclick="closeFuncionarioModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveFuncionarioModal()">Salvar</button>
+        <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">🔐 Acesso à área do coordenador</div>
+          <div class="form-group">
+            <label>Código de login</label>
+            <input class="form-input" id="func-loginid" value="${fu.loginId||''}" placeholder="Ex: wellington"/>
+          </div>
+          <div class="form-group">
+            <label>Senha ${isEdit?'(deixe em branco pra manter a atual)':'temporária'}</label>
+            <input class="form-input" id="func-password" type="text" placeholder="${isEdit?'••••••••':'Crie uma senha'}"/>
+          </div>
+        </div>
+        <div class="form-actions" style="justify-content:space-between">
+          ${isEdit?`<button class="btn btn-danger" onclick="deleteFuncionarioModal('${fu.id}','${(fu.nome||'').replace(/'/g,"&apos;")}')">🗑️ Excluir</button>`:'<span></span>'}
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-outline" onclick="closeFuncionarioModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveFuncionarioModal()">Salvar</button>
+          </div>
         </div>
       </div>
     </div>`;
@@ -2086,10 +2100,23 @@ function closeFuncionarioModal(){
   if(m) m.remove();
 }
 
+async function deleteFuncionarioModal(id, nome){
+  if(!confirm(`Excluir "${nome}"? Isso remove o acesso dele à área do coordenador e não pode ser desfeito. Os pagamentos já registrados dele NÃO são apagados.`)) return;
+  const r = await api('deleteFuncionario', { id });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('🗑️ Funcionário excluído');
+  closeFuncionarioModal();
+  await loadFuncionarios();
+  renderParceiros();
+}
+
 async function saveFuncionarioModal(){
   const id = document.getElementById('func-id').value;
   const nome = document.getElementById('func-nome').value.trim();
   if(!nome){ toast('Nome é obrigatório'); return; }
+  const loginId = document.getElementById('func-loginid').value.trim();
+  const password = document.getElementById('func-password').value.trim();
+  if(!id && !password){ toast('Defina uma senha temporária pro funcionário novo'); return; }
   const payload = {
     id: id || undefined,
     nome,
@@ -2100,6 +2127,8 @@ async function saveFuncionarioModal(){
     comissaoUnicaPct: parseFloat(document.getElementById('func-unica').value) || 0,
     comissaoRecorrentePct: parseFloat(document.getElementById('func-recorrente').value) || 0,
     ativo: document.getElementById('func-ativo').checked,
+    loginId,
+    password,
   };
   const r = await api('saveFuncionario', payload);
   if(r.error){ toast('Erro: ' + r.error); return; }
