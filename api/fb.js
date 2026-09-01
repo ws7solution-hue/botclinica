@@ -2402,7 +2402,58 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
-    // ── Funcionários (equipe interna: coordenadores, futuros contratados) ──
+    // ── Login do funcionário (coordenador.html) ─────────────────────────────
+    if (action === "funcionarioLogin") {
+      const { loginId, password } = payload;
+      if (!loginId || !password) return res.status(400).json({ error: "Código e senha são obrigatórios" });
+      const cleanLoginId = loginId.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      const r = await fsReq("funcionarios");
+      const d = await r.json();
+      const doc = (d.documents || []).find((doc) => doc.fields?.loginId?.stringValue === cleanLoginId);
+      if (!doc) return res.status(200).json({ error: "Funcionário não encontrado" });
+      const f = doc.fields;
+      const storedPassword = f.password?.stringValue || "";
+      if (!storedPassword || storedPassword !== password) {
+        return res.status(200).json({ error: "Senha incorreta" });
+      }
+      if (f.ativo?.booleanValue === false) {
+        return res.status(200).json({ error: "Este acesso foi desativado — fale com a equipe" });
+      }
+      return res.status(200).json({
+        ok: true,
+        funcionario: {
+          id: doc.name.split("/").pop(),
+          nome: f.nome?.stringValue || "",
+          cargo: f.cargo?.stringValue || "",
+          primeiroAcesso: f.primeiroAcesso?.booleanValue === true,
+        },
+      });
+    }
+
+    if (action === "funcionarioSetPassword") {
+      const { id, newPassword } = payload;
+      if (!id || !newPassword) return res.status(400).json({ error: "id e newPassword são obrigatórios" });
+      if (newPassword.length < 6) return res.status(400).json({ error: "A senha precisa ter pelo menos 6 caracteres" });
+      const existing = await fetch(`${FS}/funcionarios/${id}?key=${API_KEY}`);
+      const existingD = await existing.json();
+      if (!existingD.fields) return res.status(200).json({ error: "Funcionário não encontrado" });
+
+      const r = await fetch(`${FS}/funcionarios/${id}?updateMask.fieldPaths=password&updateMask.fieldPaths=primeiroAcesso&key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            password: { stringValue: newPassword },
+            primeiroAcesso: { booleanValue: false },
+          },
+        }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+
     if (action === "listFuncionarios") {
       const r = await fsReq("funcionarios");
       const d = await r.json();
@@ -2426,10 +2477,15 @@ module.exports = async (req, res) => {
     }
 
     if (action === "saveFuncionario") {
-      const { id, nome, telefone, cargo, tipoRemuneracao, salarioFixo, comissaoUnicaPct, comissaoRecorrentePct, ativo } = payload;
+      const { id, nome, telefone, cargo, tipoRemuneracao, salarioFixo, comissaoUnicaPct, comissaoRecorrentePct, ativo, loginId, password } = payload;
       if (!nome) return res.status(400).json({ error: "nome é obrigatório" });
       const funcId = id || `func_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const existing = id ? await (await fetch(`${FS}/funcionarios/${funcId}?key=${API_KEY}`)).json() : {};
+      const isNovo = !existing.fields;
+
+      // loginId é o código que ele usa pra entrar em coordenador.html — se
+      // não informado na criação, usa o próprio funcId como padrão.
+      const cleanLoginId = (loginId || existing.fields?.loginId?.stringValue || funcId).toLowerCase().replace(/[^a-z0-9-]/g, "");
 
       const fields = toFsFields({
         nome,
@@ -2440,6 +2496,9 @@ module.exports = async (req, res) => {
         comissaoUnicaPct: Number(comissaoUnicaPct ?? 0),
         comissaoRecorrentePct: Number(comissaoRecorrentePct ?? 0),
         ativo: ativo !== false,
+        loginId: cleanLoginId,
+        password: password || existing.fields?.password?.stringValue || "",
+        primeiroAcesso: isNovo ? true : (existing.fields?.primeiroAcesso?.booleanValue ?? false),
         createdAt: existing.fields?.createdAt?.stringValue || new Date().toISOString(),
       });
       const r = await fetch(`${FS}/funcionarios/${funcId}?key=${API_KEY}`, {
