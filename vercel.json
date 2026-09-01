@@ -10,6 +10,7 @@
     { "source": "/admin",             "destination": "/admin.html" },
     { "source": "/crm",               "destination": "/crm.html" },
     { "source": "/parceiro",          "destination": "/parceiro.html" },
+    { "source": "/coordenador",       "destination": "/coordenador.html" },
     { "source": "/",                  "destination": "/index.html" }
   ]
 }
