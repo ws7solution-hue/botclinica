@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BotClínica — Área do Coordenador</title>
+<link rel="icon" type="image/png" href="/logo-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --navy:#0D2A3D; --blue:#1A6FA8; --blue2:#135480; --green:#06AA48;
+  --bg:#F0F2F5; --card:#FFFFFF; --border:#E2E8F0; --text:#1F2937; --muted:#6B7280;
+  --yellow:#B45309; --yellow-l:#FEF3C7; --red:#DC2626; --red-l:#FEE2E2; --green-l:#D1FAE5;
+  --purple:#5B21B6; --purple-l:#EDE9FE; --indigo:#3730A3; --indigo-l:#E0E7FF;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+body{background:var(--bg);color:var(--text)}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy),var(--blue2));padding:20px}
+.login-card{background:var(--card);border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-card img{width:64px;display:block;margin:0 auto 16px}
+.login-card h1{font-size:20px;text-align:center;margin-bottom:4px;color:var(--navy)}
+.login-card p{font-size:13px;text-align:center;color:var(--muted);margin-bottom:24px}
+label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px}
+input,select,textarea{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;margin-bottom:14px;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue)}
+button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
+.btn-primary{background:var(--blue);color:#fff;padding:12px;border-radius:10px;width:100%;font-size:14px}
+.btn-primary:hover{background:var(--blue2)}
+.error-msg{background:var(--red-l);color:var(--red);padding:10px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;display:none}
+
+.app{display:none}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.topbar-left img{width:32px}
+.topbar-left .name{font-weight:800;font-size:15px}
+.topbar-left .sub{font-size:11px;color:var(--muted)}
+.btn-logout{background:transparent;color:var(--muted);font-size:12px;padding:8px 12px;border-radius:8px}
+.btn-logout:hover{background:var(--bg)}
+
+.container{max-width:1100px;margin:0 auto;padding:24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:700px){.grid-3{grid-template-columns:1fr}}
+.kpi{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--border)}
+.kpi .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.kpi .val{font-size:26px;font-weight:800;margin-top:4px}
+
+.card{background:var(--card);border-radius:16px;padding:22px;border:1px solid var(--border);margin-bottom:20px}
+.card-title{font-size:15px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.form-row{grid-template-columns:1fr}}
+
+.item{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.item .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.item .nome{font-weight:700;font-size:14px}
+.item .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-blue{background:#DBEAFE;color:var(--blue2)}
+.badge-yellow{background:var(--yellow-l);color:var(--yellow)}
+.badge-green{background:var(--green-l);color:var(--green)}
+.badge-red{background:var(--red-l);color:var(--red)}
+.badge-purple{background:var(--purple-l);color:var(--purple)}
+.badge-indigo{background:var(--indigo-l);color:var(--indigo)}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:18px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:17px;margin-bottom:18px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.btn-outline{background:transparent;border:1px solid var(--border);padding:11px 18px;border-radius:10px;font-size:13px}
+.btn-save{background:var(--blue);color:#fff;padding:11px 18px;border-radius:10px;font-size:13px}
+.btn-sm{padding:6px 12px;border-radius:8px;font-size:12px;background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-sm:hover{background:#E5E9EE}
+
+.fab{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:14px 22px;border-radius:30px;font-size:14px;box-shadow:0 8px 24px rgba(6,170,72,.4);display:flex;align-items:center;gap:8px;z-index:50}
+.fab:hover{background:#059640}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;display:none}
+
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;background:var(--card);border:1px solid var(--border);color:var(--muted)}
+.tab-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tab-btn:hover:not(.active){background:var(--bg)}
+</style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-card">
+    <img src="/logo-icon.png" alt="BotClínica"/>
+    <h1>Área do Coordenador</h1>
+    <p>Acompanhe parceiros, leads e sua equipe</p>
+    <div class="error-msg" id="login-error"></div>
+    <label>Código de acesso</label>
+    <input type="text" id="login-id" placeholder="Seu código" autocomplete="username"/>
+    <label>Senha</label>
+    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+    <button class="btn-primary" onclick="doLogin()" id="login-btn">Entrar</button>
+  </div>
+</div>
+
+<!-- APP (depois do login) -->
+<div class="app" id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <img src="/logo-icon.png" alt="BotClínica"/>
+      <div>
+        <div class="name" id="coord-name">—</div>
+        <div class="sub" id="coord-cargo">Coordenador</div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Sair</button>
+  </div>
+
+  <div class="container">
+    <div class="card" id="earnings-card" style="background:linear-gradient(135deg,var(--navy),var(--blue2));color:#fff">
+      <div style="font-size:12px;opacity:.8;font-weight:700;text-transform:uppercase">Meus pagamentos (override + recorrência)</div>
+      <div style="font-size:32px;font-weight:800;margin-top:4px" id="earnings-total">R$ 0,00</div>
+      <div style="font-size:12px;opacity:.85;margin-top:6px" id="earnings-breakdown">Carregando...</div>
+    </div>
+
+    <div class="grid-3">
+      <div class="kpi"><div class="label">Parceiros ativos</div><div class="val" id="kpi-parceiros">0</div></div>
+      <div class="kpi"><div class="label">Leads na piscina</div><div class="val" id="kpi-pool">0</div></div>
+      <div class="kpi"><div class="label">Vendas confirmadas</div><div class="val" id="kpi-vendas">0</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tabbtn-parceiros" onclick="switchTab('parceiros')">🤝 Parceiros</button>
+      <button class="tab-btn" id="tabbtn-leads" onclick="switchTab('leads')">📋 Leads em Andamento</button>
+      <button class="tab-btn" id="tabbtn-pool" onclick="switchTab('pool')">🏊 Piscina de Leads</button>
+      <button class="tab-btn" id="tabbtn-comissoes" onclick="switchTab('comissoes')">💰 Comissões</button>
+      <button class="tab-btn" id="tabbtn-pagamentos" onclick="switchTab('pagamentos')">👔 Meus Pagamentos</button>
+    </div>
+
+    <div class="card" id="tab-parceiros">
+      <div class="card-title"><span>Todos os parceiros</span></div>
+      <div id="parceiros-list"></div>
+    </div>
+
+    <div class="card" id="tab-leads" style="display:none">
+      <div class="card-title"><span>Leads em andamento (todos os parceiros)</span></div>
+      <div id="leads-list"></div>
+    </div>
+
+    <div class="card" id="tab-pool" style="display:none">
+      <div class="card-title"><span>Piscina de Leads (clínicas disponíveis)</span></div>
+      <div id="pool-list"></div>
+    </div>
+
+    <div class="card" id="tab-comissoes" style="display:none">
+      <div class="card-title"><span>Comissões dos parceiros</span></div>
+      <div id="comissoes-list"></div>
+    </div>
+
+    <div class="card" id="tab-pagamentos" style="display:none">
+      <div class="card-title"><span>Meus pagamentos</span></div>
+      <div id="pagamentos-list"></div>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="openCandidatoModal()">➕ Adicionar Candidato</button>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROXY = '/api/fb';
+let currentCoord = null;
+let parceiros = [], leads = [], pool = [], comissoes = [], pagamentos = [];
+
+async function api(action, payload){
+  try {
+    const r = await fetch(PROXY, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload}) });
+    return await r.json();
+  } catch(e) { return { error: 'Erro de conexão' }; }
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(()=>t.style.display='none', 3000);
+}
+
+function fmtBRL(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function planLabel(p){ return {starter:'🌱 Starter',profissional:'⭐ Profissional',clinica:'🏥 Clínica',premium:'👑 Premium'}[p]||p||'—'; }
+
+// ── Login ────────────────────────────────────────────────────────────────
+async function doLogin(){
+  const loginId = document.getElementById('login-id').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  if(!loginId || !password){ errEl.textContent = 'Preencha código e senha.'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Entrando...'; btn.disabled = true;
+  const r = await api('funcionarioLogin', {loginId, password});
+  btn.textContent = 'Entrar'; btn.disabled = false;
+
+  if(r.error){ errEl.textContent = r.error; errEl.style.display = 'block'; return; }
+
+  currentCoord = r.funcionario;
+  currentCoord.loginId = loginId;
+  sessionStorage.setItem('coordenador_session', JSON.stringify(currentCoord));
+
+  if(currentCoord.primeiroAcesso){ openFirstAccessModal(); }
+  else { showApp(); }
+}
+
+function doLogout(){
+  sessionStorage.removeItem('coordenador_session');
+  currentCoord = null;
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+(function restoreSession(){
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('coordenador_session') || 'null');
+    if(saved && saved.id){
+      currentCoord = saved;
+      if(currentCoord.primeiroAcesso){ openFirstAccessModal(); }
+      else { showApp(); }
+    }
+  } catch(e){}
+})();
+
+// ── Primeiro acesso — troca de senha obrigatória ────────────────────────────
+function openFirstAccessModal(){
+  const html = `
+    <div class="modal-overlay open" id="modal-first-access">
+      <div class="modal">
+        <h2>Bem-vindo(a), ${currentCoord.nome}! 🎉</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Antes de começar, crie sua senha de acesso pessoal — a senha temporária que você recebeu não vale mais depois disso.</p>
+        <label>Nova senha</label>
+        <input id="fa-password" type="password" placeholder="Mínimo 6 caracteres"/>
+        <label>Confirmar senha</label>
+        <input id="fa-confirm" type="password" placeholder="Repita a senha"/>
+        <p id="fa-error" style="color:#DC2626;font-size:12px;margin-top:8px;display:none"></p>
+        <div class="modal-actions">
+          <button class="btn-save" id="fa-btn" onclick="submitFirstAccess()" style="width:100%">Definir Senha e Acessar o Painel →</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function submitFirstAccess(){
+  const password = document.getElementById('fa-password').value;
+  const confirm = document.getElementById('fa-confirm').value;
+  const errEl = document.getElementById('fa-error');
+  const btn = document.getElementById('fa-btn');
+  errEl.style.display = 'none';
+
+  if(password.length < 6){ errEl.textContent = 'A senha deve ter pelo menos 6 caracteres.'; errEl.style.display = 'block'; return; }
+  if(password !== confirm){ errEl.textContent = 'As senhas não coincidem.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Salvando...'; btn.disabled = true;
+  const r = await api('funcionarioSetPassword', { id: currentCoord.id, newPassword: password });
+  if(r.error){
+    errEl.textContent = r.error; errEl.style.display = 'block';
+    btn.textContent = 'Definir Senha e Acessar o Painel →'; btn.disabled = false;
+    return;
+  }
+
+  currentCoord.primeiroAcesso = false;
+  sessionStorage.setItem('coordenador_session', JSON.stringify(currentCoord));
+  document.getElementById('modal-first-access').remove();
+  showApp();
+}
+
+// ── App principal ────────────────────────────────────────────────────────
+async function showApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('coord-name').textContent = currentCoord.nome;
+  document.getElementById('coord-cargo').textContent = currentCoord.cargo || 'Coordenador';
+
+  await Promise.all([loadParceiros(), loadLeads(), loadPool(), loadComissoes(), loadPagamentos()]);
+  renderAll();
+}
+
+async function loadParceiros(){ const d = await api('listPartners', {}); parceiros = Array.isArray(d)?d:[]; }
+async function loadLeads(){ const d = await api('listAllLeads', {}); leads = Array.isArray(d)?d:[]; }
+async function loadPool(){ const d = await api('listLeadsPool', {}); pool = Array.isArray(d)?d:[]; }
+async function loadComissoes(){ const d = await api('listCommissions', {}); comissoes = Array.isArray(d)?d:[]; }
+async function loadPagamentos(){ const d = await api('listPagamentosFuncionario', {funcionarioId: currentCoord.id}); pagamentos = Array.isArray(d)?d:[]; }
+
+function switchTab(tab){
+  ['parceiros','leads','pool','comissoes','pagamentos'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display = (t===tab) ? 'block' : 'none';
+    document.getElementById('tabbtn-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+function renderAll(){
+  document.getElementById('kpi-parceiros').textContent = parceiros.length;
+  document.getElementById('kpi-pool').textContent = pool.length;
+  document.getElementById('kpi-vendas').textContent = leads.filter(l=>l.status==='vendido').length;
+
+  const pendentes = pagamentos.filter(p=>p.status!=='pago');
+  const pagos = pagamentos.filter(p=>p.status==='pago');
+  const totalPendente = pendentes.reduce((s,p)=>s+p.valorPagamento,0);
+  const totalPago = pagos.reduce((s,p)=>s+p.valorPagamento,0);
+  document.getElementById('earnings-total').textContent = fmtBRL(totalPendente + totalPago);
+  document.getElementById('earnings-breakdown').textContent = `${fmtBRL(totalPago)} já pago · ${fmtBRL(totalPendente)} pendente`;
+
+  const parceirosList = document.getElementById('parceiros-list');
+  parceirosList.innerHTML = parceiros.length===0 ? '<div class="empty">Nenhum parceiro cadastrado ainda.</div>' : parceiros.map(p=>{
+    const leadsDoParceiro = leads.filter(l=>l.partnerId===p.id);
+    const vendidos = leadsDoParceiro.filter(l=>l.status==='vendido').length;
+    return `<div class="item">
+      <div class="top">
+        <div><div class="nome">${p.name}</div><div class="sub">${p.phone||'—'} · ${p.commissionRate}% de comissão</div></div>
+        <span class="badge badge-blue">${leadsDoParceiro.length} leads · ${vendidos} vendidos</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const leadsList = document.getElementById('leads-list');
+  const leadStatusMap = {novo:['Novo','badge-blue'],reuniao_marcada:['Reunião marcada','badge-yellow'],negociando:['Negociando','badge-yellow'],vendido:['Vendido','badge-green'],perdido:['Perdido','badge-red']};
+  leadsList.innerHTML = leads.length===0 ? '<div class="empty">Nenhum lead em andamento.</div>' : leads.map(l=>{
+    const partner = parceiros.find(p=>p.id===l.partnerId);
+    const [label, cls] = leadStatusMap[l.status] || leadStatusMap.novo;
+    return `<div class="item">
+      <div class="top">
+        <div><div class="nome">${l.nome}</div><div class="sub">${planLabel(l.plano)} · Parceiro: ${partner?partner.name:'—'}</div></div>
+        <span class="badge ${cls}">${label}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const poolList = document.getElementById('pool-list');
+  poolList.innerHTML = pool.length===0 ? '<div class="empty">Piscina vazia no momento.</div>' : pool.map(l=>`
+    <div class="item">
+      <div class="top">
+        <div><div class="nome">${l.nome}</div><div class="sub">${l.cidade||''} · ${l.tipo||''}</div></div>
+        <span class="badge badge-purple">${l.sinalpotencial?l.sinalpotencial.slice(0,40):'Sem sinal registrado'}</span>
+      </div>
+    </div>`).join('');
+
+  const comissoesList = document.getElementById('comissoes-list');
+  const commStatusMap = {aguardando_carencia:['Aguardando carência','badge-yellow'],elegivel:['Elegível p/ pagar','badge-blue'],pago:['Pago','badge-green']};
+  comissoesList.innerHTML = comissoes.length===0 ? '<div class="empty">Nenhuma comissão registrada ainda.</div>' : comissoes.map(c=>{
+    const partner = parceiros.find(p=>p.id===c.partnerId);
+    const [label, cls] = commStatusMap[c.status] || commStatusMap.aguardando_carencia;
+    return `<div class="item">
+      <div class="top">
+        <div><div class="nome">${c.clinicName}</div><div class="sub">${partner?partner.name:c.partnerId} · ${planLabel(c.plano)}</div></div>
+        <div style="text-align:right"><div class="nome">${fmtBRL(c.valorComissao)}</div><span class="badge ${cls}">${label}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const pagamentosList = document.getElementById('pagamentos-list');
+  pagamentosList.innerHTML = pagamentos.length===0 ? '<div class="empty">Nenhum pagamento gerado ainda.</div>' : pagamentos.map(p=>`
+    <div class="item">
+      <div class="top">
+        <div><div class="nome">${p.clinicName}</div><div class="sub">${p.tipo==='override_unico'?'Override único':'Recorrente · '+p.mesReferencia} · ${p.percentual}% de ${fmtBRL(p.valorBase)}</div></div>
+        <div style="text-align:right"><div class="nome">${fmtBRL(p.valorPagamento)}</div><span class="badge ${p.status==='pago'?'badge-green':'badge-yellow'}">${p.status==='pago'?'Pago':'Pendente'}</span></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Adicionar candidato (sem ver o pipeline completo) ───────────────────────
+function openCandidatoModal(){
+  const html = `
+    <div class="modal-overlay open" id="modal-candidato">
+      <div class="modal">
+        <h2>Adicionar Candidato</h2>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Conhece alguém com perfil de vendas que poderia ser um bom parceiro? Cadastre aqui — o time cuida da triagem e da entrevista.</p>
+        <label>Nome</label>
+        <input id="cand-nome" placeholder="Nome completo"/>
+        <label>Telefone/WhatsApp</label>
+        <input id="cand-telefone" placeholder="+55 31 99999-9999"/>
+        <label>Resumo da experiência (opcional)</label>
+        <textarea id="cand-resumo" rows="3" placeholder="Ex: já vendeu B2B, trabalhou com prospecção..."></textarea>
+        <div class="modal-actions">
+          <button class="btn-outline" onclick="closeCandidatoModal()">Cancelar</button>
+          <button class="btn-save" onclick="saveCandidatoModal()">Enviar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeCandidatoModal(){ const m=document.getElementById('modal-candidato'); if(m) m.remove(); }
+async function saveCandidatoModal(){
+  const nome = document.getElementById('cand-nome').value.trim();
+  const telefone = document.getElementById('cand-telefone').value.trim();
+  const resumoExperiencia = document.getElementById('cand-resumo').value.trim();
+  if(!nome || !telefone){ toast('Nome e telefone são obrigatórios'); return; }
+  const r = await api('addCandidatoParceiro', { nome, telefone, origem: `Indicação — ${currentCoord.nome}`, resumoExperiencia });
+  if(r.error){ toast('Erro: ' + r.error); return; }
+  toast('✅ Candidato enviado pro time avaliar!');
+  closeCandidatoModal();
+}
+</script>
+</body>
+</html>
