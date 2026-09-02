@@ -366,6 +366,11 @@ let leadsPool = [];
 let candidatosParceiro = [];
 let funcionarios = [];
 let pagamentosFuncionario = [];
+// Controle pra saber se o scroll deve ir pro final (trocou de conversa) ou
+// se deve respeitar a posição atual (mesma conversa, só atualizando)
+let lastRenderedTicketId = null;
+let lastRenderedWaSuporteId = null;
+let lastRenderedWaVendasId = null;
 let despesas = [];
 let activeTicket = null;
 let supportInterval = null;
@@ -1050,6 +1055,17 @@ function renderTicketChat(ticket){
   const hadFocus = !!prevInput && document.activeElement === prevInput;
   const selStart = prevInput ? prevInput.selectionStart : null;
   const selEnd = prevInput ? prevInput.selectionEnd : null;
+  // BUGFIX (02/09): mesmo problema, mas com o scroll — reconstruir o HTML
+  // sempre jogava a tela pro final, impossibilitando ler o início de uma
+  // conversa longa. Guarda a posição ANTES de reconstruir, pra decidir
+  // depois se deve mesmo descer (só desce se já estava perto do final, ou
+  // se é a abertura de uma conversa diferente da que estava aberta antes).
+  const prevMsgsEl = document.getElementById('chat-msgs');
+  const estavaPertoDoFinal = prevMsgsEl
+    ? (prevMsgsEl.scrollHeight - prevMsgsEl.scrollTop - prevMsgsEl.clientHeight) < 150
+    : true;
+  const trocouDeConversa = lastRenderedTicketId !== ticket.id;
+  lastRenderedTicketId = ticket.id;
   const msgs = ticket.messages||[];
   chatArea.innerHTML=`
     <div class="support-chat-header">
@@ -1095,8 +1111,10 @@ function renderTicketChat(ticket){
       if(selStart!=null) newInput.setSelectionRange(selStart, selEnd);
     }
   }
-  // Scroll to bottom
-  setTimeout(()=>{ const el=document.getElementById('chat-msgs'); if(el) el.scrollTop=el.scrollHeight; },100);
+  // Scroll to bottom — só se trocou de conversa OU já estava perto do final
+  if(trocouDeConversa || estavaPertoDoFinal){
+    setTimeout(()=>{ const el=document.getElementById('chat-msgs'); if(el) el.scrollTop=el.scrollHeight; },100);
+  }
 }
 
 async function sendAgentMsg(ticketId){
@@ -1204,6 +1222,14 @@ function renderWaSuporteChat(conversa){
   const prevInput = document.getElementById('wa-agent-msg');
   const prevValue = prevInput ? prevInput.value : '';
   const hadFocus = !!prevInput && document.activeElement === prevInput;
+  // BUGFIX (02/09): ver comentário equivalente em renderTicketChat — mesmo
+  // problema de scroll forçado ao final a cada atualização automática.
+  const prevMsgsEl = document.getElementById('wa-chat-msgs');
+  const estavaPertoDoFinal = prevMsgsEl
+    ? (prevMsgsEl.scrollHeight - prevMsgsEl.scrollTop - prevMsgsEl.clientHeight) < 150
+    : true;
+  const trocouDeConversa = lastRenderedWaSuporteId !== conversa.id;
+  lastRenderedWaSuporteId = conversa.id;
   const msgs = conversa.messages||[];
   const isHumanActive = conversa.status === 'human_active';
   const isResolved = conversa.status === 'resolved';
@@ -1253,7 +1279,7 @@ function renderWaSuporteChat(conversa){
   const newInput = document.getElementById('wa-agent-msg');
   if(newInput && prevValue){ newInput.value = prevValue; if(hadFocus) newInput.focus(); }
   const msgsEl = document.getElementById('wa-chat-msgs');
-  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+  if(msgsEl && (trocouDeConversa || estavaPertoDoFinal)) msgsEl.scrollTop = msgsEl.scrollHeight;
 }
 
 async function sendWaSuporteMsg(to){
@@ -1468,6 +1494,14 @@ function renderWaVendasChat(conversa){
   const prevInput = document.getElementById('wa-vendas-agent-msg');
   const prevValue = prevInput ? prevInput.value : '';
   const hadFocus = !!prevInput && document.activeElement === prevInput;
+  // BUGFIX (02/09): ver comentário equivalente em renderTicketChat — mesmo
+  // problema de scroll forçado ao final a cada atualização automática.
+  const prevMsgsEl = document.getElementById('wa-vendas-chat-msgs');
+  const estavaPertoDoFinal = prevMsgsEl
+    ? (prevMsgsEl.scrollHeight - prevMsgsEl.scrollTop - prevMsgsEl.clientHeight) < 150
+    : true;
+  const trocouDeConversa = lastRenderedWaVendasId !== conversa.id;
+  lastRenderedWaVendasId = conversa.id;
   const msgs = conversa.messages||[];
   const isHumanActive = conversa.status === 'human_active';
   const isResolved = conversa.status === 'resolved';
@@ -1530,7 +1564,7 @@ function renderWaVendasChat(conversa){
   const newInput = document.getElementById('wa-vendas-agent-msg');
   if(newInput && prevValue){ newInput.value = prevValue; if(hadFocus) newInput.focus(); }
   const msgsEl = document.getElementById('wa-vendas-chat-msgs');
-  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+  if(msgsEl && (trocouDeConversa || estavaPertoDoFinal)) msgsEl.scrollTop = msgsEl.scrollHeight;
 }
 
 async function sendWaVendasMsg(to){
