@@ -369,6 +369,16 @@ let pagamentosFuncionario = [];
 let despesas = [];
 let activeTicket = null;
 let supportInterval = null;
+
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && supportInterval){
+    // Voltou pra aba — atualiza na hora, sem esperar até 60s pra não
+    // mostrar dado desatualizado.
+    loadTickets();
+    loadWaSuporteConversas();
+    loadWaVendasConversas();
+  }
+});
 let config = {
   precos: {starter:397, profissional:597, clinica:997, premium:1497},
   custos: {vps:0, anthropic_por_cliente:0, email:11.99, meta:0, outros:0}
@@ -430,7 +440,12 @@ async function loadAll(){
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
+  // BUGFIX CRÍTICO (02/09): antes, esse poll rodava pra sempre, mesmo com a
+  // aba minimizada ou em segundo plano, sem ninguém olhando — gastando cota
+  // de leitura à toa 24h por dia se alguém esquecesse a aba aberta. Agora,
+  // só executa quando a aba está realmente visível na tela.
   supportInterval = setInterval(async()=>{
+    if(document.hidden) return; // aba em segundo plano — pula esse ciclo
     await loadTickets();
     updateSupportBadge();
     await loadWaSuporteConversas();
