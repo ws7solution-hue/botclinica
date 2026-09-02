@@ -42,7 +42,7 @@ a{text-decoration:none;color:inherit}
 #app{display:none;min-height:100vh}
 .sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
 .sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--green));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sidebar-logo-icon{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
 .sidebar-logo-text{font-weight:800;font-size:15px}
 .sidebar-logo-sub{font-size:10px;color:var(--muted)}
 .sidebar-section{padding:14px 12px 6px;font-size:11px;color:var(--muted);letter-spacing:.2px;font-weight:600}
@@ -214,7 +214,7 @@ tr:hover td{background:rgba(26,111,168,.04)}
 <!-- LOGIN -->
 <div id="login">
   <div class="login-box">
-    <div class="login-icon">📊</div>
+    <div class="login-icon"><img src="/logo-icon.png" alt="BotClínica" style="width:56px;height:56px;object-fit:contain"/></div>
     <h1>BotClínica CRM</h1>
     <p>Painel de gestão interno — acesso restrito</p>
     <input class="inp" type="password" id="pwd" placeholder="Senha de acesso" onkeydown="if(event.key==='Enter')doLogin()"/>
@@ -227,7 +227,7 @@ tr:hover td{background:rgba(26,111,168,.04)}
 <div id="app">
   <div class="sidebar">
     <div class="sidebar-logo">
-      <div class="sidebar-logo-icon">🤖</div>
+      <div class="sidebar-logo-icon"><img src="/logo-icon.png" alt="BotClínica" style="width:100%;height:100%;object-fit:contain"/></div>
       <div>
         <div class="sidebar-logo-text">BotClínica</div>
         <div class="sidebar-logo-sub">CRM Interno</div>
