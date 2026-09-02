@@ -70,36 +70,7 @@ async function fsReq(path, opts = {}, token = null) {
   const url = `${FS}/${path}?key=${API_KEY}`;
   const hdrs = { "Content-Type": "application/json" };
   if (token) hdrs["Authorization"] = `Bearer ${token}`;
-  const r = await fetch(url, { ...opts, headers: { ...hdrs, ...(opts.headers || {}) } });
-
-  // BUGFIX (01/09): o Firestore só devolve uma "página" de documentos por
-  // chamada (por padrão, cerca de 100) — sem isso, qualquer coleção com mais
-  // do que esse tanto de documentos tinha o restante silenciosamente
-  // cortado, sem erro nenhum aparecendo. Descoberto ao popular dados de
-  // demonstração: agosto "sumia" da Agenda porque os IDs de consulta,
-  // ordenados alfabeticamente, colocavam agosto depois do limite da 1ª
-  // página. Agora, sempre que a resposta indicar que existe mais uma
-  // página (nextPageToken), busca o resto sozinho e devolve tudo junto —
-  // sem precisar mudar nada em nenhuma das dezenas de lugares que já usam
-  // essa função.
-  const isListagemDeColecao = (!opts.method || opts.method === "GET") && !path.includes("/");
-  if (!isListagemDeColecao) return r;
-
-  let data;
-  try { data = await r.clone().json(); } catch (e) { return r; }
-  if (!data || !data.nextPageToken) return r;
-
-  let todosDocumentos = data.documents || [];
-  let pageToken = data.nextPageToken;
-  while (pageToken) {
-    const proximaUrl = `${url}&pageToken=${encodeURIComponent(pageToken)}`;
-    const proximaResp = await fetch(proximaUrl, { ...opts, headers: { ...hdrs, ...(opts.headers || {}) } });
-    const proximaData = await proximaResp.json();
-    todosDocumentos = todosDocumentos.concat(proximaData.documents || []);
-    pageToken = proximaData.nextPageToken || null;
-  }
-  const combinado = { documents: todosDocumentos };
-  return { json: async () => combinado, ok: true, status: 200 };
+  return fetch(url, { ...opts, headers: { ...hdrs, ...(opts.headers || {}) } });
 }
 
 function toFsValue(v) {
@@ -264,7 +235,7 @@ module.exports = async (req, res) => {
       let r = await fsReq(`acessos_autorizados`, {}, token);
       let d = await r.json();
       if (d.error) {
-        r = await fsReq(`acessos_autorizados`);
+        r = await fetch(`${FS}/acessos_autorizados?key=${API_KEY}`);
         d = await r.json();
       }
       const docs = d.documents || [];
@@ -374,7 +345,7 @@ module.exports = async (req, res) => {
 
     // ── CRM: listar clientes ────────────────────────────────
     if (action === "crmListClientes") {
-      let r = await fsReq(`crm_clientes`);
+      let r = await fetch(`${FS}/crm_clientes?key=${API_KEY}`);
       let d = await r.json();
       const docs = d.documents || [];
       const clientesBase = docs.map(doc => {
