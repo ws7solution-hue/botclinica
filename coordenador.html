@@ -121,6 +121,12 @@ button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
       <div style="font-size:12px;opacity:.85;margin-top:6px" id="earnings-breakdown">Carregando...</div>
     </div>
 
+    <div class="card" style="background:#F0FDF4;border-color:#BBF7D0">
+      <div style="font-size:12px;color:#166534;font-weight:700;text-transform:uppercase">Total gerado pela equipe este mês</div>
+      <div style="font-size:28px;font-weight:800;margin-top:4px;color:#065F46" id="team-total">R$ 0,00</div>
+      <div style="font-size:12px;color:#166534;margin-top:6px" id="team-breakdown">Carregando...</div>
+    </div>
+
     <div class="grid-3">
       <div class="kpi"><div class="label">Parceiros ativos</div><div class="val" id="kpi-parceiros">0</div></div>
       <div class="kpi"><div class="label">Leads na piscina</div><div class="val" id="kpi-pool">0</div></div>
@@ -137,6 +143,7 @@ button{cursor:pointer;border:none;font-family:inherit;font-weight:700}
 
     <div class="card" id="tab-parceiros">
       <div class="card-title"><span>Todos os parceiros</span></div>
+      <input type="text" id="parceiro-busca" placeholder="🔎 Buscar parceiro por nome..." oninput="renderAll()" style="margin-bottom:14px"/>
       <div id="parceiros-list"></div>
     </div>
 
@@ -308,15 +315,46 @@ function renderAll(){
   document.getElementById('earnings-total').textContent = fmtBRL(totalPendente + totalPago);
   document.getElementById('earnings-breakdown').textContent = `${fmtBRL(totalPago)} já pago · ${fmtBRL(totalPendente)} pendente`;
 
+  // NOVO: total gerado pela equipe inteira este mês (soma do valor dos
+  // planos de todas as vendas confirmadas no mês corrente, de qualquer
+  // parceiro) — dá visão do resultado do time, não só do ganho pessoal dele.
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const vendasDoMes = leads.filter(l => l.status === 'vendido' && (l.updatedAt||'').startsWith(mesAtual));
+  const PLAN_PRICES = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
+  const totalTime = vendasDoMes.reduce((s,l) => s + (PLAN_PRICES[l.plano] || 0) + (l.addon ? 97 : 0), 0);
+  const teamTotalEl = document.getElementById('team-total');
+  const teamBreakdownEl = document.getElementById('team-breakdown');
+  if(teamTotalEl){
+    teamTotalEl.textContent = fmtBRL(totalTime);
+    teamBreakdownEl.textContent = `${vendasDoMes.length} venda${vendasDoMes.length===1?'':'s'} confirmada${vendasDoMes.length===1?'':'s'} este mês`;
+  }
+
+  // NOVO: filtro de busca por nome
+  const termoBusca = (document.getElementById('parceiro-busca')?.value || '').toLowerCase().trim();
+  const parceirosFiltrados = termoBusca
+    ? parceiros.filter(p => p.name.toLowerCase().includes(termoBusca))
+    : parceiros;
+
   const parceirosList = document.getElementById('parceiros-list');
-  parceirosList.innerHTML = parceiros.length===0 ? '<div class="empty">Nenhum parceiro cadastrado ainda.</div>' : parceiros.map(p=>{
+  parceirosList.innerHTML = parceirosFiltrados.length===0 ? '<div class="empty">Nenhum parceiro encontrado.</div>' : parceirosFiltrados.map(p=>{
     const leadsDoParceiro = leads.filter(l=>l.partnerId===p.id);
     const vendidos = leadsDoParceiro.filter(l=>l.status==='vendido').length;
+    // NOVO: destaque de inatividade — olha a atualização mais recente entre
+    // os leads desse parceiro; sem nenhuma nos últimos 3 dias, sinaliza.
+    const maisRecente = leadsDoParceiro.reduce((max,l) => (!max || l.updatedAt > max) ? l.updatedAt : max, null);
+    const diasSemMexer = maisRecente ? Math.floor((hoje - new Date(maisRecente)) / (1000*60*60*24)) : null;
+    const inativo = leadsDoParceiro.length > 0 && diasSemMexer !== null && diasSemMexer >= 3;
+    const semLeadNenhum = leadsDoParceiro.length === 0;
+    const avisoInatividade = inativo
+      ? `<div style="margin-top:6px"><span class="badge badge-red">⚠️ Sem mexer há ${diasSemMexer} dias</span></div>`
+      : (semLeadNenhum ? `<div style="margin-top:6px"><span class="badge badge-yellow">Ainda não pegou nenhum lead</span></div>` : '');
     return `<div class="item">
       <div class="top">
         <div><div class="nome">${p.name}</div><div class="sub">${p.phone||'—'} · ${p.commissionRate}% de comissão</div></div>
         <span class="badge badge-blue">${leadsDoParceiro.length} leads · ${vendidos} vendidos</span>
       </div>
+      ${avisoInatividade}
     </div>`;
   }).join('');
 
