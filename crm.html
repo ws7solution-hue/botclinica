@@ -462,7 +462,14 @@ async function loadAll(){
         if(t) renderTicketChat(t);
       }
     }
-  }, 10000);
+  // BUGFIX CRÍTICO (01/09): esse poll rodava a cada 10 segundos e relia
+  // TODAS as conversas de Luna/Suporte + todos os tickets a cada ciclo —
+  // cada documento retornado conta como 1 leitura no Firestore. Com o
+  // volume de conversas já acumulado, isso sozinho consumiu quase todo o
+  // limite diário gratuito de leitura (49 mil de 50 mil), derrubando login
+  // e CRM pro dia inteiro. 60 segundos ainda é rápido o suficiente pra
+  // avisos de suporte, com 1/6 do consumo de antes.
+  }, 60000);
 }
 
 async function loadPartners(){
