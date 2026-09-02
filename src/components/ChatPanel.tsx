@@ -199,6 +199,7 @@ export default function ChatPanel({
     a.remove();
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Automatically select first conversation if none is selected
   useEffect(() => {
@@ -240,9 +241,26 @@ export default function ChatPanel({
     }
   };
 
-  // Scroll to bottom of message list on update
+  // Trocou de conversa (clicou em outro paciente na lista) — sempre vai
+  // direto pro final, é o esperado ao abrir uma conversa.
   useEffect(() => {
     if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [selectedChatId]);
+
+  // BUGFIX (02/09): antes, toda atualização da conversa (nova mensagem OU só
+  // um refresh automático) forçava ir pro final da tela — impossível ler o
+  // início de uma conversa longa, porque a tela "puxava" de volta sozinha.
+  // Agora, dentro da MESMA conversa, só desce sozinho se o usuário já estava
+  // perto do final (ou seja, realmente acompanhando em tempo real) — se ele
+  // rolou pra cima de propósito pra ler algo antigo, a posição é respeitada.
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !messagesEndRef.current) return;
+    const distanciaDoFinal = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const estavaPertoDoFinal = distanciaDoFinal < 150; // pixels de folga
+    if (estavaPertoDoFinal) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [activeChat?.messages]);
@@ -737,7 +755,7 @@ export default function ChatPanel({
           </div>
 
           {/* Messages Stream Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f3f5f8]">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f3f5f8]">
             {activeChat.messages.map((msg) => {
               const isPatient = msg.sender === 'patient';
               const isBot = msg.sender === 'bot';
