@@ -604,12 +604,22 @@ export default function App() {
     const clinicId = email.replace(/[@.]/g, '_');
     let isMounted = true;
     let prevHumanNeeded = 0;
+    // BUGFIX (03/09): antes, a cada 5s isso trocava o estado por um array
+    // NOVO (mesmo que o conteúdo fosse idêntico), o que fazia a tela
+    // inteira re-renderizar e "pular" sozinha, atrapalhando quem estivesse
+    // rolando a página pra cima pra ler algo. Agora só atualiza o estado
+    // (e recria os componentes) quando o conteúdo realmente mudou.
+    let prevConversationsJSON = '';
 
     const fetchConversations = () => {
       fbListConversations(clinicId)
         .then((convsList) => {
           if (!isMounted) return;
-          setRawConversations(convsList || []);
+          const novoJSON = JSON.stringify(convsList || []);
+          if (novoJSON !== prevConversationsJSON) {
+            prevConversationsJSON = novoJSON;
+            setRawConversations(convsList || []);
+          }
 
           // Detecta novas conversas com human_needed e notifica
           const humanNeeded = (convsList || []).filter(c => c.status === 'human_needed').length;
@@ -625,7 +635,10 @@ export default function App() {
 
     addSystemLog('info', 'Sincronizando conversas com o Firestore...');
     fetchConversations();
-    const interval = setInterval(fetchConversations, 5000);
+    // BUGFIX (03/09): 5s era agressivo demais — 15s já é rápido o
+    // suficiente pra notificação de paciente, e reduz bastante a chance de
+    // pegar o usuário no meio de uma rolagem de tela.
+    const interval = setInterval(fetchConversations, 15000);
 
     return () => {
       isMounted = false;
