@@ -1215,6 +1215,9 @@ export default function App() {
               conversations={conversations}
               onAddSystemLog={addSystemLog}
               documentsAddonActive={Boolean(botSettings.documentsAddonActive)}
+              clinicName={userProfile.clinicName || userProfile.name || ''}
+              clinicAddress={botSettings.clinicAddress || ''}
+              doctors={doctors}
             />
           )}
         </main>
