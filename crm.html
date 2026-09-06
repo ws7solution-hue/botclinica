@@ -1841,7 +1841,12 @@ function renderParceiros(){
       <div style="color:var(--muted)">Limite: 10 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
     </div>
     <div style="padding:0 4px;font-size:11px;color:var(--muted)">
-      CSV esperado com colunas: <code>nome,cidade,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios)
+      CSV esperado com colunas: <code>nome,cidade,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios)<br/>
+      ✅ <strong>Pode subir o mesmo arquivo de novo sem medo</strong> — quem já está na piscina (identificado pelo telefone) é pulado automaticamente, nunca duplica.
+    </div>
+    <div style="margin-top:14px">
+      <input type="text" id="poolSearchInput" placeholder="🔎 Buscar por nome ou telefone..." oninput="renderLeadsPoolList()" style="margin-bottom:10px"/>
+      <div id="leadsPoolListContainer"></div>
     </div>
   </div>
   </div>
@@ -1880,7 +1885,7 @@ function renderParceiros(){
     ${leads.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum lead cadastrado ainda.</div>':`
     <div class="table-wrap">
     <table>
-      <thead><tr><th>Nome</th><th>Contato</th><th>Parceiro</th><th>Plano</th><th>Add-on</th><th>Status</th><th></th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Contato</th><th>Parceiro</th><th>Plano</th><th>Add-on</th><th>Status</th><th></th><th></th><th></th></tr></thead>
       <tbody>
         ${leads.map(l=>{
           const partner = partners.find(p=>p.id===l.partnerId);
@@ -1893,6 +1898,7 @@ function renderParceiros(){
             <td>${l.addon?'✅':'—'}</td>
             <td>${LEAD_STATUS_BADGE(l)}</td>
             <td>${canConfirm?`<button class="btn btn-green btn-sm" onclick="confirmLeadSale('${l.id}')">Confirmar venda</button>`:(l.vendaConfirmada?'<span style="font-size:11px;color:var(--green)">✓ confirmado</span>':'')}</td>
+            <td>${!l.vendaConfirmada?`<button class="btn btn-outline btn-sm" onclick="cancelLeadSale('${l.id}','${l.nome.replace(/'/g,"\\'")}')" style="color:var(--yellow);border-color:var(--yellow)">Cancelamento</button>`:''}</td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️</button></td>
           </tr>`;
         }).join('')}
@@ -1987,6 +1993,46 @@ function renderParceiros(){
   </div>
   </div>`;
   switchParceirosTab(currentParceirosTab);
+  renderLeadsPoolList();
+}
+
+function renderLeadsPoolList(){
+  const container = document.getElementById('leadsPoolListContainer');
+  if(!container) return; // aba ainda não montada nessa passada
+  const termo = (document.getElementById('poolSearchInput')?.value || '').toLowerCase().trim();
+  const filtrados = termo
+    ? leadsPool.filter(l => l.nome.toLowerCase().includes(termo) || (l.telefone||'').includes(termo))
+    : leadsPool;
+
+  if(filtrados.length === 0){
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nenhum lead encontrado.</div>';
+    return;
+  }
+
+  container.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Nome</th><th>Cidade</th><th>Telefone</th><th>Tipo</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      ${filtrados.map(l => `
+        <tr>
+          <td><strong>${l.nome}</strong></td>
+          <td>${l.cidade||'—'}</td>
+          <td>${l.telefone||'—'}</td>
+          <td>${l.tipo||'—'}</td>
+          <td><span class="badge ${l.status==='disponivel'?'badge-blue':'badge-yellow'}">${l.status==='disponivel'?'Disponível':'Reivindicado'}</span></td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteLeadFromPool('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️</button></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+async function deleteLeadFromPool(id, nome){
+  if(!confirm(`Excluir "${nome}" da piscina de leads? Essa ação não pode ser desfeita.`)) return;
+  const r = await api('deleteLeadFromPool', {id});
+  if(r.error){ toast('Erro: '+r.error); return; }
+  await loadLeadsPool();
+  renderLeadsPoolList();
+  toast('Lead removido da piscina.');
 }
 
 const LEAD_STATUS_LABEL = {
@@ -1995,6 +2041,7 @@ const LEAD_STATUS_LABEL = {
   negociando: '💬 Negociando',
   vendido: '💰 Vendido (aguardando confirmação)',
   perdido: '❌ Perdido',
+  cancelado: '🚫 Cancelado pela clínica',
 };
 const LEAD_STATUS_BADGE_CLASS = {
   novo: 'badge-blue',
@@ -2002,6 +2049,7 @@ const LEAD_STATUS_BADGE_CLASS = {
   negociando: 'badge-yellow',
   vendido: 'badge-green',
   perdido: 'badge-red',
+  cancelado: 'badge-red',
 };
 function LEAD_STATUS_BADGE(l){
   const label = l.vendaConfirmada ? '💰 Vendido (confirmado)' : (LEAD_STATUS_LABEL[l.status]||l.status);
@@ -2016,6 +2064,17 @@ async function confirmLeadSale(leadId){
   await Promise.all([loadLeads(), loadCommissions()]);
   renderParceiros();
   toast('Venda confirmada, comissão criada!');
+}
+
+async function cancelLeadSale(leadId, nome){
+  const motivo = prompt(`A clínica "${nome}" cancelou/desistiu. Quer registrar um motivo? (opcional, pode deixar em branco)`);
+  if(motivo === null) return; // clicou em cancelar no prompt
+  if(!confirm(`Confirma o cancelamento de "${nome}"? Isso avisa o parceiro por WhatsApp que essa não vai virar venda.`)) return;
+  const r = await api('cancelLeadSale', {leadId, motivo: motivo || ''});
+  if(r.error){ toast('Erro: '+r.error); return; }
+  await loadLeads();
+  renderParceiros();
+  toast('Cancelamento registrado e parceiro avisado.');
 }
 
 async function deleteLead(id, nome){
