@@ -1985,6 +1985,15 @@ module.exports = async (req, res) => {
     // → Importar Leads). Deduplica por telefone: se o telefone já existe na
     // piscina, pula (não sobrescreve — evita "resetar" um lead já
     // reivindicado por outro parceiro).
+    // NOVO: excluir um lead específico da piscina (ex: dado errado, empresa
+    // fechou, não faz sentido pra oferecer aos parceiros)
+    if (action === "deleteLeadFromPool") {
+      const { id } = payload;
+      if (!id) return res.status(400).json({ error: "id obrigatório" });
+      await fetch(`${FS}/leads_pool/${id}?key=${API_KEY}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "importLeadsPool") {
       const { leads: incoming } = payload;
       if (!Array.isArray(incoming) || incoming.length === 0) {
@@ -2249,6 +2258,47 @@ module.exports = async (req, res) => {
     // que o pagamento realmente caiu) — só isso gera a comissão de verdade.
     // O parceiro marcar "vendido" sozinho não cria comissão automaticamente,
     // exatamente pra evitar depender só da palavra dele.
+    // NOVO: cancela um lead que estava em andamento (ex: clínica desistiu)
+    // e avisa o parceiro por WhatsApp — mesmo canal da notificação de venda.
+    if (action === "cancelLeadSale") {
+      const { leadId, motivo } = payload;
+      if (!leadId) return res.status(400).json({ error: "leadId obrigatório" });
+
+      const leadR = await fetch(`${FS}/leads/${leadId}?key=${API_KEY}`);
+      const leadD = await leadR.json();
+      if (!leadD.fields) return res.status(200).json({ error: "Lead não encontrado" });
+      if (leadD.fields.vendaConfirmada?.booleanValue) {
+        return res.status(200).json({ error: "Essa venda já foi confirmada — não é possível cancelar por aqui. Fale com o suporte se precisar estornar." });
+      }
+
+      const partnerId = leadD.fields.partnerId?.stringValue || "";
+      const nome = leadD.fields.nome?.stringValue || "";
+
+      await fetch(`${FS}/leads/${leadId}?key=${API_KEY}&updateMask.fieldPaths=status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { status: { stringValue: "cancelado" } } }),
+      });
+
+      try {
+        const partnerR = await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`);
+        const partnerD = await partnerR.json();
+        const partnerPhone = partnerD.fields?.phone?.stringValue;
+        const partnerName = partnerD.fields?.name?.stringValue || "";
+        if (partnerPhone) {
+          const mensagem = `😕 Oi, ${partnerName}. Preciso te avisar que a clínica "${nome}" cancelou/desistiu${motivo ? ` (motivo: ${motivo})` : ""}, então essa não vai virar venda dessa vez.\n\nSem problema, faz parte — bora seguir com os próximos leads da piscina! 💪`;
+          await fetch("https://whatsapp.botclinica.com.br/notify-partner", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: partnerPhone, message: mensagem }),
+          });
+        }
+      } catch (e) { /* não bloqueia o cancelamento se a notificação falhar */ }
+
+      return res.status(200).json({ ok: true });
+    }
+
+
     if (action === "confirmLeadSale") {
       const { leadId } = payload;
       if (!leadId) return res.status(400).json({ error: "leadId obrigatório" });
