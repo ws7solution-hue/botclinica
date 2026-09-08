@@ -2286,11 +2286,18 @@ module.exports = async (req, res) => {
         const partnerPhone = partnerD.fields?.phone?.stringValue;
         const partnerName = partnerD.fields?.name?.stringValue || "";
         if (partnerPhone) {
-          const mensagem = `😕 Oi, ${partnerName}. Preciso te avisar que a clínica "${nome}" cancelou/desistiu${motivo ? ` (motivo: ${motivo})` : ""}, então essa não vai virar venda dessa vez.\n\nSem problema, faz parte — bora seguir com os próximos leads da piscina! 💪`;
+          // BUGFIX (07/09): mensagem solta esbarrava na janela de 24h do
+          // WhatsApp e falhava silenciosamente (a Meta aceitava o pedido,
+          // mas nunca entregava). Agora usa o template "venda_cancelada",
+          // aprovado pela Meta, que tem permissão de furar essa janela.
           await fetch("https://whatsapp.botclinica.com.br/notify-partner", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: partnerPhone, message: mensagem }),
+            body: JSON.stringify({
+              to: partnerPhone,
+              templateName: "venda_cancelada",
+              params: { nome_clinica: nome, nome_parceiro: partnerName },
+            }),
           });
         }
       } catch (e) { /* não bloqueia o cancelamento se a notificação falhar */ }
@@ -2429,11 +2436,23 @@ module.exports = async (req, res) => {
         const partnerPhone = partnerD.fields?.phone?.stringValue;
         const partnerName = partnerD.fields?.name?.stringValue || "";
         if (partnerPhone) {
-          const mensagem = `🎉 Parabéns, ${partnerName}! Sua indicação de "${nome}" foi confirmada e virou uma venda de verdade!\n\nSua comissão de R$${valorComissao.toFixed(2)} já está registrada e libera pra pagamento em ${eligibleDate.toLocaleDateString('pt-BR')}. Você pode acompanhar tudo em botclinica.com.br/parceiro. 🚀`;
+          // BUGFIX (07/09): mensagem solta esbarrava na janela de 24h do
+          // WhatsApp e falhava silenciosamente (a Meta aceitava o pedido,
+          // mas nunca entregava). Agora usa o template "venda_confirmada",
+          // aprovado pela Meta, que tem permissão de furar essa janela.
           await fetch("https://whatsapp.botclinica.com.br/notify-partner", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: partnerPhone, message: mensagem }),
+            body: JSON.stringify({
+              to: partnerPhone,
+              templateName: "venda_confirmada",
+              params: {
+                nome_clinica: nome,
+                nome_parceiro: partnerName,
+                valor_comissao: valorComissao.toFixed(2).replace(".", ","),
+                data_liberacao: eligibleDate.toLocaleDateString('pt-BR'),
+              },
+            }),
           });
 
           // NOVO — Conversions API: avisa o Meta que essa venda confirmada
