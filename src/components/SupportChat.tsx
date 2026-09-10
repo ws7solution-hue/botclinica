@@ -6,6 +6,7 @@ interface SupportChatProps {
   email: string;
   clinicName: string;
   currentPlan: AtendiaPlan;
+  hideOnChatsTab?: boolean;
 }
 
 interface Message {
@@ -28,7 +29,7 @@ interface Ticket {
 // Planos que têm acesso ao chat de suporte
 const SUPPORT_PLANS: AtendiaPlan[] = ['profissional', 'clinica', 'premium'];
 
-export default function SupportChat({ email, clinicName, currentPlan }: SupportChatProps) {
+export default function SupportChat({ email, clinicName, currentPlan, hideOnChatsTab }: SupportChatProps) {
   const [open, setOpen] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
@@ -164,6 +165,10 @@ export default function SupportChat({ email, clinicName, currentPlan }: SupportC
     const d = new Date(s);
     return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
+
+  // Escondido especificamente na aba Conversas — lá o botão flutuante ficava
+  // por cima do botão de enviar mensagem do atendimento ao paciente.
+  if (hideOnChatsTab) return null;
 
   if (!hasSupport) {
     return (
