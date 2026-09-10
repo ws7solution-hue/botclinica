@@ -161,6 +161,7 @@ function parseLeadDoc(doc) {
     addon: f.addon?.booleanValue || false,
     status: f.status?.stringValue || "novo",
     reuniaoData: f.reuniaoData?.stringValue || "",
+    reuniaoHora: f.reuniaoHora?.stringValue || "",
     notas: f.notas?.stringValue || "",
     vendaConfirmada: f.vendaConfirmada?.booleanValue || false,
     createdAt: f.createdAt?.stringValue || "",
@@ -1888,7 +1889,7 @@ module.exports = async (req, res) => {
     // ── Leads cadastrados pelos parceiros ────────────────────────────────
     // status possíveis: novo | reuniao_marcada | negociando | vendido | perdido
     if (action === "savePartnerLead") {
-      const { leadId, partnerId, nome, email, telefone, plano, addon, status, reuniaoData, notas } = payload;
+      const { leadId, partnerId, nome, email, telefone, plano, addon, status, reuniaoData, reuniaoHora, notas } = payload;
       if (!partnerId || !nome) return res.status(400).json({ error: "partnerId e nome são obrigatórios" });
       const id = leadId || `lead_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const isNewLead = !leadId;
@@ -1904,6 +1905,7 @@ module.exports = async (req, res) => {
         addon: { booleanValue: !!addon },
         status: { stringValue: status || "novo" },
         reuniaoData: { stringValue: reuniaoData || "" },
+        reuniaoHora: { stringValue: reuniaoHora || "" },
         notas: { stringValue: notas || "" },
         vendaConfirmada: { booleanValue: existing.fields?.vendaConfirmada?.booleanValue || false },
         createdAt: { stringValue: existing.fields?.createdAt?.stringValue || new Date().toISOString() },
