@@ -358,6 +358,13 @@ async function loadMyLeads(){
   renderLeads();
 }
 
+let currentLeadFilter = 'todos';
+
+function setLeadFilter(status){
+  currentLeadFilter = status;
+  renderLeads();
+}
+
 function renderLeads(){
   document.getElementById('tab-count-mine').textContent = myLeads.length;
   document.getElementById('kpi-total').textContent = myLeads.length;
@@ -386,7 +393,8 @@ function renderLeads(){
     </div>
   `;
 
-  // NOVO — lembrete de reuniões de HOJE, bem no topo, difícil de não ver
+  // Lembrete de reuniões de HOJE — sempre visível, independente do filtro
+  // selecionado, já que é informação urgente do dia.
   const todayStr = new Date().toISOString().slice(0, 10);
   const reunioesHoje = myLeads
     .filter(l => l.status === 'reuniao_marcada' && l.reuniaoData === todayStr)
@@ -405,35 +413,40 @@ function renderLeads(){
     </div>
   ` : '';
 
-  // NOVO — separado por status, em vez de tudo empilhado junto. Ordem
-  // pensada pra prioridade real do dia a dia do representante: primeiro o
-  // que precisa de ação (reunião, negociando, novo), depois o que já
-  // resolveu de um jeito ou de outro (vendido/perdido/etc, no fim).
-  const GRUPOS = [
-    { status: 'reuniao_marcada', titulo: '📅 Reunião marcada' },
-    { status: 'negociando', titulo: '💬 Negociando' },
-    { status: 'novo', titulo: '🆕 Novo' },
-    { status: 'vendido', titulo: '💰 Vendido' },
-    { status: 'sem_whatsapp', titulo: '📵 Não tem WhatsApp' },
-    { status: 'nao_responde', titulo: '🔇 Não responde' },
-    { status: 'perdido', titulo: '❌ Perdido' },
-    { status: 'cancelado', titulo: '🚫 Cancelado pela clínica' },
-  ];
+  // NOVO — botões de filtro por status (mesmo padrão já usado em Central
+  // de Atendimento: clica, mostra só aquele status, clica em "Todos" pra
+  // voltar a ver tudo junto).
+  const STATUS_ORDEM = ['reuniao_marcada', 'negociando', 'novo', 'vendido', 'sem_whatsapp', 'nao_responde', 'perdido', 'cancelado'];
+  const filtrosHtml = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <button
+        onclick="setLeadFilter('todos')"
+        class="btn-sm"
+        style="${currentLeadFilter==='todos' ? 'background:var(--blue);color:#fff' : ''}"
+      >Todos (${myLeads.length})</button>
+      ${STATUS_ORDEM.map(status => {
+        const count = myLeads.filter(l => l.status === status).length;
+        if (count === 0) return '';
+        return `
+          <button
+            onclick="setLeadFilter('${status}')"
+            class="btn-sm"
+            style="${currentLeadFilter===status ? 'background:var(--blue);color:#fff' : ''}"
+          >${STATUS_LABEL[status]} (${count})</button>
+        `;
+      }).join('')}
+    </div>
+  `;
 
-  const gruposHtml = GRUPOS.map(g => {
-    const leadsDoGrupo = myLeads.filter(l => l.status === g.status);
-    if (leadsDoGrupo.length === 0) return '';
-    return `
-      <div style="margin-bottom:20px">
-        <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:8px">
-          ${g.titulo} (${leadsDoGrupo.length})
-        </div>
-        ${leadsDoGrupo.map(leadCardHtml).join('')}
-      </div>
-    `;
-  }).join('');
+  const leadsFiltrados = currentLeadFilter === 'todos'
+    ? myLeads
+    : myLeads.filter(l => l.status === currentLeadFilter);
 
-  el.innerHTML = lembreteHtml + gruposHtml;
+  const listaHtml = leadsFiltrados.length > 0
+    ? leadsFiltrados.map(leadCardHtml).join('')
+    : '<div class="empty">Nenhum lead com esse status.</div>';
+
+  el.innerHTML = lembreteHtml + filtrosHtml + listaHtml;
 }
 
 const COMM_STATUS_LABEL = {
