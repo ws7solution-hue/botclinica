@@ -15,10 +15,14 @@ import {
   Sparkles,
   CalendarCheck,
   UserCheck,
-  Trash2
+  Trash2,
+  Paperclip,
+  X,
+  Download,
+  Pencil
 } from 'lucide-react';
-import { Conversation, Message, Doctor } from '../types';
-import { fbDeleteConversation } from '../firebase';
+import { Conversation, Message, Doctor, Appointment } from '../types';
+import { fbDeleteConversation, fbSaveReceptionNote } from '../firebase';
 
 // React class ErrorBoundary to prevent media message parsing or rendering errors from crashing the page
 class ErrorBoundary extends React.Component<
@@ -54,7 +58,7 @@ class ErrorBoundary extends React.Component<
 }
 
 // Helper to render message content based on type (text, image, audio, document)
-const renderMessageContent = (msg: Message) => {
+const renderMessageContent = (msg: Message, onImageClick?: (url: string) => void) => {
   const msgType = msg.type || 'text';
   
   // Guard: Ensure text is safely stringified or set to empty if it's an object or null/undefined
@@ -78,7 +82,8 @@ const renderMessageContent = (msg: Message) => {
               src={msg.mediaUrl} 
               alt={displayText || "Imagem recebida"} 
               referrerPolicy="no-referrer"
-              className="max-w-full max-h-[220px] rounded-lg object-cover border border-slate-200/60 shadow-xs"
+              onClick={() => onImageClick?.(msg.mediaUrl!)}
+              className="max-w-full max-h-[220px] rounded-lg object-cover border border-slate-200/60 shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
               onError={(e) => {
                 // Fallback image URL
                 (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=200&auto=format&fit=crop';
@@ -143,6 +148,7 @@ interface ChatPanelProps {
   conversations: Conversation[];
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
   doctors: Doctor[];
+  appointments: Appointment[];
   selectedChatId: string | null;
   setSelectedChatId: (id: string | null) => void;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
@@ -154,6 +160,7 @@ export default function ChatPanel({
   conversations,
   setConversations,
   doctors,
+  appointments,
   selectedChatId,
   setSelectedChatId,
   onAddSystemLog,
@@ -161,10 +168,54 @@ export default function ChatPanel({
   clinicId
 }: ChatPanelProps) {
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
-  const [searchName, setSearchName] = useState('');
-  const [filterDate, setFilterDate] = useState('');
   const [replyText, setReplyText] = useState('');
+
+  // NOVO: nome do atendente que aparece em negrito na frente da mensagem
+  // (ex: "*Larissa:* Oi, tudo bem?"). Fica salvo no navegador de cada
+  // pessoa (não é um dado da clínica inteira) — cada atendente, no seu
+  // próprio computador, define e troca o próprio nome quando quiser, sem
+  // afetar quem mais estiver usando o painel em outro lugar.
+  const [attendantName, setAttendantName] = useState(() => localStorage.getItem('atendia_attendant_name') || '');
+  const [isEditingAttendantName, setIsEditingAttendantName] = useState(false);
+
+  function handleSaveAttendantName(newName: string) {
+    const trimmed = newName.trim();
+    setAttendantName(trimmed);
+    localStorage.setItem('atendia_attendant_name', trimmed);
+    setIsEditingAttendantName(false);
+  }
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSavedAt, setNoteSavedAt] = useState<number | null>(null);
+
+  // Mesma normalização usada no Prontuário/Portal do Médico: remove o "9"
+  // extra do celular pra DDDs fora de SP/RJ/ES, já que o WhatsApp às vezes
+  // entrega o telefone sem esse dígito — sem isso, o agendamento do paciente
+  // pode não ser encontrado mesmo existindo, só por causa do formato do
+  // número bater diferente entre a conversa e o agendamento.
+  const normalizePhoneDigits = (phone: string) => {
+    let digits = (phone || '').replace(/\D/g, '');
+    const match = digits.match(/^55(\d{2})9(\d{8})$/);
+    if (match) digits = `55${match[1]}${match[2]}`;
+    return digits;
+  };
+
+  const handleDownloadImage = (url: string) => {
+    // Passa pelo proxy do próprio site (mesma origem) em vez de baixar
+    // direto de whatsapp.botclinica.com.br — isso garante que o download
+    // funcione de verdade (evita CORS e a limitação do navegador de
+    // ignorar o atributo "download" em links de outro domínio).
+    const proxyUrl = `/api/download-image?url=${encodeURIComponent(url)}`;
+    const a = document.createElement('a');
+    a.href = proxyUrl;
+    a.download = `imagem-paciente-${Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Automatically select first conversation if none is selected
   useEffect(() => {
@@ -175,9 +226,57 @@ export default function ChatPanel({
 
   const activeChat = conversations.find(c => c.id === selectedChatId) || conversations[0];
 
-  // Scroll to bottom of message list on update
+  // Agendamento mais recente (não cancelado) desse paciente — é daqui que
+  // "Doutor Indicado" e "Especialidade Pretendida" passam a vir de verdade,
+  // em vez do campo assignedDoctorId (que nunca era preenchido em lugar
+  // nenhum do sistema, então sempre caía no texto genérico de placeholder).
+  const activeAppointment = activeChat
+    ? appointments
+        .filter(a => a.status !== 'canceled' && normalizePhoneDigits(a.patientPhone) === normalizePhoneDigits(activeChat.patientPhone))
+        .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))[0]
+    : undefined;
+
+  // Carrega a nota já salva sempre que troca de conversa (senão o texto de
+  // uma conversa "vaza" visualmente pra outra até o próximo re-render)
+  useEffect(() => {
+    setNoteDraft(activeChat?.receptionNote || '');
+    setNoteSavedAt(null);
+  }, [activeChat?.id]);
+
+  const handleSaveNote = async () => {
+    if (!activeChat) return;
+    setNoteSaving(true);
+    try {
+      await fbSaveReceptionNote(clinicId || '', activeChat.id, noteDraft);
+      setConversations(prev => prev.map(c => c.id === activeChat.id ? { ...c, receptionNote: noteDraft } : c));
+      setNoteSavedAt(Date.now());
+    } catch (e) {
+      onAddSystemLog('error', 'Não foi possível salvar a nota de recepção.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  // Trocou de conversa (clicou em outro paciente na lista) — sempre vai
+  // direto pro final, é o esperado ao abrir uma conversa.
   useEffect(() => {
     if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [selectedChatId]);
+
+  // BUGFIX (02/09): antes, toda atualização da conversa (nova mensagem OU só
+  // um refresh automático) forçava ir pro final da tela — impossível ler o
+  // início de uma conversa longa, porque a tela "puxava" de volta sozinha.
+  // Agora, dentro da MESMA conversa, só desce sozinho se o usuário já estava
+  // perto do final (ou seja, realmente acompanhando em tempo real) — se ele
+  // rolou pra cima de propósito pra ler algo antigo, a posição é respeitada.
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !messagesEndRef.current) return;
+    const distanciaDoFinal = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const estavaPertoDoFinal = distanciaDoFinal < 150; // pixels de folga
+    if (estavaPertoDoFinal) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [activeChat?.messages]);
@@ -280,10 +379,15 @@ export default function ChatPanel({
     e.preventDefault();
     if (!replyText.trim() || !activeChat) return;
 
-    const text = replyText.trim();
+    const text = attendantName ? `*${attendantName}:* ${replyText.trim()}` : replyText.trim();
     // Resolve o phone — usa patientPhone ou reconstrói do ID
-    const phone = activeChat.patientPhone || 
+    const rawPhone = activeChat.patientPhone ||
                   activeChat.id.replace(/_/g, '') + '@s.whatsapp.net';
+    // Normaliza pro formato exigido pela Meta (só números, com código do país)
+    const phoneDigits = rawPhone.replace(/\D/g, '');
+    const phone = phoneDigits.startsWith('55') ? phoneDigits
+                : (phoneDigits.length === 10 || phoneDigits.length === 11) ? `55${phoneDigits}`
+                : phoneDigits;
 
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
@@ -307,17 +411,31 @@ export default function ChatPanel({
 
     setReplyText('');
 
-    // Envia via Baileys se clinicId disponível
+    // Envia via API oficial do WhatsApp (Cloud API), não mais Baileys
     if (clinicId) {
+      const emailKey = clinicId.toLowerCase().replace(/[@.]/g, '_');
       try {
-        const r = await fetch(`https://api.botclinica.com.br/wa/send/${encodeURIComponent(clinicId)}`, {
+        // BUGFIX (24/07): faltava mandar templateParams — sem isso, quando a
+        // conversa está fora da janela de 24h da Meta (ex: conversa criada
+        // pelo sistema, paciente nunca mandou mensagem de verdade), o envio
+        // via template falhava silenciosamente porque faltavam os 4 campos
+        // obrigatórios do template aprovado.
+        const r = await fetch('https://whatsapp.botclinica.com.br/send-clinic-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: phone, text }),
+          body: JSON.stringify({
+            clinicId: emailKey, to: phone, text,
+            templateParams: {
+              nome_paciente: activeChat.patientName || 'paciente',
+              nome_medico: 'nossa equipe',
+              data_consulta: '-',
+              horario_consulta: '-',
+            },
+          }),
         });
         const d = await r.json();
-        if (!d.ok) {
-          onAddSystemLog('error', 'Erro ao enviar mensagem via WhatsApp.');
+        if (!r.ok || d.error) {
+          onAddSystemLog('error', `Erro ao enviar mensagem via WhatsApp: ${d.error || 'erro desconhecido'}`);
         }
       } catch (e) {
         onAddSystemLog('error', 'Erro de conexão ao enviar mensagem.');
@@ -327,24 +445,94 @@ export default function ChatPanel({
     }
   };
 
+  // ── Anexar e enviar imagem ──────────────────────────────────────────────
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [sendingImage, setSendingImage] = useState(false);
+
+  const handleAttachImageClick = () => {
+    imageInputRef.current?.click();
+  };
+
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite selecionar o mesmo arquivo de novo depois
+    if (!file || !activeChat) return;
+
+    if (!file.type.startsWith('image/')) {
+      onAddSystemLog('warning', 'Só é possível anexar arquivos de imagem por enquanto.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      onAddSystemLog('warning', 'Imagem muito grande (máximo 5MB).');
+      return;
+    }
+
+    const phone = activeChat.patientPhone ||
+                  activeChat.id.replace(/_/g, '') + '@s.whatsapp.net';
+
+    // Converte pra base64 (usado tanto pra prévia local quanto pro envio)
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string; // ex: data:image/jpeg;base64,AAAA...
+      const base64 = dataUrl.split(',')[1];
+
+      const newMsg: Message = {
+        id: `msg-${Date.now()}`,
+        sender: 'human',
+        text: '',
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        type: 'image',
+        mediaUrl: dataUrl,
+      };
+
+      // Mostra a imagem na conversa imediatamente (otimista)
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeChat.id) {
+          return { ...c, lastMessage: '📷 Imagem', lastMessageTime: newMsg.timestamp, messages: [...c.messages, newMsg] };
+        }
+        return c;
+      }));
+
+      if (!clinicId) {
+        onAddSystemLog('warning', 'WhatsApp não conectado — imagem não enviada ao paciente.');
+        return;
+      }
+
+      setSendingImage(true);
+      const emailKey = clinicId.toLowerCase().replace(/[@.]/g, '_');
+      try {
+        const r = await fetch('https://whatsapp.botclinica.com.br/send-clinic-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clinicId: emailKey, to: phone, imageBase64: base64, mimeType: file.type }),
+        });
+        const d = await r.json();
+        if (!r.ok || d.error) {
+          onAddSystemLog('error', `Erro ao enviar imagem via WhatsApp: ${d.error || 'erro desconhecido'}`);
+        }
+      } catch (err) {
+        onAddSystemLog('error', 'Erro de conexão ao enviar imagem.');
+      } finally {
+        setSendingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Filter conversations
-  const filteredConversations = conversations.filter(c => {
-    if (filter !== 'all' && c.status !== filter) return false;
-    if (searchName.trim()) {
-      const q = searchName.trim().toLowerCase();
-      const matchesName = (c.patientName || '').toLowerCase().includes(q);
-      const matchesPhone = (c.patientPhone || '').includes(q);
-      if (!matchesName && !matchesPhone) return false;
-    }
-    if (filterDate) {
-      const updatedAt = (c as any).updatedAt;
-      if (!updatedAt) return false;
-      const convDate = new Date(updatedAt);
-      const convDateStr = `${convDate.getFullYear()}-${String(convDate.getMonth() + 1).padStart(2, '0')}-${String(convDate.getDate()).padStart(2, '0')}`;
-      if (convDateStr !== filterDate) return false;
-    }
-    return true;
-  });
+  const filteredConversations = conversations
+    .filter(c => {
+      if (filter === 'all') return true;
+      return c.status === filter;
+    })
+    // BUGFIX (22/07): faltava ordenar por atividade recente — sem isso, a
+    // lista aparecia na ordem "crua" do Firestore, e uma conversa antiga
+    // podia ficar presa no topo mesmo com conversas novas chegando depois.
+    .sort((a, b) => {
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return timeB - timeA; // mais recente primeiro
+    });
 
   return (
     <div id="chat-panel" className="flex h-[calc(100vh-70px)] bg-slate-100 overflow-hidden">
@@ -357,32 +545,6 @@ export default function ChatPanel({
           <h3 className="text-sm font-bold text-slate-800 font-sans mb-3">
             Fila de Atendimento
           </h3>
-
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              placeholder="Buscar por nome ou telefone..."
-              className="flex-1 text-xs px-3 py-2 border border-slate-200 rounded-lg font-sans focus:outline-none focus:ring-1 focus:ring-[#1A6FA8]"
-            />
-            <input
-              type="date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="text-xs px-2 py-2 border border-slate-200 rounded-lg font-sans focus:outline-none focus:ring-1 focus:ring-[#1A6FA8]"
-              title="Filtrar por data"
-            />
-            {filterDate && (
-              <button
-                onClick={() => setFilterDate('')}
-                className="text-[10px] text-slate-400 hover:text-slate-600 font-sans shrink-0"
-                title="Limpar filtro de data"
-              >
-                ✕
-              </button>
-            )}
-          </div>
           
           {/* Quick Filter tabs */}
           <div className="flex flex-wrap gap-1">
@@ -432,7 +594,7 @@ export default function ChatPanel({
                       {chat.patientName}
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                      {(chat as any).updatedAt ? new Date((chat as any).updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' : ''}{chat.lastMessageTime}
+                      {chat.lastMessageTime}
                     </span>
                   </div>
 
@@ -590,18 +752,26 @@ export default function ChatPanel({
                 </>
               )}
               {activeChat.status === 'resolved' && (
-                <button
-                  onClick={() => handleReturnToBot(activeChat.id)}
-                  className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-md text-[10px] font-semibold cursor-pointer"
-                >
-                  Reabrir para Bot
-                </button>
+                <>
+                  <button
+                    onClick={() => handleTakeOver(activeChat.id)}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-[10px] font-bold cursor-pointer"
+                  >
+                    Assumir Conversa
+                  </button>
+                  <button
+                    onClick={() => handleReturnToBot(activeChat.id)}
+                    className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-md text-[10px] font-semibold cursor-pointer"
+                  >
+                    Reabrir para Bot
+                  </button>
+                </>
               )}
             </div>
           </div>
 
           {/* Messages Stream Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f3f5f8]">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f3f5f8]">
             {activeChat.messages.map((msg) => {
               const isPatient = msg.sender === 'patient';
               const isBot = msg.sender === 'bot';
@@ -631,7 +801,7 @@ export default function ChatPanel({
                       : 'bg-emerald-600 text-white rounded-tr-none'
                   }`}>
                     <ErrorBoundary>
-                      {renderMessageContent(msg)}
+                      {renderMessageContent(msg, setViewingImageUrl)}
                     </ErrorBoundary>
                   </div>
 
@@ -647,8 +817,49 @@ export default function ChatPanel({
 
           {/* Bottom Typing Bar */}
           <div className="p-4 bg-white border-t border-slate-200">
+            {activeChat.status === 'human_active' && (
+              <div className="flex items-center gap-1.5 mb-2 text-xs font-sans">
+                <User className="w-3.5 h-3.5 text-slate-400" />
+                {isEditingAttendantName ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    defaultValue={attendantName}
+                    placeholder="Seu nome (aparece em negrito pro paciente)"
+                    onBlur={e => handleSaveAttendantName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveAttendantName((e.target as HTMLInputElement).value); }}
+                    className="border border-slate-300 rounded px-2 py-0.5 text-xs w-56"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAttendantName(true)}
+                    className="flex items-center gap-1 text-slate-500 hover:text-slate-700"
+                  >
+                    Atendendo como: <strong>{attendantName || '(definir nome)'}</strong>
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
             {activeChat.status === 'human_active' ? (
               <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelected}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={handleAttachImageClick}
+                  disabled={sendingImage}
+                  title="Anexar imagem"
+                  className="px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 border border-slate-300 rounded-lg flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
                 <input
                   id="chat-input-field"
                   type="text"
@@ -709,14 +920,14 @@ export default function ChatPanel({
             <div>
               <span className="text-slate-400 font-sans block text-[10px] uppercase">Doutor Indicado</span>
               <span className="text-slate-700 font-sans font-medium">
-                {doctors.find(d => d.id === activeChat.assignedDoctorId)?.name || 'Nenhum / Triagem Inicial'}
+                {activeAppointment?.doctorName || 'Nenhum / Triagem Inicial'}
               </span>
             </div>
 
             <div>
               <span className="text-slate-400 font-sans block text-[10px] uppercase">Especialidade Pretendida</span>
               <span className="text-slate-700 font-sans font-medium">
-                {doctors.find(d => d.id === activeChat.assignedDoctorId)?.specialty || 'Clínica Geral / Outros'}
+                {activeAppointment?.specialty || 'Clínica Geral / Outros'}
               </span>
             </div>
           </div>
@@ -726,14 +937,51 @@ export default function ChatPanel({
               Notas de Recepção
             </h5>
             <textarea
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              onBlur={handleSaveNote}
               placeholder="Adicione observações internas sobre o paciente que ficarão salvas na ficha..."
               className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden min-h-[80px] font-sans"
             />
             <div className="flex items-center justify-between text-[10px] text-slate-400">
-              <span>Apenas visível para a clínica</span>
+              <span>
+                {noteSaving ? 'Salvando...' : noteSavedAt ? 'Salvo ✓' : 'Apenas visível para a clínica'}
+              </span>
               <Bookmark className="w-3.5 h-3.5" />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Visualizador de imagem em tela cheia (clique + botão de baixar) */}
+      {viewingImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4"
+          onClick={() => setViewingImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setViewingImageUrl(null)}
+            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2 cursor-pointer transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <img
+            src={viewingImageUrl}
+            alt="Imagem em tela cheia"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[80vh] rounded-lg object-contain shadow-2xl"
+          />
+
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleDownloadImage(viewingImageUrl); }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-sm font-bold font-sans cursor-pointer transition-all shadow-lg"
+          >
+            <Download className="w-4 h-4" />
+            Baixar imagem
+          </button>
         </div>
       )}
 
