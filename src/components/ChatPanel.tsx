@@ -18,7 +18,8 @@ import {
   Trash2,
   Paperclip,
   X,
-  Download
+  Download,
+  Pencil
 } from 'lucide-react';
 import { Conversation, Message, Doctor, Appointment } from '../types';
 import { fbDeleteConversation, fbSaveReceptionNote } from '../firebase';
@@ -168,6 +169,21 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [filter, setFilter] = useState<'all' | 'bot' | 'human_needed' | 'human_active' | 'resolved'>('all');
   const [replyText, setReplyText] = useState('');
+
+  // NOVO: nome do atendente que aparece em negrito na frente da mensagem
+  // (ex: "*Larissa:* Oi, tudo bem?"). Fica salvo no navegador de cada
+  // pessoa (não é um dado da clínica inteira) — cada atendente, no seu
+  // próprio computador, define e troca o próprio nome quando quiser, sem
+  // afetar quem mais estiver usando o painel em outro lugar.
+  const [attendantName, setAttendantName] = useState(() => localStorage.getItem('atendia_attendant_name') || '');
+  const [isEditingAttendantName, setIsEditingAttendantName] = useState(false);
+
+  function handleSaveAttendantName(newName: string) {
+    const trimmed = newName.trim();
+    setAttendantName(trimmed);
+    localStorage.setItem('atendia_attendant_name', trimmed);
+    setIsEditingAttendantName(false);
+  }
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
@@ -363,7 +379,7 @@ export default function ChatPanel({
     e.preventDefault();
     if (!replyText.trim() || !activeChat) return;
 
-    const text = replyText.trim();
+    const text = attendantName ? `*${attendantName}:* ${replyText.trim()}` : replyText.trim();
     // Resolve o phone — usa patientPhone ou reconstrói do ID
     const rawPhone = activeChat.patientPhone ||
                   activeChat.id.replace(/_/g, '') + '@s.whatsapp.net';
@@ -801,6 +817,31 @@ export default function ChatPanel({
 
           {/* Bottom Typing Bar */}
           <div className="p-4 bg-white border-t border-slate-200">
+            {activeChat.status === 'human_active' && (
+              <div className="flex items-center gap-1.5 mb-2 text-xs font-sans">
+                <User className="w-3.5 h-3.5 text-slate-400" />
+                {isEditingAttendantName ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    defaultValue={attendantName}
+                    placeholder="Seu nome (aparece em negrito pro paciente)"
+                    onBlur={e => handleSaveAttendantName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveAttendantName((e.target as HTMLInputElement).value); }}
+                    className="border border-slate-300 rounded px-2 py-0.5 text-xs w-56"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAttendantName(true)}
+                    className="flex items-center gap-1 text-slate-500 hover:text-slate-700"
+                  >
+                    Atendendo como: <strong>{attendantName || '(definir nome)'}</strong>
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
             {activeChat.status === 'human_active' ? (
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
