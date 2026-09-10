@@ -1244,12 +1244,14 @@ export default function App() {
           />
         )}
 
-        {/* Chat de Suporte */}
+        {/* Chat de Suporte — escondido na aba Conversas pra não sobrepor o
+            botão de enviar mensagem do atendimento ao paciente */}
         {isLoggedIn && (
           <SupportChat
             email={userProfile.email || localStorage.getItem('atendia_email') || ''}
             clinicName={userProfile.clinicName || userProfile.name || ''}
             currentPlan={currentPlan}
+            hideOnChatsTab={activeTab === 'chats'}
           />
         )}
 
