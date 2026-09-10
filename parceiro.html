@@ -464,6 +464,8 @@ function openLeadModal(lead){
               <option value="negociando" ${l.status==='negociando'?'selected':''}>💬 Negociando</option>
               <option value="vendido" ${l.status==='vendido'?'selected':''}>💰 Vendido</option>
               <option value="perdido" ${l.status==='perdido'?'selected':''}>❌ Perdido</option>
+              <option value="sem_whatsapp" ${l.status==='sem_whatsapp'?'selected':''}>📵 Não tem WhatsApp</option>
+              <option value="nao_responde" ${l.status==='nao_responde'?'selected':''}>🔇 Não responde</option>
             </select>
           </div>
         </div>
@@ -509,7 +511,11 @@ async function saveLead(){
   if(r.error){ toast('Erro: '+r.error); return; }
   closeLeadModal();
   await loadMyLeads();
-  toast('Lead salvo com sucesso!');
+  if(r.replacementLead){
+    toast(`Sem problema! Já liberamos um novo lead pra você: "${r.replacementLead.nome}".`);
+  } else {
+    toast('Lead salvo com sucesso!');
+  }
 }
 
 async function deleteLead(id, nome){

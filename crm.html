@@ -2042,6 +2042,8 @@ const LEAD_STATUS_LABEL = {
   vendido: '💰 Vendido (aguardando confirmação)',
   perdido: '❌ Perdido',
   cancelado: '🚫 Cancelado pela clínica',
+  sem_whatsapp: '📵 Não tem WhatsApp',
+  nao_responde: '🔇 Não responde',
 };
 const LEAD_STATUS_BADGE_CLASS = {
   novo: 'badge-blue',
@@ -2050,6 +2052,8 @@ const LEAD_STATUS_BADGE_CLASS = {
   vendido: 'badge-green',
   perdido: 'badge-red',
   cancelado: 'badge-red',
+  sem_whatsapp: 'badge-red',
+  nao_responde: 'badge-yellow',
 };
 function LEAD_STATUS_BADGE(l){
   const label = l.vendaConfirmada ? '💰 Vendido (confirmado)' : (LEAD_STATUS_LABEL[l.status]||l.status);
