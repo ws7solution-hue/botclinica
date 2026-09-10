@@ -1959,7 +1959,59 @@ module.exports = async (req, res) => {
         } catch (e) { /* não bloqueia o salvamento do lead se a notificação falhar */ }
       }
 
-      return res.status(200).json({ ok: true, id });
+      // NOVO: quando o parceiro marca "Não tem WhatsApp", o dado em si veio
+      // ruim da fonte (não foi erro/preguiça dele) — não é justo esse lead
+      // contar como "gasto" no limite diário dele. Libera automaticamente
+      // mais um lead disponível da piscina pra ele, sem contar no limite de
+      // 10/dia (é reposição, não reivindicação nova).
+      let replacementLead = null;
+      if (status === "sem_whatsapp" && previousStatus !== "sem_whatsapp") {
+        try {
+          const poolAllRes = await fsReq("leads_pool");
+          const poolAllD = await poolAllRes.json();
+          const disponivel = (poolAllD.documents || []).find(
+            (doc) => doc.fields?.status?.stringValue === "disponivel"
+          );
+          if (disponivel) {
+            const poolId = disponivel.name.split("/").pop();
+            const newLeadId = `pool_${poolId}_${Date.now()}`;
+            const replacementFields = toFsFields({
+              partnerId,
+              nome: disponivel.fields.nome?.stringValue || "",
+              email: "",
+              telefone: disponivel.fields.telefone?.stringValue || "",
+              plano: "",
+              addon: false,
+              status: "novo",
+              reuniaoData: "",
+              notas: `Reposição automática (lead anterior "${nome}" não tinha WhatsApp). Importado do pool (${disponivel.fields.cidade?.stringValue || ""}).${disponivel.fields.sinalPotencial?.stringValue ? " Sinal: " + disponivel.fields.sinalPotencial.stringValue : ""}`,
+              vendaConfirmada: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            await fetch(`${FS}/leads/${newLeadId}?key=${API_KEY}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ fields: replacementFields }),
+            });
+            await fsReq(`leads_pool/${poolId}`, {
+              method: "PATCH",
+              body: JSON.stringify({ fields: toFsFields({
+                status: "reivindicado",
+                claimedBy: partnerId,
+                claimedAt: new Date().toISOString(),
+                linkedLeadId: newLeadId,
+              })}),
+            });
+            replacementLead = { nome: disponivel.fields.nome?.stringValue || "" };
+          }
+        } catch (e) {
+          console.error("Falha ao repor lead sem WhatsApp:", e.message);
+          // não bloqueia o salvamento do status original se a reposição falhar
+        }
+      }
+
+      return res.status(200).json({ ok: true, id, replacementLead });
     }
 
     // Lista só os leads DAQUELE parceiro (usado na página /parceiro dele)
