@@ -297,6 +297,42 @@ function openWhatsAppForLead(id){
 
 // ── Piscina de leads (clínicas encontradas, disponíveis pra reivindicar) ──
 let availablePool = [];
+let currentPoolStateFilter = null; // null = mostra todos os estados
+
+// Mapa em "grade" (tile-grid) do Brasil — cada estado é um quadradinho na
+// posição relativa real dele (Norte em cima, Sul embaixo). Escolhido em vez
+// de um mapa geográfico de verdade porque garante que nenhum estado fica
+// com contorno errado/distorcido — é o mesmo estilo usado em infográficos
+// de dados (tipo NPR/G1), só que em grade em vez de forma real.
+const BRAZIL_GRID = [
+  { uf: 'RR', nome: 'Roraima', row: 1, col: 3 },
+  { uf: 'AP', nome: 'Amapá', row: 1, col: 5 },
+  { uf: 'AM', nome: 'Amazonas', row: 2, col: 2 },
+  { uf: 'PA', nome: 'Pará', row: 2, col: 4 },
+  { uf: 'MA', nome: 'Maranhão', row: 2, col: 6 },
+  { uf: 'CE', nome: 'Ceará', row: 2, col: 7 },
+  { uf: 'RN', nome: 'Rio Grande do Norte', row: 2, col: 8 },
+  { uf: 'AC', nome: 'Acre', row: 3, col: 1 },
+  { uf: 'RO', nome: 'Rondônia', row: 3, col: 3 },
+  { uf: 'TO', nome: 'Tocantins', row: 3, col: 4 },
+  { uf: 'PI', nome: 'Piauí', row: 3, col: 5 },
+  { uf: 'PB', nome: 'Paraíba', row: 3, col: 6 },
+  { uf: 'PE', nome: 'Pernambuco', row: 3, col: 7 },
+  { uf: 'MT', nome: 'Mato Grosso', row: 4, col: 3 },
+  { uf: 'BA', nome: 'Bahia', row: 4, col: 5 },
+  { uf: 'AL', nome: 'Alagoas', row: 4, col: 6 },
+  { uf: 'SE', nome: 'Sergipe', row: 4, col: 7 },
+  { uf: 'MS', nome: 'Mato Grosso do Sul', row: 5, col: 2 },
+  { uf: 'GO', nome: 'Goiás', row: 5, col: 3 },
+  { uf: 'DF', nome: 'Distrito Federal', row: 5, col: 4 },
+  { uf: 'MG', nome: 'Minas Gerais', row: 5, col: 5 },
+  { uf: 'ES', nome: 'Espírito Santo', row: 5, col: 6 },
+  { uf: 'SP', nome: 'São Paulo', row: 6, col: 3 },
+  { uf: 'RJ', nome: 'Rio de Janeiro', row: 6, col: 4 },
+  { uf: 'PR', nome: 'Paraná', row: 7, col: 3 },
+  { uf: 'SC', nome: 'Santa Catarina', row: 8, col: 3 },
+  { uf: 'RS', nome: 'Rio Grande do Sul', row: 9, col: 3 },
+];
 
 async function loadAvailablePool(){
   const d = await api('listLeadsPool', {onlyAvailable: true});
@@ -304,19 +340,84 @@ async function loadAvailablePool(){
   renderAvailablePool();
 }
 
+function selectPoolState(uf){
+  currentPoolStateFilter = (currentPoolStateFilter === uf) ? null : uf;
+  renderAvailablePool();
+}
+
+function renderPoolMap(){
+  // Conta quantos leads disponíveis existem em cada estado, pra colorir o
+  // mapa com intensidade — quanto mais escuro, mais lead esperando lá.
+  const contagemPorEstado = {};
+  availablePool.forEach(l => {
+    const uf = (l.estado || '').toUpperCase();
+    if (uf) contagemPorEstado[uf] = (contagemPorEstado[uf] || 0) + 1;
+  });
+  const maxContagem = Math.max(1, ...Object.values(contagemPorEstado));
+
+  const maxRow = Math.max(...BRAZIL_GRID.map(s => s.row));
+  const maxCol = Math.max(...BRAZIL_GRID.map(s => s.col));
+
+  const tilesHtml = BRAZIL_GRID.map(s => {
+    const count = contagemPorEstado[s.uf] || 0;
+    const intensidade = count > 0 ? 0.25 + (count / maxContagem) * 0.75 : 0;
+    const isSelected = currentPoolStateFilter === s.uf;
+    const semLead = count === 0;
+    return `
+      <button
+        onclick="${semLead ? '' : `selectPoolState('${s.uf}')`}"
+        title="${s.nome}${count ? ` — ${count} lead(s) disponível(is)` : ' — sem leads no momento'}"
+        style="
+          grid-row: ${s.row}; grid-column: ${s.col};
+          background: ${isSelected ? 'var(--blue)' : (semLead ? '#F1F5F9' : `rgba(26,111,168,${intensidade})`)};
+          color: ${isSelected || intensidade > 0.5 ? '#fff' : (semLead ? '#94A3B8' : 'var(--navy)')};
+          border: 2px solid ${isSelected ? 'var(--blue2)' : 'transparent'};
+          border-radius: 8px; font-size: 11px; font-weight: 800; font-family: sans-serif;
+          width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+          cursor: ${semLead ? 'default' : 'pointer'}; transition: all 0.15s;
+        "
+        ${semLead ? 'disabled' : ''}
+      >${s.uf}</button>
+    `;
+  }).join('');
+
+  return `
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:800;color:var(--navy)">🗺️ Leads disponíveis por estado</div>
+        ${currentPoolStateFilter ? `<button onclick="selectPoolState('${currentPoolStateFilter}')" style="font-size:11px;color:var(--blue);font-weight:700;background:none;border:none;cursor:pointer">✕ Limpar filtro (${currentPoolStateFilter})</button>` : ''}
+      </div>
+      <div style="display:grid; grid-template-rows: repeat(${maxRow}, 38px); grid-template-columns: repeat(${maxCol}, 38px); gap:4px; overflow-x:auto; padding-bottom:4px">
+        ${tilesHtml}
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">Clique num estado colorido pra ver só os leads de lá. Estados cinza ainda não têm lead na piscina.</div>
+    </div>
+  `;
+}
+
 function renderAvailablePool(){
   document.getElementById('tab-count-pool').textContent = availablePool.length;
   const el = document.getElementById('pool-list');
+
+  const poolMapHtml = renderPoolMap();
+
+  const filtrados = currentPoolStateFilter
+    ? availablePool.filter(l => (l.estado || '').toUpperCase() === currentPoolStateFilter)
+    : availablePool;
+
   if(availablePool.length===0){
-    el.innerHTML = '<div class="empty">Nenhum lead disponível na piscina agora. Volta mais tarde — novas clínicas são adicionadas periodicamente.</div>';
+    el.innerHTML = poolMapHtml + '<div class="empty">Nenhum lead disponível na piscina agora. Volta mais tarde — novas clínicas são adicionadas periodicamente.</div>';
     return;
   }
-  el.innerHTML = availablePool.map(l => `
+
+  const listaHtml = filtrados.length === 0
+    ? `<div class="empty">Nenhum lead disponível em ${currentPoolStateFilter} no momento.</div>`
+    : filtrados.map(l => `
     <div class="lead-item">
       <div class="top">
         <div>
           <div class="nome">${l.nome}</div>
-          <div class="contato">${l.cidade||''}${l.telefone?' · '+l.telefone:''}</div>
+          <div class="contato">${l.cidade||''}${l.estado?' - '+l.estado:''}${l.telefone?' · '+l.telefone:''}</div>
         </div>
         ${l.tipo?`<span class="badge badge-blue">${l.tipo}</span>`:''}
       </div>
@@ -328,6 +429,8 @@ function renderAvailablePool(){
       </div>
     </div>
   `).join('');
+
+  el.innerHTML = poolMapHtml + listaHtml;
 }
 
 async function claimPoolLead(id){

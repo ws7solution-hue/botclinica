@@ -1841,7 +1841,7 @@ function renderParceiros(){
       <div style="color:var(--muted)">Limite: 10 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
     </div>
     <div style="padding:0 4px;font-size:11px;color:var(--muted)">
-      CSV esperado com colunas: <code>nome,cidade,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios)<br/>
+      CSV esperado com colunas: <code>nome,cidade,estado,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios — "estado" deve ser a sigla, tipo MG, SP, RJ)<br/>
       ✅ <strong>Pode subir o mesmo arquivo de novo sem medo</strong> — quem já está na piscina (identificado pelo telefone) é pulado automaticamente, nunca duplica.
     </div>
     <div style="margin-top:14px">
@@ -2486,6 +2486,7 @@ async function handleImportLeadsFile(evt){
   const idx = {
     nome: headers.indexOf('nome'),
     cidade: headers.indexOf('cidade'),
+    estado: headers.indexOf('estado'),
     telefone: headers.indexOf('telefone'),
     endereco: headers.indexOf('endereco'),
     tipo: headers.indexOf('tipo'),
@@ -2501,6 +2502,7 @@ async function handleImportLeadsFile(evt){
   const leadsToImport = lines.slice(1).map(parseCsvLine).map(cols => ({
     nome: cols[idx.nome] || '',
     cidade: idx.cidade > -1 ? (cols[idx.cidade] || '') : '',
+    estado: idx.estado > -1 ? (cols[idx.estado] || '').toUpperCase() : '',
     telefone: cols[idx.telefone] || '',
     endereco: idx.endereco > -1 ? (cols[idx.endereco] || '') : '',
     tipo: idx.tipo > -1 ? (cols[idx.tipo] || '') : '',
