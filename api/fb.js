@@ -2068,6 +2068,7 @@ module.exports = async (req, res) => {
         const fields = toFsFields({
           nome: item.nome || "",
           cidade: item.cidade || "",
+          estado: item.estado || "",
           telefone: item.telefone || "",
           endereco: item.endereco || "",
           tipo: item.tipo || "",
@@ -2113,6 +2114,7 @@ module.exports = async (req, res) => {
           id: doc.name.split("/").pop(),
           nome: f.nome?.stringValue || "",
           cidade: f.cidade?.stringValue || "",
+          estado: f.estado?.stringValue || "",
           telefone: f.telefone?.stringValue || "",
           endereco: f.endereco?.stringValue || "",
           tipo: f.tipo?.stringValue || "",
