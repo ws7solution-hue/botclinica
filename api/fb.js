@@ -2063,6 +2063,8 @@ module.exports = async (req, res) => {
         const docId = phoneDigits;
         const existingRes = await fsReq(`leads_pool/${docId}`);
         const existingD = await existingRes.json();
+        // LOG TEMPORÁRIO DE DIAGNÓSTICO — remover depois de resolvido.
+        console.log(`[DIAGNÓSTICO importLeadsPool] docId=${docId} status=${existingRes.status} body=${JSON.stringify(existingD)}`);
         if (existingD.fields) { skipped++; continue; } // já existe, não sobrescreve
 
         const fields = toFsFields({
