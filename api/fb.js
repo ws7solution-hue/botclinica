@@ -2122,7 +2122,7 @@ module.exports = async (req, res) => {
         "itabira": "MG", "araguari": "MG", "ituiutaba": "MG", "coronel fabriciano": "MG",
         "cel. fabriciano": "MG", "lavras": "MG",
       };
-      const r = await fsReq("leads_pool");
+      const r = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
       const d = await r.json();
       let corrigidos = 0;
       for (const doc of d.documents || []) {
