@@ -2077,15 +2077,36 @@ module.exports = async (req, res) => {
           status: "disponivel",
           importedAt: new Date().toISOString(),
         });
-        const writeRes = await fsReq(`leads_pool/${docId}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+        // NOVO: monta a URL com updateMask explícito desde o início, em vez
+        // de depender do interceptador global de fetch — criação de
+        // documento novo é um caso de borda que merece ser explícito aqui,
+        // não implícito num patch genérico que cobre ~24 chamadas diferentes.
+        const maskParams = Object.keys(fields)
+          .map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`)
+          .join("&");
+        const writeRes = await fetch(`${FS}/leads_pool/${docId}?key=${API_KEY}&${maskParams}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields }),
+        });
         const writeD = await writeRes.json();
         // BUGFIX: antes, contava como "importado" mesmo se o Firestore
         // recusasse a gravação (ex: Regras de Segurança bloqueando a
         // coleção nova "leads_pool") — a mensagem dizia "sucesso" mas nada
-        // tinha sido salvo de verdade. Agora só conta se realmente gravou.
+        // tinha sido salvo de verdade. Agora só conta se realmente gravou,
+        // e confirma lendo o documento de volta antes de contar como certo.
         if (writeD.error) {
           skipped++;
           if (!firstError) firstError = writeD.error.message || JSON.stringify(writeD.error);
+          continue;
+        }
+        // Confirmação extra: relê o documento pra ter certeza absoluta que
+        // ficou gravado e legível, não só que o Firestore não devolveu erro.
+        const confirmRes = await fetch(`${FS}/leads_pool/${docId}?key=${API_KEY}`);
+        const confirmD = await confirmRes.json();
+        if (!confirmD.fields) {
+          skipped++;
+          if (!firstError) firstError = `Gravação sem erro, mas documento ${docId} não ficou legível depois (possível problema de índice/regra assíncrona).`;
           continue;
         }
         imported++;
