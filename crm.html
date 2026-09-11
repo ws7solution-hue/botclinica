@@ -1839,6 +1839,7 @@ function renderParceiros(){
       <div><strong>${leadsPool.filter(l=>l.status==='disponivel').length}</strong> disponíveis na piscina</div>
       <div><strong>${leadsPool.filter(l=>l.status==='reivindicado').length}</strong> reivindicados por parceiros</div>
       <div style="color:var(--muted)">Limite: 10 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
+      <button class="btn btn-outline btn-sm" onclick="corrigirEstadosVazios()" style="margin-top:8px">🔧 Corrigir leads antigos sem estado (uso único)</button>
     </div>
     <div style="padding:0 4px;font-size:11px;color:var(--muted)">
       CSV esperado com colunas: <code>nome,cidade,estado,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios — "estado" deve ser a sigla, tipo MG, SP, RJ)<br/>
@@ -2024,6 +2025,16 @@ function renderLeadsPoolList(){
       `).join('')}
     </tbody>
   </table></div>`;
+}
+
+async function corrigirEstadosVazios(){
+  if(!confirm('Isso vai preencher o campo "estado" dos leads antigos que ficaram sem esse dado, baseado na cidade. Não duplica nem altera mais nada. Continuar?')) return;
+  toast('Corrigindo... pode levar alguns segundos.');
+  const r = await api('backfillLeadsPoolEstado', {});
+  if(r.error){ toast('Erro: '+r.error); return; }
+  toast(`✅ ${r.corrigidos} lead(s) corrigido(s) com o estado certo.`);
+  await loadLeadsPool();
+  renderLeadsPoolList();
 }
 
 async function deleteLeadFromPool(id, nome){
