@@ -2103,6 +2103,46 @@ module.exports = async (req, res) => {
     // Lista a piscina de leads. onlyAvailable=true filtra só os que ainda
     // não foram reivindicados (usado no painel do parceiro). Sem esse
     // filtro, retorna tudo (usado no resumo do CRM).
+    // NOVO (uso único/manutenção): corrige leads antigos da piscina que
+    // ficaram com o campo "estado" vazio — importados antes desse campo
+    // existir no sistema. Reimportar não resolve (duplicata por telefone é
+    // ignorada, não atualizada), então isso faz um PATCH direto nos que já
+    // existem, usando a cidade pra inferir o estado.
+    if (action === "backfillLeadsPoolEstado") {
+      const CIDADE_PARA_ESTADO = {
+        "belo horizonte": "MG", "contagem": "MG", "betim": "MG", "nova lima": "MG",
+        "ibirité": "MG", "ibirite": "MG", "sabará": "MG", "sabara": "MG",
+        "esmeraldas": "MG", "lagoa santa": "MG", "santa luzia": "MG",
+        "ribeirão das neves": "MG", "ribeirao das neves": "MG", "vespasiano": "MG",
+        "uberlândia": "MG", "uberlandia": "MG", "juiz de fora": "MG", "montes claros": "MG",
+        "governador valadares": "MG", "gov. valadares": "MG", "ipatinga": "MG", "uberaba": "MG",
+        "divinópolis": "MG", "divinopolis": "MG", "sete lagoas": "MG", "poços de caldas": "MG",
+        "pocos de caldas": "MG", "varginha": "MG", "patos de minas": "MG", "barbacena": "MG",
+        "teófilo otoni": "MG", "teofilo otoni": "MG", "passos": "MG", "pouso alegre": "MG",
+        "itabira": "MG", "araguari": "MG", "ituiutaba": "MG", "coronel fabriciano": "MG",
+        "cel. fabriciano": "MG", "lavras": "MG",
+      };
+      const r = await fsReq("leads_pool");
+      const d = await r.json();
+      let corrigidos = 0;
+      for (const doc of d.documents || []) {
+        const f = doc.fields || {};
+        const estadoAtual = f.estado?.stringValue || "";
+        if (estadoAtual) continue; // já tem estado, não mexe
+        const cidade = (f.cidade?.stringValue || "").toLowerCase().trim();
+        const estadoInferido = CIDADE_PARA_ESTADO[cidade];
+        if (!estadoInferido) continue; // cidade não reconhecida, pula com segurança
+        const poolId = doc.name.split("/").pop();
+        await fetch(`${FS}/leads_pool/${poolId}?key=${API_KEY}&updateMask.fieldPaths=estado`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { estado: { stringValue: estadoInferido } } }),
+        });
+        corrigidos++;
+      }
+      return res.status(200).json({ ok: true, corrigidos });
+    }
+
     if (action === "listLeadsPool") {
       const { onlyAvailable } = payload || {};
       const r = await fsReq("leads_pool");
