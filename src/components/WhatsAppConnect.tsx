@@ -53,13 +53,18 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     const handleMessage = (event: MessageEvent) => {
       if (!event.origin.endsWith('facebook.com')) return;
       try {
-        const data = JSON.parse(event.data);
+        // BUGFIX: o event.data pode chegar como string (precisa JSON.parse)
+        // ou já como objeto, dependendo do navegador/versão do SDK — antes
+        // só tratava o caso "string", e o caso "objeto" quebrava o parse
+        // silenciosamente (o catch engolia sem avisar nada).
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        console.log('[Embedded Signup] Mensagem recebida da Meta:', data); // LOG TEMPORÁRIO DE DIAGNÓSTICO
         if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
           esSessionData.current = { waba_id: data.data.waba_id, phone_number_id: data.data.phone_number_id };
         } else if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'CANCEL') {
           onAddSystemLog('warning', 'Conexão do WhatsApp cancelada antes de terminar.');
         }
-      } catch (e) { /* mensagens que não são JSON não interessam aqui */ }
+      } catch (e) { console.log('[Embedded Signup] Mensagem ignorada (não era JSON válido):', event.data); }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
