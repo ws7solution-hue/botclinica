@@ -29,6 +29,10 @@ fbq('init', '28881713088095858');
 fbq('track', 'PageView');
 </script>
 <!-- End Meta Pixel Code -->
+  <!-- SDK do Facebook — necessário pro botão "Conectar WhatsApp automaticamente"
+       (Embedded Signup) dentro da aba Configurações. Carrega de forma
+       assíncrona, não atrasa o carregamento do resto do app. -->
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/pt_BR/sdk.js"></script>
 </head>
   <body>
     <noscript><img height="1" width="1" style="display:none"
