@@ -1969,7 +1969,7 @@ module.exports = async (req, res) => {
       let replacementLead = null;
       if (status === "sem_whatsapp" && previousStatus !== "sem_whatsapp") {
         try {
-          const poolAllRes = await fsReq("leads_pool");
+          const poolAllRes = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
           const poolAllD = await poolAllRes.json();
           const disponivel = (poolAllD.documents || []).find(
             (doc) => doc.fields?.status?.stringValue === "disponivel"
@@ -2063,8 +2063,6 @@ module.exports = async (req, res) => {
         const docId = phoneDigits;
         const existingRes = await fsReq(`leads_pool/${docId}`);
         const existingD = await existingRes.json();
-        // LOG TEMPORÁRIO DE DIAGNÓSTICO — remover depois de resolvido.
-        console.log(`[DIAGNÓSTICO importLeadsPool] docId=${docId} status=${existingRes.status} body=${JSON.stringify(existingD)}`);
         if (existingD.fields) { skipped++; continue; } // já existe, não sobrescreve
 
         const fields = toFsFields({
@@ -2168,7 +2166,7 @@ module.exports = async (req, res) => {
 
     if (action === "listLeadsPool") {
       const { onlyAvailable } = payload || {};
-      const r = await fsReq("leads_pool");
+      const r = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
       const d = await r.json();
       if (d.error) return res.status(200).json([]);
       let items = (d.documents || []).map((doc) => {
@@ -2220,7 +2218,7 @@ module.exports = async (req, res) => {
       // reseta à meia-noite UTC.
       const DAILY_CLAIM_LIMIT = 10;
       const todayStr = new Date().toISOString().slice(0, 10);
-      const allPoolRes = await fsReq("leads_pool");
+      const allPoolRes = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
       const allPoolD = await allPoolRes.json();
       const claimsToday = (allPoolD.documents || []).filter((doc) => {
         const f = doc.fields || {};
