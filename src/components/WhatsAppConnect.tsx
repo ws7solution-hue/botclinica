@@ -65,7 +65,56 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  async function handleEmbeddedSignup() {
+  // NOVO: extraída como função própria (não-async na assinatura de fora)
+  // porque o SDK da Meta faz uma checagem de tipo estrita no callback do
+  // FB.login e rejeita uma função "async" passada diretamente ali
+  // (erro: "Expression is of type asyncfunction, not function"). A lógica
+  // continua assíncrona por dentro, só a função em si não é declarada
+  // "async" — é chamada como uma IIFE async lá dentro.
+  function handleLoginCallback(response: any) {
+    (async () => {
+      if (!response.authResponse) {
+        setEsStatus('idle');
+        return; // usuário fechou/cancelou — não é erro, só volta ao normal
+      }
+      const code = response.authResponse.code;
+
+      // Dá um instante pro evento de "message" (com waba_id/phone_number_id)
+      // chegar, já que ele pode vir um pouco depois desse callback.
+      await new Promise(r => setTimeout(r, 800));
+
+      const { waba_id, phone_number_id } = esSessionData.current;
+      if (!waba_id || !phone_number_id) {
+        setEsStatus('error');
+        setEsError('Não conseguimos identificar o número conectado. Tenta de novo — se persistir, usa o botão de suporte abaixo.');
+        return;
+      }
+
+      setEsStatus('onboarding');
+      onAddSystemLog('info', 'Finalizando a conexão do WhatsApp da clínica...');
+
+      try {
+        const r = await fetch(`${CLOUDAPI_BASE}/onboard-clinic-whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clinicId, code, wabaId: waba_id, phoneNumberId: phone_number_id }),
+        });
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.error || 'Falha ao finalizar a conexão.');
+
+        setEsStatus('success');
+        setPhone(d.displayPhone || '');
+        setStatus('connected');
+        onAddSystemLog('success', 'WhatsApp conectado automaticamente com sucesso! 🎉');
+      } catch (e: any) {
+        setEsStatus('error');
+        setEsError(e.message);
+        onAddSystemLog('error', `Erro ao finalizar conexão: ${e.message}`);
+      }
+    })();
+  }
+
+  function handleEmbeddedSignup() {
     if (!window.FB) {
       setEsError('O sistema de login da Meta ainda está carregando — espera 2 segundos e tenta de novo.');
       setEsStatus('error');
@@ -76,46 +125,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
     esSessionData.current = {};
 
     window.FB.login(
-      async (response: any) => {
-        if (!response.authResponse) {
-          setEsStatus('idle');
-          return; // usuário fechou/cancelou — não é erro, só volta ao normal
-        }
-        const code = response.authResponse.code;
-
-        // Dá um instante pro evento de "message" (com waba_id/phone_number_id)
-        // chegar, já que ele pode vir um pouco depois desse callback.
-        await new Promise(r => setTimeout(r, 800));
-
-        const { waba_id, phone_number_id } = esSessionData.current;
-        if (!waba_id || !phone_number_id) {
-          setEsStatus('error');
-          setEsError('Não conseguimos identificar o número conectado. Tenta de novo — se persistir, usa o botão de suporte abaixo.');
-          return;
-        }
-
-        setEsStatus('onboarding');
-        onAddSystemLog('info', 'Finalizando a conexão do WhatsApp da clínica...');
-
-        try {
-          const r = await fetch(`${CLOUDAPI_BASE}/onboard-clinic-whatsapp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clinicId, code, wabaId: waba_id, phoneNumberId: phone_number_id }),
-          });
-          const d = await r.json();
-          if (!r.ok || d.error) throw new Error(d.error || 'Falha ao finalizar a conexão.');
-
-          setEsStatus('success');
-          setPhone(d.displayPhone || '');
-          setStatus('connected');
-          onAddSystemLog('success', 'WhatsApp conectado automaticamente com sucesso! 🎉');
-        } catch (e: any) {
-          setEsStatus('error');
-          setEsError(e.message);
-          onAddSystemLog('error', `Erro ao finalizar conexão: ${e.message}`);
-        }
-      },
+      handleLoginCallback,
       {
         config_id: META_CONFIG_ID,
         response_type: 'code',
