@@ -1,7 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Smartphone, AlertCircle, Loader, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 
 const WA_SERVICE = 'https://api.botclinica.com.br/wa';
+const CLOUDAPI_BASE = 'https://whatsapp.botclinica.com.br';
+
+// Dados fixos do App da Meta — o App ID é público (aparece até na URL do
+// painel de desenvolvedor), não é segredo. O App Secret NUNCA fica aqui no
+// frontend — ele mora só no backend (VPS), usado na troca do código.
+const META_APP_ID = '1350636587005556';
+const META_CONFIG_ID = '1698558158077812'; // "Cadastro Integrado com token de 60 dias"
+
+declare global {
+  interface Window {
+    fbAsyncInit?: () => void;
+    FB?: any;
+  }
+}
 
 interface WhatsAppConnectProps {
   clinicId: string;
@@ -15,6 +29,101 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
   const [error, setError] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const qrRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Embedded Signup (conexão automática, oficial) ─────────────────────
+  const [esStatus, setEsStatus] = useState<'idle' | 'connecting' | 'onboarding' | 'success' | 'error'>('idle');
+  const [esError, setEsError] = useState('');
+  const esSessionData = useRef<{ waba_id?: string; phone_number_id?: string }>({});
+
+  useEffect(() => {
+    // Inicializa o SDK do Facebook assim que ele terminar de carregar
+    // (carregado via <script> no index.html). Se já estiver pronto (SDK
+    // carregou antes desse componente montar), inicializa na hora.
+    const initFB = () => {
+      if (window.FB) {
+        window.FB.init({ appId: META_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' });
+      }
+    };
+    if (window.FB) initFB();
+    else window.fbAsyncInit = initFB;
+
+    // Escuta as mensagens que a Meta manda com o resultado do cadastro
+    // (WABA ID e Phone Number ID) — esse evento chega ANTES ou DEPOIS do
+    // callback do FB.login, então guardamos numa ref pra combinar os dois.
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.origin.endsWith('facebook.com')) return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
+          esSessionData.current = { waba_id: data.data.waba_id, phone_number_id: data.data.phone_number_id };
+        } else if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'CANCEL') {
+          onAddSystemLog('warning', 'Conexão do WhatsApp cancelada antes de terminar.');
+        }
+      } catch (e) { /* mensagens que não são JSON não interessam aqui */ }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  async function handleEmbeddedSignup() {
+    if (!window.FB) {
+      setEsError('O sistema de login da Meta ainda está carregando — espera 2 segundos e tenta de novo.');
+      setEsStatus('error');
+      return;
+    }
+    setEsStatus('connecting');
+    setEsError('');
+    esSessionData.current = {};
+
+    window.FB.login(
+      async (response: any) => {
+        if (!response.authResponse) {
+          setEsStatus('idle');
+          return; // usuário fechou/cancelou — não é erro, só volta ao normal
+        }
+        const code = response.authResponse.code;
+
+        // Dá um instante pro evento de "message" (com waba_id/phone_number_id)
+        // chegar, já que ele pode vir um pouco depois desse callback.
+        await new Promise(r => setTimeout(r, 800));
+
+        const { waba_id, phone_number_id } = esSessionData.current;
+        if (!waba_id || !phone_number_id) {
+          setEsStatus('error');
+          setEsError('Não conseguimos identificar o número conectado. Tenta de novo — se persistir, usa o botão de suporte abaixo.');
+          return;
+        }
+
+        setEsStatus('onboarding');
+        onAddSystemLog('info', 'Finalizando a conexão do WhatsApp da clínica...');
+
+        try {
+          const r = await fetch(`${CLOUDAPI_BASE}/onboard-clinic-whatsapp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clinicId, code, wabaId: waba_id, phoneNumberId: phone_number_id }),
+          });
+          const d = await r.json();
+          if (!r.ok || d.error) throw new Error(d.error || 'Falha ao finalizar a conexão.');
+
+          setEsStatus('success');
+          setPhone(d.displayPhone || '');
+          setStatus('connected');
+          onAddSystemLog('success', 'WhatsApp conectado automaticamente com sucesso! 🎉');
+        } catch (e: any) {
+          setEsStatus('error');
+          setEsError(e.message);
+          onAddSystemLog('error', `Erro ao finalizar conexão: ${e.message}`);
+        }
+      },
+      {
+        config_id: META_CONFIG_ID,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: { setup: {} },
+      }
+    );
+  }
 
   useEffect(() => {
     if (!clinicId) return;
@@ -204,13 +313,34 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         </div>
       )}
 
+      {esError && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-xs text-red-600 font-sans">{esError}</p>
+        </div>
+      )}
+
+      <button
+        onClick={handleEmbeddedSignup}
+        disabled={esStatus === 'connecting' || esStatus === 'onboarding'}
+        className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] disabled:opacity-70 disabled:cursor-wait text-white font-bold text-sm rounded-xl transition-colors font-sans"
+      >
+        {esStatus === 'connecting' && <><Loader className="w-4 h-4 animate-spin" /> Abrindo o cadastro da Meta...</>}
+        {esStatus === 'onboarding' && <><Loader className="w-4 h-4 animate-spin" /> Finalizando conexão...</>}
+        {(esStatus === 'idle' || esStatus === 'error') && <><Sparkles className="w-4 h-4" /> Conectar WhatsApp Automaticamente</>}
+      </button>
+
+      <p className="text-[10px] text-slate-400 font-sans text-center">
+        Conexão 100% automática — nossa equipe cuida de qualquer detalhe restante nos bastidores, sem você precisar fazer mais nada.
+      </p>
+
       <a
-        href={`https://wa.me/553191030288?text=${encodeURIComponent('Falar com atendente para ativar meu WhatsApp no painel.')}`}
+        href={`https://wa.me/553191030288?text=${encodeURIComponent('Preciso de ajuda para conectar meu WhatsApp no painel.')}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] text-white font-bold text-sm rounded-xl transition-colors font-sans"
+        className="w-full flex items-center justify-center gap-2 py-2 text-[#1A6FA8] font-sans text-xs hover:underline"
       >
-        <ShieldCheck className="w-4 h-4" /> Solicitar Conexão Oficial (Recomendado)
+        Prefere que a gente conecte pra você? Fala com o suporte
       </a>
     </div>
   );
