@@ -5,6 +5,7 @@ import DashboardOverview from './components/DashboardOverview';
 import ChatPanel from './components/ChatPanel';
 import CalendarPanel from './components/CalendarPanel';
 import DoctorsPanel from './components/DoctorsPanel';
+import ExamsPanel from './components/ExamsPanel';
 import UpdatesModal from './components/UpdatesModal';
 import { CURRENT_ANNOUNCEMENT } from './announcements';
 import SettingsPanel from './components/SettingsPanel';
@@ -24,6 +25,7 @@ import {
   Conversation, 
   Appointment, 
   Doctor, 
+  ExamType,
   SystemLogs,
   UserProfile,
   AtendiaPlan,
@@ -43,6 +45,7 @@ import {
   fbGetBotConfig,
   fbSaveDoctor, 
   fbDeleteDoctor, 
+  fbListExamTypes,
   fbGetClinicSettings,
   fbSaveClinicSettings,
   fbListAppointments, 
@@ -269,6 +272,18 @@ export default function App() {
       fbSaveClinicSettings({ ...(settings as any || {}), announcementStatus: newStatus }, clinicId).catch(() => {});
     }).catch(() => {});
   }, [isLoggedIn, userProfile.email]);
+
+  // NOVO: exames independentes de médico — persistência simples (cada ação
+  // já salva sozinha dentro do ExamsPanel).
+  const [examTypes, setExamTypes] = useState<ExamType[]>([]);
+  React.useEffect(() => {
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+    const clinicId = email.replace(/[@.]/g, '_');
+    fbListExamTypes(clinicId)
+      .then((list) => setExamTypes(list || []))
+      .catch((err) => console.error("Error fetching exam types:", err));
+  }, [userProfile.email]);
 
 
   // BUGFIX (22/07): o indicador "WhatsApp Online/Offline" era 100%
@@ -1177,6 +1192,15 @@ export default function App() {
               clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
               scheduleBlocks={scheduleBlocks}
               setScheduleBlocks={setScheduleBlocks}
+            />
+          )}
+
+          {activeTab === 'exams' && (
+            <ExamsPanel
+              examTypes={examTypes}
+              setExamTypes={setExamTypes}
+              onAddSystemLog={addSystemLog}
+              clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
             />
           )}
 

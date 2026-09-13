@@ -87,6 +87,31 @@ export interface Appointment {
   // É isso que decide se a consulta vira receita de verdade no Financeiro
   // (nunca antes disso, e nunca só por estar "confirmada").
   attendanceStatus?: 'pending' | 'attended' | 'no_show';
+  // NOVO: distingue agendamento de CONSULTA (com médico) de agendamento de
+  // EXAME (sem médico, ligado a um ExamType). Quando for 'exame',
+  // doctorId/doctorName ficam vazios e examTypeId/examTypeName são usados
+  // no lugar.
+  appointmentType?: 'consulta' | 'exame'; // default 'consulta' se ausente
+  examTypeId?: string;
+  examTypeName?: string;
+}
+
+// NOVO: um tipo de exame que a clínica oferece — pensado pra clínica de
+// diagnóstico/imagem onde o agendamento não depende de "qual médico", só
+// de qual exame e qual horário.
+export interface ExamType {
+  id: string;
+  name: string; // ex: "Ultrassom Abdominal", "Raio-X Tórax"
+  price: number;
+  isActive: boolean;
+  slotDuration: number; // duração do exame em minutos
+  attendanceDays: string[];
+  startTime: string;
+  endTime: string;
+  breakStart?: string;
+  breakEnd?: string;
+  preparationInstructions?: string; // ex: "Jejum de 8h", "Bexiga cheia"
+  additionalNotes?: string;
 }
 
 export interface UserProfile {
@@ -103,7 +128,7 @@ export interface UserProfile {
   firstAccess?: boolean;
 }
 
-export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'settings' | 'reports' | 'prontuario' | 'financeiro' | 'alerts' | 'documents';
+export type SidebarTab = 'overview' | 'chats' | 'calendar' | 'doctors' | 'exams' | 'settings' | 'reports' | 'prontuario' | 'financeiro' | 'alerts' | 'documents';
 
 export interface ClinicAlert {
   id: string;

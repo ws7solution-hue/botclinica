@@ -1,4 +1,4 @@
-import { Doctor, Appointment, Conversation } from './types';
+import { Doctor, Appointment, Conversation, ExamType } from './types';
 
 // ── Helper genérico (compatível com o estilo já usado no projeto) ──
 async function post(action: string, payload: Record<string, unknown> = {}) {
@@ -66,6 +66,20 @@ export async function fbSaveDoctor(clinicId: string, doctor: Doctor): Promise<vo
 
 export async function fbDeleteDoctor(clinicId: string, doctorId: string): Promise<void> {
   await post('deleteDoctor', { id: doctorId, clinicId: clinicId || '' });
+}
+
+// ── EXAMES (independentes de médico — agenda própria) ──
+export async function fbListExamTypes(clinicId: string): Promise<ExamType[]> {
+  const d = await post('listExamTypes', { clinicId: clinicId || '' });
+  return d.examTypes || [];
+}
+
+export async function fbSaveExamType(clinicId: string, examType: ExamType): Promise<void> {
+  await post('saveExamType', { examType, clinicId: clinicId || '' });
+}
+
+export async function fbDeleteExamType(clinicId: string, examTypeId: string): Promise<void> {
+  await post('deleteExamType', { id: examTypeId, clinicId: clinicId || '' });
 }
 
 // ── AGENDAMENTOS ──
