@@ -71,6 +71,8 @@ export default function Topbar({
         return 'Agenda Médica Integrada';
       case 'doctors':
         return 'Corpo Clínico & Especialistas';
+      case 'exams':
+        return 'Exames da Clínica';
       case 'reports':
         return 'Relatórios & Estatísticas de Conversão';
       case 'settings':
@@ -90,6 +92,8 @@ export default function Topbar({
         return 'Gerenciamento de consultas agendadas via WhatsApp e confirmação por lembretes.';
       case 'doctors':
         return 'Cadastro de profissionais, agendas de atendimento e controle de convênios.';
+      case 'exams':
+        return 'Exames com agenda própria, sem depender de um médico específico.';
       case 'reports':
         return 'Desempenho do bot, taxas de sucesso no agendamento e canais de maior engajamento.';
       case 'settings':
