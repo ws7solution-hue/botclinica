@@ -5,6 +5,8 @@ import DashboardOverview from './components/DashboardOverview';
 import ChatPanel from './components/ChatPanel';
 import CalendarPanel from './components/CalendarPanel';
 import DoctorsPanel from './components/DoctorsPanel';
+import UpdatesModal from './components/UpdatesModal';
+import { CURRENT_ANNOUNCEMENT } from './announcements';
 import SettingsPanel from './components/SettingsPanel';
 import AlertsPanel from './components/AlertsPanel';
 import DocumentsPanel from './components/DocumentsPanel';
@@ -41,6 +43,8 @@ import {
   fbGetBotConfig,
   fbSaveDoctor, 
   fbDeleteDoctor, 
+  fbGetClinicSettings,
+  fbSaveClinicSettings,
   fbListAppointments, 
   fbSaveAppointment, 
   fbListConversations, 
@@ -240,6 +244,32 @@ export default function App() {
   const [showFirstAccess, setShowFirstAccess] = useState(false);
   const [firstAccessIdToken, setFirstAccessIdToken] = useState('');
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+
+  // NOVO: modal de novidades ao logar — aparece até 2 vezes por clínica,
+  // e só de novo quando o "id" em src/announcements.ts mudar (nova
+  // novidade publicada). Não usa a conta demo, e não bloqueia nada além
+  // de si mesmo (fecha e segue o uso normal do app).
+  const [showUpdatesModal, setShowUpdatesModal] = useState(false);
+  React.useEffect(() => {
+    if (!isLoggedIn) return;
+    const email = (userProfile.email || localStorage.getItem('atendia_email') || '').trim().toLowerCase();
+    if (!email || email === DEMO_EMAIL) return;
+    const clinicId = email.replace(/[@.]/g, '_');
+
+    fbGetClinicSettings(clinicId).then((settings) => {
+      const status = (settings as any)?.announcementStatus;
+      const alreadySeenThisOne = status?.id === CURRENT_ANNOUNCEMENT.id;
+      const timesShown = alreadySeenThisOne ? (status.timesShown || 0) : 0;
+
+      if (timesShown >= 2) return; // já viu 2 vezes essa novidade, não mostra mais
+
+      setShowUpdatesModal(true);
+
+      const newStatus = { id: CURRENT_ANNOUNCEMENT.id, timesShown: timesShown + 1 };
+      fbSaveClinicSettings({ ...(settings as any || {}), announcementStatus: newStatus }, clinicId).catch(() => {});
+    }).catch(() => {});
+  }, [isLoggedIn, userProfile.email]);
+
 
   // BUGFIX (22/07): o indicador "WhatsApp Online/Offline" era 100%
   // decorativo — clicar nele só invertia uma variável local, sem checar
@@ -1221,6 +1251,14 @@ export default function App() {
             />
           )}
         </main>
+
+        {/* Modal de novidades ao logar */}
+        {showUpdatesModal && (
+          <UpdatesModal
+            announcement={CURRENT_ANNOUNCEMENT}
+            onClose={() => setShowUpdatesModal(false)}
+          />
+        )}
 
         {/* Alerta de Atendimento Humano */}
         {isLoggedIn && (
