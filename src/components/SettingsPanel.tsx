@@ -31,6 +31,8 @@ interface SettingsProps {
     clinicName: string;
     phone: string;
     clinicAddress?: string;
+    clinicOpenTime?: string;
+    clinicCloseTime?: string;
     welcomeMessage: string;
     allowDirectDoctorScheduling: boolean;
     enableAutoReminders: boolean;
@@ -67,6 +69,13 @@ export default function SettingsPanel({
   const [clinicName, setClinicName] = useState(botSettings.clinicName);
   const [phone, setPhone] = useState(botSettings.phone);
   const [clinicAddress, setClinicAddress] = useState(botSettings.clinicAddress || '');
+  // NOVO: teto de horário de funcionamento da clínica — opcional. Se
+  // preenchido, nenhum médico pode ter horário oferecido pelo bot fora
+  // dessa janela, mesmo que o cadastro individual dele seja mais
+  // permissivo. Também é o que corrige o bot de oferecer horário que já
+  // passou no dia (ex: 19h30 com expediente até 18h).
+  const [clinicOpenTime, setClinicOpenTime] = useState(botSettings.clinicOpenTime || '');
+  const [clinicCloseTime, setClinicCloseTime] = useState(botSettings.clinicCloseTime || '');
   const [welcomeMessage, setWelcomeMessage] = useState(botSettings.welcomeMessage);
   const [aiTone, setAiTone] = useState(botSettings.aiTone);
   const [allowDirectDoctorScheduling, setAllowDirectDoctorScheduling] = useState(botSettings.allowDirectDoctorScheduling);
@@ -91,6 +100,8 @@ export default function SettingsPanel({
     setClinicName(botSettings.clinicName);
     setPhone(botSettings.phone);
     setClinicAddress(botSettings.clinicAddress || '');
+    setClinicOpenTime(botSettings.clinicOpenTime || '');
+    setClinicCloseTime(botSettings.clinicCloseTime || '');
     setWelcomeMessage(botSettings.welcomeMessage);
     setAiTone(botSettings.aiTone);
     setAllowDirectDoctorScheduling(botSettings.allowDirectDoctorScheduling);
@@ -188,6 +199,8 @@ export default function SettingsPanel({
       clinicName,
       phone,
       clinicAddress,
+      clinicOpenTime,
+      clinicCloseTime,
       welcomeMessage,
       aiTone,
       allowDirectDoctorScheduling,
@@ -213,6 +226,8 @@ export default function SettingsPanel({
               aiTone,
               phone,
               clinicAddress,
+              clinicOpenTime,
+              clinicCloseTime,
               // BUGFIX: esses campos ficavam só no estado local da tela,
               // nunca eram salvos de verdade no Firestore — por isso o bot
               // (e agora o N8N) nunca conseguia enxergar as regras de
@@ -345,6 +360,36 @@ export default function SettingsPanel({
               />
               <p className="text-[10px] text-slate-400 mt-1 font-sans">
                 Usado pelo assistente virtual para informar a localização da clínica aos pacientes.
+              </p>
+            </div>
+
+            {/* Horário de Funcionamento da Clínica */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
+                Horário de Funcionamento da Clínica (opcional)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-sans block mb-1">Abre às</span>
+                  <input
+                    type="time"
+                    value={clinicOpenTime}
+                    onChange={(e) => setClinicOpenTime(e.target.value)}
+                    className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-sans block mb-1">Fecha às</span>
+                  <input
+                    type="time"
+                    value={clinicCloseTime}
+                    onChange={(e) => setClinicCloseTime(e.target.value)}
+                    className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#1A6FA8] font-sans"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                O bot nunca vai oferecer horário de consulta fora dessa janela, mesmo que o cadastro de um médico específico permita — funciona como um limite de segurança geral da clínica. Deixe em branco pra não aplicar nenhum limite (usa só o horário individual de cada médico).
               </p>
             </div>
 
