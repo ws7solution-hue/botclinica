@@ -1464,6 +1464,7 @@ function renderWaVendasList(list){
   const candidatoLabelMap = {
     conversando: ['Conversando', '#E0E7FF', '#3730A3'],
     aguardando_contato: ['Aguardando contato', '#DBEAFE', '#1e40af'],
+    sem_equipamento: ['Sem equipamento/reunião', '#FFEDD5', '#9A3412'],
     sem_experiencia: ['Sem experiência', '#F1F5F9', '#64748b'],
     entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
     entrevista_realizada: ['Entrevista realizada', '#EDE9FE', '#5B21B6'],
@@ -1536,6 +1537,7 @@ function renderWaVendasChat(conversa){
       <select class="form-input" style="width:auto;font-size:12px;padding:4px 8px" onchange="setCandidatoLabelFromChat('${conversa.id}', this.value)">
         <option value="conversando" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status||'conversando')==='conversando'?'selected':''}>Conversando</option>
         <option value="aguardando_contato" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='aguardando_contato'?'selected':''}>Aguardando contato</option>
+        <option value="sem_equipamento" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='sem_equipamento'?'selected':''}>Boa experiência, sem equipamento/reunião</option>
         <option value="sem_experiencia" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='sem_experiencia'?'selected':''}>Sem experiência</option>
         <option value="entrevista_marcada" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='entrevista_marcada'?'selected':''}>Entrevista marcada</option>
         <option value="entrevista_realizada" ${(candidatosParceiro.find(c=>c.id===conversa.id)?.status)==='entrevista_realizada'?'selected':''}>Entrevista realizada</option>
@@ -1779,6 +1781,7 @@ function renderParceiros(){
       <span>🎯 Candidatos a Parceiro</span>
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:11px;font-weight:600;color:var(--muted)">${candidatosParceiro.filter(c=>c.status==='aguardando_contato').length} aguardando contato</span>
+        <span style="font-size:11px;font-weight:600;color:#9A3412">${candidatosParceiro.filter(c=>c.status==='sem_equipamento').length} sem equipamento</span>
         <button class="btn btn-outline btn-sm" onclick="openCandidatoModal()">+ Cadastrar Candidato</button>
       </div>
     </div>
@@ -1789,6 +1792,7 @@ function renderParceiros(){
       const statusLabels = {
         conversando: ['Conversando com a Luna', '#E0E7FF', '#3730A3'],
         aguardando_contato: ['Aguardando contato', '#DBEAFE', '#1e40af'],
+        sem_equipamento: ['Boa experiência, sem equipamento/reunião', '#FFEDD5', '#9A3412'],
         sem_experiencia: ['Sem experiência declarada', '#F1F5F9', '#64748b'],
         entrevista_marcada: ['Entrevista marcada', '#FEF3C7', '#B45309'],
         entrevista_realizada: ['Entrevista realizada', '#EDE9FE', '#5B21B6'],
