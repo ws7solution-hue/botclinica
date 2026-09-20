@@ -745,9 +745,19 @@ module.exports = async (req, res) => {
       if (!examType?.id) return res.status(400).json({ error: "ID obrigatório" });
       const col = clinicId ? `examtypes_${emailToKey(clinicId)}` : "examtypes";
       const { attendanceDays, ...rest } = examType;
-      const r = await fsReq(`${col}/${examType.id}`, {
+      const fields = toFsFields(rest);
+      // BUGFIX (19/09): mesma causa raiz do bug fantasma dos leads da
+      // Piscina — PATCH sem updateMask explícito, dependendo do
+      // interceptador genérico, podia "aceitar" sem gravar de verdade um
+      // documento novo. Agora monta a URL com updateMask explícito desde
+      // o início, e confirma lendo de volta antes de considerar sucesso.
+      const maskParams = Object.keys(fields)
+        .map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`)
+        .join("&");
+      const r = await fetch(`${FS}/${col}/${examType.id}?key=${API_KEY}&${maskParams}`, {
         method: "PATCH",
-        body: JSON.stringify({ fields: toFsFields(rest) }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
       });
       const d = await r.json();
       // Array salvo separado com updateMask, senão o PATCH acima sobrescreve
@@ -763,6 +773,13 @@ module.exports = async (req, res) => {
         });
       }
       if (d.error) return res.status(200).json({ error: d.error.message });
+      // Confirmação extra: relê o documento antes de dizer sucesso, pra
+      // não repetir o mesmo engano de confiar só na ausência de erro.
+      const confirmRes = await fetch(`${FS}/${col}/${examType.id}?key=${API_KEY}`);
+      const confirmD = await confirmRes.json();
+      if (!confirmD.fields) {
+        return res.status(200).json({ error: `Gravação sem erro, mas o exame não ficou legível depois — tenta salvar de novo.` });
+      }
       return res.status(200).json({ ok: true });
     }
 
