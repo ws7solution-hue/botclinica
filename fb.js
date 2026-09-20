@@ -713,6 +713,84 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // ── EXAMES: listar (independente de médico, agenda própria) ──
+    if (action === "listExamTypes") {
+      const { clinicId } = payload;
+      const col = clinicId ? `examtypes_${emailToKey(clinicId)}` : "examtypes";
+      const r = await fetch(`${FS}/${col}?key=${API_KEY}&pageSize=300`);
+      const d = await r.json();
+      const docs = (d.documents || []).map(doc => {
+        const f = doc.fields || {};
+        const g = (k) => f[k]?.stringValue || "";
+        const arr = k => (f[k]?.arrayValue?.values || []).map(v => v.stringValue || "");
+        return {
+          id: doc.name.split("/").pop(),
+          name: g("name"),
+          price: parseFloat(f.price?.doubleValue || f.price?.integerValue || "0"),
+          isActive: f.isActive?.booleanValue !== false,
+          slotDuration: parseInt(f.slotDuration?.integerValue || f.slotDuration?.doubleValue || "30"),
+          attendanceDays: arr("attendanceDays"),
+          startTime: g("startTime"), endTime: g("endTime"),
+          breakStart: g("breakStart"), breakEnd: g("breakEnd"),
+          preparationInstructions: g("preparationInstructions"),
+          additionalNotes: g("additionalNotes"),
+        };
+      });
+      return res.status(200).json({ examTypes: docs });
+    }
+
+    // ── EXAMES: salvar ─────────────────────────────────────
+    if (action === "saveExamType") {
+      const { examType, clinicId } = payload;
+      if (!examType?.id) return res.status(400).json({ error: "ID obrigatório" });
+      const col = clinicId ? `examtypes_${emailToKey(clinicId)}` : "examtypes";
+      const { attendanceDays, ...rest } = examType;
+      const fields = toFsFields(rest);
+      // BUGFIX (19/09): mesma causa raiz do bug fantasma dos leads da
+      // Piscina — PATCH sem updateMask explícito, dependendo do
+      // interceptador genérico, podia "aceitar" sem gravar de verdade um
+      // documento novo. Agora monta a URL com updateMask explícito desde
+      // o início, e confirma lendo de volta antes de considerar sucesso.
+      const maskParams = Object.keys(fields)
+        .map(f => `updateMask.fieldPaths=${encodeURIComponent(f)}`)
+        .join("&");
+      const r = await fetch(`${FS}/${col}/${examType.id}?key=${API_KEY}&${maskParams}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const d = await r.json();
+      // Array salvo separado com updateMask, senão o PATCH acima sobrescreve
+      // o documento inteiro e apaga o resto (mesmo cuidado do saveDoctor).
+      if (attendanceDays) {
+        const url = `${FS}/${col}/${examType.id}?key=${API_KEY}&updateMask.fieldPaths=attendanceDays`;
+        await fetch(url, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: {
+            attendanceDays: { arrayValue: { values: attendanceDays.map(v => ({ stringValue: v })) } },
+          }}),
+        });
+      }
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      // Confirmação extra: relê o documento antes de dizer sucesso, pra
+      // não repetir o mesmo engano de confiar só na ausência de erro.
+      const confirmRes = await fetch(`${FS}/${col}/${examType.id}?key=${API_KEY}`);
+      const confirmD = await confirmRes.json();
+      if (!confirmD.fields) {
+        return res.status(200).json({ error: `Gravação sem erro, mas o exame não ficou legível depois — tenta salvar de novo.` });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── EXAMES: deletar ────────────────────────────────────
+    if (action === "deleteExamType") {
+      const { id, clinicId } = payload;
+      const col = clinicId ? `examtypes_${emailToKey(clinicId)}` : "examtypes";
+      await fsReq(`${col}/${id}`, { method: "DELETE" });
+      return res.status(200).json({ ok: true });
+    }
+
     // ── AGENDAMENTOS: listar ──────────────────────────────
     if (action === "listAppointments") {
       const { clinicId } = payload;
