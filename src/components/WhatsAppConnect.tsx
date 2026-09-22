@@ -84,9 +84,19 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
       }
       const code = response.authResponse.code;
 
-      // Dá um instante pro evento de "message" (com waba_id/phone_number_id)
-      // chegar, já que ele pode vir um pouco depois desse callback.
-      await new Promise(r => setTimeout(r, 800));
+      // BUGFIX (22/09): antes esperava só 800ms fixos pela mensagem da
+      // Meta com waba_id/phone_number_id — mas o fluxo completo (escolher
+      // portfólio, WABA, perfil, telefone, permissões) pode levar bem mais
+      // que isso pra clínica terminar de preencher, então o código desistia
+      // cedo demais achando que tinha dado erro. Agora espera de verdade,
+      // checando a cada 300ms, por até 3 minutos — só desiste se a
+      // mensagem realmente nunca chegar nesse tempo todo.
+      setEsStatus('connecting');
+      const START_WAIT_MS = Date.now();
+      const MAX_WAIT_MS = 3 * 60 * 1000;
+      while (!esSessionData.current.waba_id && (Date.now() - START_WAIT_MS) < MAX_WAIT_MS) {
+        await new Promise(r => setTimeout(r, 300));
+      }
 
       const { waba_id, phone_number_id } = esSessionData.current;
       if (!waba_id || !phone_number_id) {
@@ -340,7 +350,7 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         disabled={esStatus === 'connecting' || esStatus === 'onboarding'}
         className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A6FA8] hover:bg-[#135480] disabled:opacity-70 disabled:cursor-wait text-white font-bold text-sm rounded-xl transition-colors font-sans"
       >
-        {esStatus === 'connecting' && <><Loader className="w-4 h-4 animate-spin" /> Abrindo o cadastro da Meta...</>}
+        {esStatus === 'connecting' && <><Loader className="w-4 h-4 animate-spin" /> Aguardando você concluir na janela da Meta...</>}
         {esStatus === 'onboarding' && <><Loader className="w-4 h-4 animate-spin" /> Finalizando conexão...</>}
         {(esStatus === 'idle' || esStatus === 'error') && <><Sparkles className="w-4 h-4" /> Conectar WhatsApp Automaticamente</>}
       </button>
