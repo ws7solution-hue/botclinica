@@ -714,6 +714,105 @@ module.exports = async (req, res) => {
     }
 
     // ── EXAMES: listar (independente de médico, agenda própria) ──
+    // ── PERFIL DO WHATSAPP BUSINESS (foto, sobre, descrição, etc.) ────────
+    // Usa o token de acesso próprio da clínica (salvo no Embedded Signup),
+    // então não precisa de acesso visual à conta dela na Meta — tudo pela
+    // API direto, com o token que já temos guardado.
+    async function getClinicWhatsAppCreds(clinicId) {
+      const key = emailToKey(clinicId);
+      const credRes = await fetch(`${FS}/clinic_settings_${key}/whatsapp?key=${API_KEY}`);
+      const credData = await credRes.json();
+      const accessToken = credData.fields?.accessToken?.stringValue;
+      const acessoRes = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`);
+      const acessoData = await acessoRes.json();
+      const phoneNumberId = acessoData.fields?.phoneNumberId?.stringValue;
+      return { accessToken, phoneNumberId };
+    }
+
+    if (action === "getWhatsAppBusinessProfile") {
+      const { clinicId } = payload;
+      const { accessToken, phoneNumberId } = await getClinicWhatsAppCreds(clinicId);
+      if (!accessToken || !phoneNumberId) {
+        return res.status(200).json({ error: "Essa clínica ainda não tem WhatsApp conectado via Embedded Signup (sem token/número próprio salvo)." });
+      }
+      const fields = "about,address,description,email,profile_picture_url,websites,vertical";
+      const r = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile?fields=${fields}&access_token=${accessToken}`);
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      const profile = (d.data && d.data[0]) || {};
+      return res.status(200).json({ ok: true, profile });
+    }
+
+    if (action === "saveWhatsAppBusinessProfile") {
+      const { clinicId, profile } = payload;
+      const { accessToken, phoneNumberId } = await getClinicWhatsAppCreds(clinicId);
+      if (!accessToken || !phoneNumberId) {
+        return res.status(200).json({ error: "Essa clínica ainda não tem WhatsApp conectado via Embedded Signup." });
+      }
+      const body = { messaging_product: "whatsapp" };
+      // Só manda os campos preenchidos — a Meta reclama de campo vazio em
+      // alguns casos (ex: website inválido), então evita mandar string vazia.
+      if (profile.about) body.about = profile.about;
+      if (profile.address) body.address = profile.address;
+      if (profile.description) body.description = profile.description;
+      if (profile.email) body.email = profile.email;
+      if (profile.vertical) body.vertical = profile.vertical;
+      if (profile.websites && profile.websites.length > 0) body.websites = profile.websites.filter(Boolean);
+      if (profile.profile_picture_handle) body.profile_picture_handle = profile.profile_picture_handle;
+
+      const r = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === "uploadWhatsAppProfilePhoto") {
+      const { clinicId, imageBase64, mimeType } = payload;
+      const { accessToken, phoneNumberId } = await getClinicWhatsAppCreds(clinicId);
+      if (!accessToken || !phoneNumberId) {
+        return res.status(200).json({ error: "Essa clínica ainda não tem WhatsApp conectado via Embedded Signup." });
+      }
+      const APP_ID_UPLOAD = "1350636587005556";
+      const buffer = Buffer.from(imageBase64, "base64");
+
+      // Passo 1 — abre uma sessão de upload (API de Upload Retomável da Meta)
+      const sessionRes = await fetch(
+        `https://graph.facebook.com/v21.0/${APP_ID_UPLOAD}/uploads?file_length=${buffer.length}&file_type=${encodeURIComponent(mimeType)}&access_token=${accessToken}`,
+        { method: "POST" }
+      );
+      const sessionData = await sessionRes.json();
+      if (sessionData.error) return res.status(200).json({ error: `Falha ao abrir upload: ${sessionData.error.message}` });
+      const uploadSessionId = sessionData.id;
+
+      // Passo 2 — envia os bytes da imagem de verdade
+      const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${uploadSessionId}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `OAuth ${accessToken}`,
+          "file_offset": "0",
+        },
+        body: buffer,
+      });
+      const uploadData = await uploadRes.json();
+      if (uploadData.error) return res.status(200).json({ error: `Falha ao enviar imagem: ${uploadData.error.message}` });
+      const handle = uploadData.h;
+      if (!handle) return res.status(200).json({ error: "Upload não retornou um identificador válido (h)." });
+
+      // Passo 3 — aplica essa foto como a foto de perfil do WhatsApp
+      const applyRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", profile_picture_handle: handle }),
+      });
+      const applyData = await applyRes.json();
+      if (applyData.error) return res.status(200).json({ error: `Falha ao aplicar a foto: ${applyData.error.message}` });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "listExamTypes") {
       const { clinicId } = payload;
       const col = clinicId ? `examtypes_${emailToKey(clinicId)}` : "examtypes";
