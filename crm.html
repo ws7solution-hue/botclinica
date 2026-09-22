@@ -362,6 +362,54 @@ tr:hover td{background:rgba(26,111,168,.04)}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-wa-profile">
+  <div class="modal" style="max-width:520px">
+    <h2>Perfil do WhatsApp — <span id="wap-cliente-nome"></span></h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px" id="wap-status-msg">Carregando dados atuais...</p>
+
+    <div id="wap-form-body" style="display:none">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <img id="wap-photo-preview" src="" alt="Foto do perfil" style="width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--subtle);border:1px solid var(--border)" onerror="this.style.display='none'"/>
+        <div>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer">
+            📷 Trocar foto
+            <input type="file" id="wap-photo-input" accept="image/jpeg,image/png" style="display:none" onchange="handleWaPhotoSelected(this)"/>
+          </label>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">JPG ou PNG, formato quadrado funciona melhor</div>
+        </div>
+      </div>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Sobre (status curto, até 139 caracteres)</label>
+      <input class="form-input" id="wap-about" maxlength="139" style="margin-bottom:12px" placeholder="Ex: Atendimento via WhatsApp"/>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Descrição do negócio</label>
+      <textarea class="form-input" id="wap-description" rows="3" style="margin-bottom:12px" placeholder="Ex: Clínica médica especializada em..."></textarea>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Endereço</label>
+      <input class="form-input" id="wap-address" style="margin-bottom:12px" placeholder="Rua, número, bairro, cidade - UF"/>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">E-mail de contato</label>
+      <input class="form-input" id="wap-email" type="email" style="margin-bottom:12px" placeholder="contato@clinica.com.br"/>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Site (opcional)</label>
+      <input class="form-input" id="wap-website" style="margin-bottom:12px" placeholder="https://..."/>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Categoria do negócio</label>
+      <select class="form-input" id="wap-vertical" style="margin-bottom:4px">
+        <option value="">Selecione...</option>
+        <option value="HEALTH">Saúde</option>
+        <option value="PROF_SERVICES">Serviços Profissionais</option>
+        <option value="OTHER">Outro</option>
+      </select>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeWaProfileModal()">Fechar</button>
+      <button class="btn btn-primary" id="wap-save-btn" onclick="saveWaProfile()" style="display:none">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const CRM_PWD = "botclinica2026";
 const PROXY = "/api/fb";
@@ -972,6 +1020,7 @@ function renderClienteRows(){
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="openModal('${c.id}')">✏️</button>
         <button class="btn btn-outline btn-sm" onclick="openAddonModal('${c.id}','${(c.email||'').replace(/'/g,"\\'")}')" title="Gerenciar add-ons pagos">🧩</button>
+        <button class="btn btn-outline btn-sm" onclick="openWaProfileModal('${c.id}','${(c.email||'').replace(/'/g,"\\'")}')" title="Editar perfil do WhatsApp (foto, sobre, etc.)">📱</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCliente('${c.id}','${c.nome||c.email}')">🗑️</button>
       </td>
     </tr>`;
@@ -2841,6 +2890,114 @@ function showAddonDurationPicker(){
   document.getElementById('addon-duration-picker').style.display = 'block';
   document.getElementById('addon-activate-btn').style.display = 'none';
   document.getElementById('addon-confirm-btn').style.display = 'inline-flex';
+}
+
+// ── PERFIL DO WHATSAPP (foto, sobre, descrição, etc.) ──────────────────
+let waProfileClientId = null;
+let waProfilePhotoBase64 = null;
+let waProfilePhotoMime = null;
+
+function closeWaProfileModal(){
+  document.getElementById('modal-wa-profile').classList.remove('open');
+  waProfilePhotoBase64 = null;
+  waProfilePhotoMime = null;
+}
+
+async function openWaProfileModal(clientId, clientEmail){
+  waProfileClientId = clientId;
+  waProfilePhotoBase64 = null;
+  waProfilePhotoMime = null;
+  document.getElementById('wap-cliente-nome').textContent = clientEmail;
+  document.getElementById('wap-status-msg').textContent = 'Carregando dados atuais...';
+  document.getElementById('wap-form-body').style.display = 'none';
+  document.getElementById('wap-save-btn').style.display = 'none';
+  document.getElementById('modal-wa-profile').classList.add('open');
+
+  const r = await api('getWhatsAppBusinessProfile', { clinicId: clientId });
+  if (r.error) {
+    document.getElementById('wap-status-msg').textContent = '⚠️ ' + r.error;
+    return;
+  }
+  const p = r.profile || {};
+  document.getElementById('wap-about').value = p.about || '';
+  document.getElementById('wap-description').value = p.description || '';
+  document.getElementById('wap-address').value = p.address || '';
+  document.getElementById('wap-email').value = p.email || '';
+  document.getElementById('wap-website').value = (p.websites && p.websites[0]) || '';
+  document.getElementById('wap-vertical').value = p.vertical || '';
+  const preview = document.getElementById('wap-photo-preview');
+  if (p.profile_picture_url) {
+    preview.src = p.profile_picture_url;
+    preview.style.display = '';
+  } else {
+    preview.style.display = 'none';
+  }
+  document.getElementById('wap-status-msg').textContent = 'Editando o perfil que os pacientes veem no WhatsApp dessa clínica.';
+  document.getElementById('wap-form-body').style.display = '';
+  document.getElementById('wap-save-btn').style.display = 'inline-flex';
+}
+
+function handleWaPhotoSelected(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    toast('Imagem muito grande — escolha uma de até 5MB.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = reader.result; // data:image/png;base64,AAAA...
+    const [meta, base64] = result.split(',');
+    waProfilePhotoMime = meta.match(/data:(.*);base64/)[1];
+    waProfilePhotoBase64 = base64;
+    document.getElementById('wap-photo-preview').src = result;
+    document.getElementById('wap-photo-preview').style.display = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveWaProfile(){
+  const btn = document.getElementById('wap-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    // Se uma foto nova foi escolhida, sobe ela primeiro (é uma chamada
+    // separada, em 2 etapas na Meta — upload, depois aplicar).
+    if (waProfilePhotoBase64) {
+      const photoRes = await api('uploadWhatsAppProfilePhoto', {
+        clinicId: waProfileClientId,
+        imageBase64: waProfilePhotoBase64,
+        mimeType: waProfilePhotoMime,
+      });
+      if (photoRes.error) {
+        toast('Erro ao enviar a foto: ' + photoRes.error);
+        btn.disabled = false;
+        btn.textContent = '💾 Salvar';
+        return;
+      }
+    }
+
+    const profile = {
+      about: document.getElementById('wap-about').value.trim(),
+      description: document.getElementById('wap-description').value.trim(),
+      address: document.getElementById('wap-address').value.trim(),
+      email: document.getElementById('wap-email').value.trim(),
+      websites: [document.getElementById('wap-website').value.trim()].filter(Boolean),
+      vertical: document.getElementById('wap-vertical').value,
+    };
+    const r = await api('saveWhatsAppBusinessProfile', { clinicId: waProfileClientId, profile });
+    if (r.error) {
+      toast('Erro ao salvar: ' + r.error);
+    } else {
+      toast('✅ Perfil do WhatsApp atualizado com sucesso.');
+      closeWaProfileModal();
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Salvar';
+  }
 }
 
 async function confirmActivateAddon(){
