@@ -145,7 +145,12 @@ export default function WhatsAppConnect({ clinicId, onAddSystemLog }: WhatsAppCo
         config_id: META_CONFIG_ID,
         response_type: 'code',
         override_default_response_type: true,
-        extras: { setup: {} },
+        // BUGFIX (22/09): faltava "sessionInfoVersion" — sem isso, a Meta
+        // não manda de volta o evento WA_EMBEDDED_SIGNUP com waba_id e
+        // phone_number_id (fica só no protocolo antigo, sem esse detalhe).
+        // Confirmado na documentação oficial de implementações de Tech
+        // Provider (Telnyx/Kapso), que usam exatamente esses 3 campos.
+        extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
       }
     );
   }
