@@ -760,7 +760,7 @@ module.exports = async (req, res) => {
       if (profile.websites && profile.websites.length > 0) body.websites = profile.websites.filter(Boolean);
       if (profile.profile_picture_handle) body.profile_picture_handle = profile.profile_picture_handle;
 
-      const r = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile`, {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile?access_token=${accessToken}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -803,7 +803,7 @@ module.exports = async (req, res) => {
       if (!handle) return res.status(200).json({ error: "Upload não retornou um identificador válido (h)." });
 
       // Passo 3 — aplica essa foto como a foto de perfil do WhatsApp
-      const applyRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile`, {
+      const applyRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/whatsapp_business_profile?access_token=${accessToken}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messaging_product: "whatsapp", profile_picture_handle: handle }),
