@@ -57,6 +57,17 @@ module.exports = async (req, res) => {
         if (email) {
           await activateAccount({ email, plano, clinicName, adminName, addon: addon === 'true' });
           console.log(`✅ Conta ativada: ${email} — Plano: ${plano}${addon === 'true' ? ' + Add-on Documentos' : ''}`);
+
+          // NOVO: avisa o dono na hora que uma venda nova acontece, pra
+          // ele conseguir marcar uma reunião de boas-vindas ou ligar pra
+          // clínica assim que ela compra — sem isso, ele só ficava sabendo
+          // se entrasse no painel/Stripe manualmente de vez em quando.
+          const valorPago = session.amount_total ? (session.amount_total / 100).toFixed(2) : '?';
+          notifyOwner(
+            '🎉 Nova venda confirmada!',
+            `${clinicName || email} acabou de assinar o plano ${plano || 'desconhecido'} (R$ ${valorPago}). Contato: ${adminName || ''} — ${email}. Já pode marcar uma reunião de boas-vindas ou ligar pra ela.`,
+            'https://botclinica.com.br/crm'
+          ).catch(() => {});
         }
         break;
       }
@@ -351,6 +362,20 @@ async function setStatusPagamento({ email, statusPagamento, proximaCobranca, ati
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields }),
   });
+}
+
+// ── Avisa o dono (push + WhatsApp), reaproveitando o endpoint que já existe
+// na VPS pra isso — mesmo mecanismo usado pros outros alertas do sistema.
+async function notifyOwner(title, body, url) {
+  try {
+    await fetch('https://whatsapp.botclinica.com.br/notify-owner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, url }),
+    });
+  } catch (e) {
+    console.error('❌ Falha ao notificar o dono sobre a venda:', e.message);
+  }
 }
 
 // ── Helper para ler o corpo bruto da requisição ──────────────────────────────
