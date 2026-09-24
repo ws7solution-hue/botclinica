@@ -694,7 +694,9 @@ export default function App() {
   // Global Appointment Modal states
   const [modalPatientName, setModalPatientName] = useState('');
   const [modalPatientPhone, setModalPatientPhone] = useState('');
+  const [modalBookingType, setModalBookingType] = useState<'consulta' | 'exame'>('consulta');
   const [modalDoctorId, setModalDoctorId] = useState('');
+  const [modalExamTypeId, setModalExamTypeId] = useState('');
   const [modalDayOfWeek, setModalDayOfWeek] = useState('');
   const [modalSpecificDate, setModalSpecificDate] = useState<string | null>(null);
   const [modalTime, setModalTime] = useState('');
@@ -756,7 +758,10 @@ export default function App() {
   };
 
   // Generate time slots for doctor respecting duration and breaks
-  const getDoctorTimeSlots = (doctor: Doctor) => {
+  // NOVO: generalizado pra aceitar tanto Doctor quanto ExamType — os dois
+  // compartilham os mesmos nomes de campo de horário (startTime, endTime,
+  // slotDuration, breakStart/End), então funciona sem duplicar a função.
+  const getDoctorTimeSlots = (doctor: { startTime?: string; endTime?: string; slotDuration?: number; breakStart?: string; breakEnd?: string; break2Start?: string; break2End?: string }) => {
     const start = doctor.startTime || '08:00';
     const end = doctor.endTime || '18:00';
     const duration = doctor.slotDuration || 30; // padrão 30 minutos
@@ -787,6 +792,8 @@ export default function App() {
     if (quickAddOpen) {
       setModalPatientName(prefilledPatientName);
       setModalPatientPhone(prefilledPatientPhone);
+      setModalBookingType('consulta');
+      setModalExamTypeId('');
       
       // Auto-select first active doctor in active specialties
       const activeDocs = doctors.filter(d => d.isActive && specialties.includes(d.specialty));
@@ -809,6 +816,72 @@ export default function App() {
   // Handle global scheduling submit
   const handleGlobalScheduleAppointment = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (modalBookingType === 'exame') {
+      if (!modalPatientName.trim() || !modalPatientPhone.trim() || !modalExamTypeId || !modalDayOfWeek || !modalTime) {
+        alert("Por favor, preencha todos os campos.");
+        return;
+      }
+      const examType = examTypes.find(e => e.id === modalExamTypeId);
+      if (!examType) return;
+
+      const computedDate = modalSpecificDate || getNextDateForDayOfWeek(modalDayOfWeek);
+
+      const isOccupied = appointments.some(appt =>
+        appt.examTypeId === examType.id &&
+        appt.date === computedDate &&
+        appt.time === modalTime &&
+        appt.status !== 'canceled'
+      );
+      if (isOccupied) {
+        alert("Desculpe, este horário acabou de ser ocupado. Por favor, selecione outro horário disponível.");
+        return;
+      }
+
+      const newAppointment: Appointment = {
+        id: `appt-${Date.now()}`,
+        patientName: modalPatientName.trim(),
+        patientPhone: modalPatientPhone.trim(),
+        doctorId: '',
+        doctorName: '',
+        specialty: '',
+        appointmentType: 'exame',
+        examTypeId: examType.id,
+        examTypeName: examType.name,
+        date: computedDate,
+        time: modalTime,
+        status: 'confirmed',
+        reminderSent: true,
+        reminderStatus: 'sent'
+      };
+
+      setAppointments(prev => [newAppointment, ...prev]);
+      addSystemLog('success', `Exame agendado via painel: ${newAppointment.patientName} — ${examType.name} na ${getDayLabel(modalDayOfWeek)} (${formatDateBR(computedDate)}) às ${modalTime}.`);
+
+      const existingConv = conversations.find(c => c.patientPhone === newAppointment.patientPhone);
+      if (!existingConv) {
+        const nowTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        setConversations(prev => [
+          {
+            id: newAppointment.patientPhone.replace(/[^a-zA-Z0-9]/g, '_'),
+            patientName: newAppointment.patientName,
+            patientPhone: newAppointment.patientPhone,
+            status: 'resolved',
+            lastMessage: `Exame agendado: ${examType.name}`,
+            lastMessageTime: nowTime,
+            unreadCount: 0,
+            avatarColor: 'bg-blue-500',
+            category: 'Agendamento',
+            messages: [],
+          },
+          ...prev,
+        ]);
+      }
+
+      setQuickAddOpen(false); setModalSpecificDate(null);
+      return;
+    }
+
     if (!modalPatientName.trim() || !modalPatientPhone.trim() || !modalDoctorId || !modalDayOfWeek || !modalTime) {
       alert("Por favor, preencha todos os campos.");
       return;
@@ -844,6 +917,7 @@ export default function App() {
       doctorId: doctor.id,
       doctorName: doctor.name,
       specialty: doctor.specialty,
+      appointmentType: 'consulta',
       date: computedDate,
       time: modalTime,
       status: 'confirmed', // Confirmed automatically
@@ -1230,6 +1304,7 @@ export default function App() {
             <FinanceiroPanel
               clinicId={userProfile.email || localStorage.getItem('atendia_email') || ''}
               doctors={doctors}
+              examTypes={examTypes}
               appointments={appointments}
               conversations={conversations}
               currentPlan={currentPlan}
@@ -1377,7 +1452,7 @@ export default function App() {
               <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800 font-sans flex items-center gap-2">
                   <CalendarCheck className="w-5 h-5 text-[#1A6FA8]" />
-                  Marcar Nova Consulta Médica
+                  {modalBookingType === 'exame' ? 'Marcar Novo Exame' : 'Marcar Nova Consulta Médica'}
                 </h3>
                 <button 
                   onClick={() => { setQuickAddOpen(false); setModalSpecificDate(null); }}
@@ -1388,6 +1463,27 @@ export default function App() {
               </div>
 
               <form onSubmit={handleGlobalScheduleAppointment} className="p-5 space-y-4">
+
+                {/* Tipo de agendamento — só mostra o toggle se a clínica tiver
+                    algum exame cadastrado; senão nem precisa poluir a tela */}
+                {examTypes.length > 0 && (
+                  <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => { setModalBookingType('consulta'); setModalTime(''); setModalDayOfWeek(''); }}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-md font-sans transition-colors ${modalBookingType === 'consulta' ? 'bg-white text-[#1A6FA8] shadow-sm' : 'text-slate-500'}`}
+                    >
+                      Consulta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setModalBookingType('exame'); setModalTime(''); setModalDayOfWeek(''); }}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-md font-sans transition-colors ${modalBookingType === 'exame' ? 'bg-white text-[#1A6FA8] shadow-sm' : 'text-slate-500'}`}
+                    >
+                      Exame
+                    </button>
+                  </div>
+                )}
                 
                 {/* Patient Name */}
                 <div>
@@ -1427,7 +1523,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Doctor Selector */}
+                {/* Doctor Selector — só pra Consulta */}
+                {modalBookingType === 'consulta' && (
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
                     Médico Especialista *
@@ -1461,13 +1558,59 @@ export default function App() {
                     </select>
                   </div>
                 </div>
+                )}
+
+                {/* Exam Type Selector — só pra Exame */}
+                {modalBookingType === 'exame' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-sans mb-1">
+                    Tipo de Exame *
+                  </label>
+                  <div className="relative">
+                    <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <select
+                      id="modal-exam-type-id"
+                      required
+                      value={modalExamTypeId}
+                      onChange={(e) => {
+                        const examId = e.target.value;
+                        setModalExamTypeId(examId);
+                        const selectedExam = examTypes.find(ex => ex.id === examId);
+                        if (selectedExam && selectedExam.attendanceDays?.length > 0) {
+                          setModalDayOfWeek(selectedExam.attendanceDays[0]);
+                        } else {
+                          setModalDayOfWeek('');
+                        }
+                        setModalTime('');
+                      }}
+                      className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-600 focus:outline-hidden focus:border-[#1A6FA8] focus:ring-1 focus:ring-[#1A6FA8] font-sans"
+                    >
+                      <option value="">Selecione um exame...</option>
+                      {examTypes
+                        .filter(ex => ex.isActive)
+                        .map(ex => (
+                          <option key={ex.id} value={ex.id}>{ex.name}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                  {(() => {
+                    const selectedExam = examTypes.find(ex => ex.id === modalExamTypeId);
+                    return selectedExam?.preparationInstructions ? (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1.5 mt-1.5 font-sans">
+                        💡 Preparo: {selectedExam.preparationInstructions}
+                      </p>
+                    ) : null;
+                  })()}
+                </div>
+                )}
 
                 {/* Day of week & Time grid */}
                 {modalSpecificDate && (
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 text-[#1A6FA8]" />
                     <span className="text-[11px] font-bold text-[#1A6FA8] font-sans">
-                      Consulta será marcada para {formatDateBR(modalSpecificDate)} (data escolhida no calendário)
+                      {modalBookingType === 'exame' ? 'Exame será marcado' : 'Consulta será marcada'} para {formatDateBR(modalSpecificDate)} (data escolhida no calendário)
                     </span>
                   </div>
                 )}
@@ -1480,7 +1623,7 @@ export default function App() {
                     <select
                       id="modal-day-of-week"
                       required
-                      disabled={!modalDoctorId}
+                      disabled={modalBookingType === 'consulta' ? !modalDoctorId : !modalExamTypeId}
                       value={modalDayOfWeek}
                       onChange={(e) => {
                         setModalDayOfWeek(e.target.value);
@@ -1488,15 +1631,28 @@ export default function App() {
                       }}
                       className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white text-slate-600 focus:outline-hidden focus:border-[#1A6FA8] focus:ring-1 focus:ring-[#1A6FA8] font-sans disabled:bg-slate-50 disabled:text-slate-400"
                     >
-                      {!modalDoctorId ? (
-                        <option value="">Selecione o médico...</option>
+                      {modalBookingType === 'consulta' ? (
+                        !modalDoctorId ? (
+                          <option value="">Selecione o médico...</option>
+                        ) : (
+                          <>
+                            <option value="">Selecione o dia...</option>
+                            {(doctors.find(d => d.id === modalDoctorId)?.attendanceDays || []).map(day => (
+                              <option key={day} value={day}>{getDayLabel(day)}</option>
+                            ))}
+                          </>
+                        )
                       ) : (
-                        <>
-                          <option value="">Selecione o dia...</option>
-                          {(doctors.find(d => d.id === modalDoctorId)?.attendanceDays || []).map(day => (
-                            <option key={day} value={day}>{getDayLabel(day)}</option>
-                          ))}
-                        </>
+                        !modalExamTypeId ? (
+                          <option value="">Selecione o exame...</option>
+                        ) : (
+                          <>
+                            <option value="">Selecione o dia...</option>
+                            {(examTypes.find(ex => ex.id === modalExamTypeId)?.attendanceDays || []).map(day => (
+                              <option key={day} value={day}>{getDayLabel(day)}</option>
+                            ))}
+                          </>
+                        )
                       )}
                     </select>
                   </div>
@@ -1509,14 +1665,14 @@ export default function App() {
                     <select
                       id="modal-appointment-time"
                       required
-                      disabled={!modalDoctorId || !modalDayOfWeek}
+                      disabled={(modalBookingType === 'consulta' ? !modalDoctorId : !modalExamTypeId) || !modalDayOfWeek}
                       value={modalTime}
                       onChange={(e) => setModalTime(e.target.value)}
                       className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white text-slate-600 focus:outline-hidden focus:border-[#1A6FA8] focus:ring-1 focus:ring-[#1A6FA8] font-sans disabled:bg-slate-50 disabled:text-slate-400"
                     >
-                      {!modalDoctorId || !modalDayOfWeek ? (
+                      {(modalBookingType === 'consulta' ? !modalDoctorId : !modalExamTypeId) || !modalDayOfWeek ? (
                         <option value="">Selecione o dia...</option>
-                      ) : (
+                      ) : modalBookingType === 'consulta' ? (
                         <>
                           <option value="">Selecione o horário...</option>
                           {(() => {
@@ -1551,17 +1707,47 @@ export default function App() {
                             });
                           })()}
                         </>
+                      ) : (
+                        <>
+                          <option value="">Selecione o horário...</option>
+                          {(() => {
+                            const selectedExam = examTypes.find(ex => ex.id === modalExamTypeId);
+                            if (!selectedExam) return null;
+                            const slots = getDoctorTimeSlots(selectedExam);
+                            const computedDate = modalSpecificDate || getNextDateForDayOfWeek(modalDayOfWeek);
+
+                            return slots.map(slotTime => {
+                              const isOccupied = appointments.some(appt =>
+                                appt.date === computedDate &&
+                                appt.time === slotTime &&
+                                appt.status !== 'canceled' &&
+                                appt.examTypeId === selectedExam.id
+                              );
+
+                              return (
+                                <option
+                                  key={slotTime}
+                                  value={slotTime}
+                                  disabled={isOccupied}
+                                  className={isOccupied ? 'text-slate-350 line-through bg-slate-50' : 'text-slate-850 font-semibold'}
+                                >
+                                  {slotTime} {isOccupied ? '(Ocupado)' : '(Livre)'}
+                                </option>
+                              );
+                            });
+                          })()}
+                        </>
                       )}
                     </select>
                   </div>
                 </div>
 
                 {/* Computed Date Subtitle Info */}
-                {modalDoctorId && modalDayOfWeek && (
+                {((modalBookingType === 'consulta' && modalDoctorId) || (modalBookingType === 'exame' && modalExamTypeId)) && modalDayOfWeek && (
                   <div className="p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg flex items-center gap-2 text-[10.5px] text-[#1A6FA8] font-sans">
                     <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span>
-                      Consulta agendada para: <strong className="font-bold">{getDayLabel(modalDayOfWeek)} ({formatDateBR(getNextDateForDayOfWeek(modalDayOfWeek))})</strong>
+                      {modalBookingType === 'exame' ? 'Exame agendado para' : 'Consulta agendada para'}: <strong className="font-bold">{getDayLabel(modalDayOfWeek)} ({formatDateBR(getNextDateForDayOfWeek(modalDayOfWeek))})</strong>
                     </span>
                   </div>
                 )}
