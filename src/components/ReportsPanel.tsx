@@ -483,12 +483,12 @@ export default function ReportsPanel({
 
 ${appointments.length > 0 ? `
 <table>
-  <thead><tr><th>Paciente</th><th>Médico</th><th>Data</th><th>Horário</th><th>Status</th></tr></thead>
+  <thead><tr><th>Paciente</th><th>Médico/Exame</th><th>Data</th><th>Horário</th><th>Status</th></tr></thead>
   <tbody>
     ${appointments.slice(0, 20).map(a => `
     <tr>
       <td>${a.patientName || '—'}</td>
-      <td>${a.doctorName || '—'}</td>
+      <td>${a.appointmentType === 'exame' || a.examTypeName ? (a.examTypeName || 'Exame') + ' (exame)' : (a.doctorName || '—')}</td>
       <td>${a.date ? new Date(a.date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
       <td>${a.time || '—'}</td>
       <td><span class="badge ${a.status === 'confirmed' ? 'badge-green' : a.status === 'canceled' ? 'badge-red' : 'badge-blue'}">${a.status === 'confirmed' ? 'Confirmado' : a.status === 'canceled' ? 'Cancelado' : 'Pendente'}</span></td>

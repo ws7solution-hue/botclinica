@@ -415,7 +415,10 @@ export default function CalendarPanel({
                       </div>
 
                       <p className="text-xs text-slate-600 mt-1 font-sans flex items-center gap-1">
-                        Consulta com <strong className="font-semibold text-[#1A6FA8]">{appt.doctorName}</strong> ({appt.specialty})
+                        {appt.appointmentType === 'exame' || appt.examTypeName
+                          ? <>Exame: <strong className="font-semibold text-[#1A6FA8]">{appt.examTypeName || 'não especificado'}</strong></>
+                          : <>Consulta com <strong className="font-semibold text-[#1A6FA8]">{appt.doctorName}</strong> ({appt.specialty})</>
+                        }
                       </p>
 
                       <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-slate-400 font-mono">

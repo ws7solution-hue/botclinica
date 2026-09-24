@@ -30,11 +30,24 @@ interface FinanceiroEntry {
 interface FinanceiroPanelProps {
   clinicId: string;
   doctors: Doctor[];
+  examTypes?: any[];
   appointments: Appointment[];
   conversations: Conversation[];
   currentPlan: AtendiaPlan;
   onAddSystemLog: (type: 'info' | 'success' | 'warning' | 'error', message: string) => void;
   setActiveTab?: (tab: any) => void;
+}
+
+// NOVO: calcula o valor de um agendamento — consulta (pelo médico) ou
+// exame (pelo tipo de exame). Sem isso, receita de exame não aparecia
+// em lugar nenhum do Financeiro, já que exame não tem médico associado.
+function getAppointmentValue(a: any, doctors: Doctor[], examTypes: any[]): number {
+  if (a.appointmentType === 'exame' || a.examTypeName) {
+    const exam = (examTypes || []).find((e: any) => e.name === a.examTypeName || e.id === a.examTypeId);
+    return exam ? Number((exam as any).price || 0) : 0;
+  }
+  const doctor = doctors.find((d) => d.name === a.doctorName || d.id === a.doctorId);
+  return doctor ? Number((doctor as any).consultationFee || (doctor as any).price || 0) : 0;
 }
 
 const DESPESA_CATEGORIES = [
@@ -60,7 +73,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function FinanceiroPanel({ clinicId, doctors, appointments, conversations, currentPlan, onAddSystemLog, setActiveTab }: FinanceiroPanelProps) {
+export default function FinanceiroPanel({ clinicId, doctors, examTypes = [], appointments, conversations, currentPlan, onAddSystemLog, setActiveTab }: FinanceiroPanelProps) {
   const [crmSearch, setCrmSearch] = useState('');
   const [selectedPatientPhone, setSelectedPatientPhone] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
@@ -184,20 +197,22 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
     return (appointments || [])
       .filter((a: any) => a.attendanceStatus === 'attended')
       .map((a: any) => {
-        const doctor = doctors.find((d) => d.name === a.doctorName || d.id === a.doctorId);
-        const fee = doctor ? Number((doctor as any).consultationFee || (doctor as any).price || 0) : 0;
+        const fee = getAppointmentValue(a, doctors, examTypes);
+        const isExame = a.appointmentType === 'exame' || a.examTypeName;
         return {
           id: `auto_${a.id}`,
           type: 'receita' as const,
-          category: 'Consulta (agendamento)',
-          description: `${a.patientName || 'Paciente'} — ${a.doctorName || 'Médico'}`,
+          category: isExame ? 'Exame (agendamento)' : 'Consulta (agendamento)',
+          description: isExame
+            ? `${a.patientName || 'Paciente'} — ${a.examTypeName || 'Exame'}`
+            : `${a.patientName || 'Paciente'} — ${a.doctorName || 'Médico'}`,
           amount: fee,
           date: a.date,
           source: 'auto',
         };
       })
       .filter((e) => e.amount > 0);
-  }, [appointments, doctors]);
+  }, [appointments, doctors, examTypes]);
 
   const manualEntries = entries;
 
@@ -445,9 +460,7 @@ export default function FinanceiroPanel({ clinicId, doctors, appointments, conve
           appointmentsCount: 0, totalSpent: 0, hasFuture: false, hasPast: false, lastContact: '',
         };
       }
-      const doctor = doctors.find((d) => d.name === a.doctorName || d.id === a.doctorId);
-      const fee = doctor ? Number((doctor as any).consultationFee || (doctor as any).price || 0) : 0;
-      byPhone[phone].appointmentsCount += 1;
+      const fee = getAppointmentValue(a, doctors, examTypes);
       byPhone[phone].totalSpent += fee;
       if (a.date >= todayStr) byPhone[phone].hasFuture = true;
       if (a.date < todayStr) byPhone[phone].hasPast = true;
