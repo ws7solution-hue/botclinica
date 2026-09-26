@@ -439,6 +439,7 @@ function renderAvailablePool(){
       ${l.sinalPotencial?`<div style="font-size:12px;color:var(--navy);margin-top:4px;font-weight:600">💡 ${l.sinalPotencial}</div>`:''}
       <div class="lead-actions">
         <button class="btn-sm" style="background:var(--green);color:#fff" onclick="claimPoolLead('${l.id}')">✋ Pegar esse lead</button>
+        <button class="btn-sm" style="background:#F1F5F9;color:var(--red)" onclick="markPoolLeadNoWhatsapp('${l.id}','${l.nome.replace(/'/g,"\\'")}')" title="Marca como sem WhatsApp, sem precisar reivindicar — remove da piscina pra todo mundo">📵 Sem WhatsApp</button>
       </div>
     </div>
   `).join('');
@@ -453,6 +454,14 @@ async function claimPoolLead(id){
   await loadAvailablePool();
   await loadMyLeads();
   switchLeadsTab('mine');
+}
+
+async function markPoolLeadNoWhatsapp(id, nome){
+  if(!confirm(`Confirma que "${nome}" não tem WhatsApp? Isso remove ela da piscina pra todo mundo, sem gastar uma das suas reivindicações do dia.`)) return;
+  const r = await api('markPoolLeadNoWhatsapp', {leadPoolId: id, partnerId: currentPartner.id});
+  if(r.error){ toast(r.error); return; }
+  toast('📵 Marcado — essa clínica saiu da piscina.');
+  await loadAvailablePool();
 }
 
 // ── Leads ───────────────────────────────────────────────────────────────
