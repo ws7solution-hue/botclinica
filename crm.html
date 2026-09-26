@@ -1899,7 +1899,7 @@ function renderParceiros(){
       ✅ <strong>Pode subir o mesmo arquivo de novo sem medo</strong> — quem já está na piscina (identificado pelo telefone) é pulado automaticamente, nunca duplica.
     </div>
     <div style="margin-top:14px" id="poolNormalView">
-      <input type="text" id="poolSearchInput" placeholder="🔎 Buscar por nome ou telefone..." oninput="renderLeadsPoolList()" style="margin-bottom:10px"/>
+      <input type="text" id="poolSearchInput" placeholder="🔎 Buscar por nome ou telefone..." oninput="poolCurrentPage=1;renderLeadsPoolList()" style="margin-bottom:10px"/>
       <div id="leadsPoolListContainer"></div>
     </div>
     <div style="margin-top:14px" id="importStagingContainer"></div>
@@ -2051,6 +2051,9 @@ function renderParceiros(){
   renderLeadsPoolList();
 }
 
+let poolPageSize = 20;
+let poolCurrentPage = 1;
+
 function renderLeadsPoolList(){
   const container = document.getElementById('leadsPoolListContainer');
   if(!container) return; // aba ainda não montada nessa passada
@@ -2064,10 +2067,32 @@ function renderLeadsPoolList(){
     return;
   }
 
-  container.innerHTML = `<div class="table-wrap"><table>
+  // NOVO: paginação — com a piscina passando de centenas de leads,
+  // renderizar tudo de uma vez deixava a tela pesada de rolar.
+  const totalPages = Math.max(1, Math.ceil(filtrados.length / poolPageSize));
+  if(poolCurrentPage > totalPages) poolCurrentPage = totalPages;
+  if(poolCurrentPage < 1) poolCurrentPage = 1;
+  const startIdx = (poolCurrentPage - 1) * poolPageSize;
+  const pageItems = filtrados.slice(startIdx, startIdx + poolPageSize);
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--muted)">
+        Mostrando ${startIdx + 1}–${Math.min(startIdx + poolPageSize, filtrados.length)} de ${filtrados.length}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+        <label for="poolPageSizeSelect">Por página:</label>
+        <select id="poolPageSizeSelect" onchange="changePoolPageSize(this.value)" style="padding:4px 8px">
+          <option value="10" ${poolPageSize===10?'selected':''}>10</option>
+          <option value="20" ${poolPageSize===20?'selected':''}>20</option>
+          <option value="50" ${poolPageSize===50?'selected':''}>50</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
     <thead><tr><th>Nome</th><th>Cidade</th><th>Telefone</th><th>Tipo</th><th>Status</th><th></th></tr></thead>
     <tbody>
-      ${filtrados.map(l => `
+      ${pageItems.map(l => `
         <tr>
           <td><strong>${l.nome}</strong></td>
           <td>${l.cidade||'—'}</td>
@@ -2078,7 +2103,24 @@ function renderLeadsPoolList(){
         </tr>
       `).join('')}
     </tbody>
-  </table></div>`;
+    </table></div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px">
+      <button class="btn btn-outline btn-sm" onclick="changePoolPage(-1)" ${poolCurrentPage<=1?'disabled':''}>← Anterior</button>
+      <span style="font-size:12px;color:var(--muted)">Página ${poolCurrentPage} de ${totalPages}</span>
+      <button class="btn btn-outline btn-sm" onclick="changePoolPage(1)" ${poolCurrentPage>=totalPages?'disabled':''}>Próxima →</button>
+    </div>
+  `;
+}
+
+function changePoolPage(delta){
+  poolCurrentPage += delta;
+  renderLeadsPoolList();
+}
+
+function changePoolPageSize(value){
+  poolPageSize = Number(value);
+  poolCurrentPage = 1;
+  renderLeadsPoolList();
 }
 
 async function corrigirEstadosVazios(){
