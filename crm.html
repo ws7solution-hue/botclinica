@@ -1894,6 +1894,18 @@ function renderParceiros(){
       <div style="color:var(--muted)">Limite: 10 reivindicações/dia por parceiro · devolução automática à piscina após 3 dias sem progresso</div>
       <button class="btn btn-outline btn-sm" onclick="corrigirEstadosVazios()" style="margin-top:8px">🔧 Corrigir leads antigos sem estado (uso único)</button>
     </div>
+    <div style="display:flex;gap:24px;padding:0 4px 12px;font-size:13px;flex-wrap:wrap;border-top:1px solid #eee;padding-top:12px">
+      <div>📵 WhatsApp: <strong style="color:var(--green)">${leadsPool.filter(l=>l.waStatus==='confirmado').length} confirmado</strong> · <strong style="color:var(--red)">${leadsPool.filter(l=>l.waStatus==='sem_whatsapp').length} sem WhatsApp</strong> · <strong style="color:var(--muted)">${leadsPool.filter(l=>!l.waStatus).length} não verificado</strong></div>
+    </div>
+    <div style="padding:0 4px 10px 4px">
+      <label for="poolWaFilterSelect" style="font-size:12px">Filtrar por WhatsApp:</label>
+      <select id="poolWaFilterSelect" onchange="poolCurrentPage=1;renderLeadsPoolList()" style="padding:4px 8px;margin-left:6px">
+        <option value="">Todos</option>
+        <option value="confirmado">✅ Confirmado</option>
+        <option value="sem_whatsapp">📵 Sem WhatsApp</option>
+        <option value="nao_verificado">⏳ Não verificado</option>
+      </select>
+    </div>
     <div style="padding:0 4px;font-size:11px;color:var(--muted)">
       CSV esperado com colunas: <code>nome,cidade,estado,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios — "estado" deve ser a sigla, tipo MG, SP, RJ)<br/>
       ✅ <strong>Pode subir o mesmo arquivo de novo sem medo</strong> — quem já está na piscina (identificado pelo telefone) é pulado automaticamente, nunca duplica.
@@ -2058,9 +2070,13 @@ function renderLeadsPoolList(){
   const container = document.getElementById('leadsPoolListContainer');
   if(!container) return; // aba ainda não montada nessa passada
   const termo = (document.getElementById('poolSearchInput')?.value || '').toLowerCase().trim();
-  const filtrados = termo
+  const waFilter = document.getElementById('poolWaFilterSelect')?.value || '';
+  let filtrados = termo
     ? leadsPool.filter(l => l.nome.toLowerCase().includes(termo) || (l.telefone||'').includes(termo))
     : leadsPool;
+  if(waFilter === 'confirmado') filtrados = filtrados.filter(l => l.waStatus === 'confirmado');
+  else if(waFilter === 'sem_whatsapp') filtrados = filtrados.filter(l => l.waStatus === 'sem_whatsapp');
+  else if(waFilter === 'nao_verificado') filtrados = filtrados.filter(l => !l.waStatus);
 
   if(filtrados.length === 0){
     container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nenhum lead encontrado.</div>';
@@ -2090,7 +2106,7 @@ function renderLeadsPoolList(){
       </div>
     </div>
     <div class="table-wrap"><table>
-    <thead><tr><th>Nome</th><th>Cidade</th><th>Telefone</th><th>Tipo</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Nome</th><th>Cidade</th><th>Telefone</th><th>Tipo</th><th>Status</th><th>WhatsApp</th><th></th></tr></thead>
     <tbody>
       ${pageItems.map(l => `
         <tr>
@@ -2099,6 +2115,16 @@ function renderLeadsPoolList(){
           <td>${l.telefone||'—'}</td>
           <td>${l.tipo||'—'}</td>
           <td><span class="badge ${l.status==='disponivel'?'badge-blue':'badge-yellow'}">${l.status==='disponivel'?'Disponível':'Reivindicado'}</span></td>
+          <td>
+            ${l.waStatus==='confirmado' ? '<span class="badge" style="background:#DCFCE7;color:#166534">✅ Confirmado</span>' :
+              l.waStatus==='sem_whatsapp' ? '<span class="badge" style="background:#FEE2E2;color:#991B1B">📵 Sem WhatsApp</span>' :
+              '<span class="badge badge-yellow">⏳ Não verificado</span>'}
+            <div style="display:flex;gap:4px;margin-top:4px">
+              <a class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none;padding:2px 6px" href="https://wa.me/55${(l.telefone||'').replace(/\\D/g,'').replace(/^55/,'')}" target="_blank" title="Abrir WhatsApp">💬</a>
+              <button class="btn btn-sm" style="padding:2px 6px" onclick="markLeadWaStatus('${l.id}','confirmado')" title="Marcar como confirmado">✅</button>
+              <button class="btn btn-sm" style="padding:2px 6px" onclick="markLeadWaStatus('${l.id}','sem_whatsapp')" title="Marcar como sem WhatsApp">📵</button>
+            </div>
+          </td>
           <td><button class="btn btn-danger btn-sm" onclick="deleteLeadFromPool('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️</button></td>
         </tr>
       `).join('')}
@@ -2131,6 +2157,14 @@ async function corrigirEstadosVazios(){
   toast(`✅ ${r.corrigidos} lead(s) corrigido(s) com o estado certo.`);
   await loadLeadsPool();
   renderLeadsPoolList();
+}
+
+async function markLeadWaStatus(id, waStatus){
+  const lead = leadsPool.find(l => l.id === id);
+  if(lead) lead.waStatus = waStatus; // atualiza local pra resposta instantânea na tela
+  renderLeadsPoolList();
+  const r = await api('setLeadPoolWaStatus', {id, waStatus});
+  if(r.error){ toast('Erro ao marcar: ' + r.error); await loadLeadsPool(); renderLeadsPoolList(); return; }
 }
 
 async function deleteLeadFromPool(id, nome){

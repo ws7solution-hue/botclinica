@@ -311,6 +311,8 @@ function openWhatsAppForLead(id){
 // ── Piscina de leads (clínicas encontradas, disponíveis pra reivindicar) ──
 let availablePool = [];
 let currentPoolStateFilter = null; // null = mostra todos os estados
+let poolPartnerPageSize = 20;
+let poolPartnerCurrentPage = 1;
 
 // Mapa em "grade" (tile-grid) do Brasil — cada estado é um quadradinho na
 // posição relativa real dele (Norte em cima, Sul embaixo). Escolhido em vez
@@ -355,6 +357,7 @@ async function loadAvailablePool(){
 
 function selectPoolState(uf){
   currentPoolStateFilter = (currentPoolStateFilter === uf) ? null : uf;
+  poolPartnerCurrentPage = 1;
   renderAvailablePool();
 }
 
@@ -362,7 +365,7 @@ function renderPoolMap(){
   // Conta quantos leads disponíveis existem em cada estado, pra colorir o
   // mapa com intensidade — quanto mais escuro, mais lead esperando lá.
   const contagemPorEstado = {};
-  availablePool.forEach(l => {
+  availablePool.filter(l => l.waStatus !== 'sem_whatsapp').forEach(l => {
     const uf = (l.estado || '').toUpperCase();
     if (uf) contagemPorEstado[uf] = (contagemPorEstado[uf] || 0) + 1;
   });
@@ -409,23 +412,53 @@ function renderPoolMap(){
 }
 
 function renderAvailablePool(){
-  document.getElementById('tab-count-pool').textContent = availablePool.length;
   const el = document.getElementById('pool-list');
 
   const poolMapHtml = renderPoolMap();
 
+  // NOVO: quem já foi marcado como "sem WhatsApp" (por qualquer parceiro,
+  // ou pelo admin no CRM) nunca mais aparece aqui — não faz sentido
+  // mostrar pro próximo parceiro algo que já sabemos que é ruim.
+  const semSemWhatsapp = availablePool.filter(l => l.waStatus !== 'sem_whatsapp');
+  document.getElementById('tab-count-pool').textContent = semSemWhatsapp.length;
+
   const filtrados = currentPoolStateFilter
-    ? availablePool.filter(l => (l.estado || '').toUpperCase() === currentPoolStateFilter)
-    : availablePool;
+    ? semSemWhatsapp.filter(l => (l.estado || '').toUpperCase() === currentPoolStateFilter)
+    : semSemWhatsapp;
 
   if(availablePool.length===0){
     el.innerHTML = poolMapHtml + '<div class="empty">Nenhum lead disponível na piscina agora. Volta mais tarde — novas clínicas são adicionadas periodicamente.</div>';
     return;
   }
 
-  const listaHtml = filtrados.length === 0
-    ? `<div class="empty">Nenhum lead disponível em ${currentPoolStateFilter} no momento.</div>`
-    : filtrados.map(l => `
+  if(filtrados.length === 0){
+    el.innerHTML = poolMapHtml + `<div class="empty">Nenhum lead disponível${currentPoolStateFilter ? ' em ' + currentPoolStateFilter : ''} no momento.</div>`;
+    return;
+  }
+
+  // Paginação — com centenas de leads na piscina, mostrar tudo de uma vez
+  // deixava a rolagem impraticável, ainda mais no celular.
+  const totalPages = Math.max(1, Math.ceil(filtrados.length / poolPartnerPageSize));
+  if(poolPartnerCurrentPage > totalPages) poolPartnerCurrentPage = totalPages;
+  if(poolPartnerCurrentPage < 1) poolPartnerCurrentPage = 1;
+  const startIdx = (poolPartnerCurrentPage - 1) * poolPartnerPageSize;
+  const pageItems = filtrados.slice(startIdx, startIdx + poolPartnerPageSize);
+
+  const paginacaoHtml = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;font-size:12px">
+      <div style="color:var(--muted)">Mostrando ${startIdx + 1}–${Math.min(startIdx + poolPartnerPageSize, filtrados.length)} de ${filtrados.length}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label for="poolPartnerPageSizeSelect">Por página:</label>
+        <select id="poolPartnerPageSizeSelect" onchange="changePoolPartnerPageSize(this.value)" style="padding:4px 8px">
+          <option value="10" ${poolPartnerPageSize===10?'selected':''}>10</option>
+          <option value="20" ${poolPartnerPageSize===20?'selected':''}>20</option>
+          <option value="50" ${poolPartnerPageSize===50?'selected':''}>50</option>
+        </select>
+      </div>
+    </div>
+  `;
+
+  const listaHtml = pageItems.map(l => `
     <div class="lead-item">
       <div class="top">
         <div>
@@ -444,7 +477,26 @@ function renderAvailablePool(){
     </div>
   `).join('');
 
-  el.innerHTML = poolMapHtml + listaHtml;
+  const paginacaoRodapeHtml = `
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px">
+      <button class="btn-sm" onclick="changePoolPartnerPage(-1)" ${poolPartnerCurrentPage<=1?'disabled':''}>← Anterior</button>
+      <span style="font-size:12px;color:var(--muted)">Página ${poolPartnerCurrentPage} de ${totalPages}</span>
+      <button class="btn-sm" onclick="changePoolPartnerPage(1)" ${poolPartnerCurrentPage>=totalPages?'disabled':''}>Próxima →</button>
+    </div>
+  `;
+
+  el.innerHTML = poolMapHtml + paginacaoHtml + listaHtml + paginacaoRodapeHtml;
+}
+
+function changePoolPartnerPage(delta){
+  poolPartnerCurrentPage += delta;
+  renderAvailablePool();
+}
+
+function changePoolPartnerPageSize(value){
+  poolPartnerPageSize = Number(value);
+  poolPartnerCurrentPage = 1;
+  renderAvailablePool();
 }
 
 async function claimPoolLead(id){
