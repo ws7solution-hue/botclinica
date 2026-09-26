@@ -2360,10 +2360,22 @@ module.exports = async (req, res) => {
 
     if (action === "listLeadsPool") {
       const { onlyAvailable } = payload || {};
-      const r = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
-      const d = await r.json();
-      if (d.error) return res.status(200).json([]);
-      let items = (d.documents || []).map((doc) => {
+      // BUGFIX (26/09): antes só buscava a 1ª página (até 300 documentos)
+      // e parava — com a piscina passando de 300 documentos, mais da
+      // metade ficava invisível pro CRM sem nenhum aviso. Agora segue o
+      // nextPageToken até esgotar todas as páginas de verdade.
+      let allDocs = [];
+      let pageToken = null;
+      do {
+        const url = `${FS}/leads_pool?key=${API_KEY}&pageSize=300` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+        const r = await fetch(url);
+        const d = await r.json();
+        if (d.error) break;
+        allDocs = allDocs.concat(d.documents || []);
+        pageToken = d.nextPageToken || null;
+      } while (pageToken);
+
+      let items = allDocs.map((doc) => {
         const f = doc.fields || {};
         return {
           id: doc.name.split("/").pop(),
