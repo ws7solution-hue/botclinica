@@ -112,6 +112,11 @@ export interface ExamType {
   breakEnd?: string;
   preparationInstructions?: string; // ex: "Jejum de 8h", "Bexiga cheia"
   additionalNotes?: string;
+  // Repasse financeiro — mesmo padrão já usado em Doctor. Sem isso
+  // configurado, o Financeiro não sabe quanto desse exame fica pra
+  // clínica e mostra um aviso de "repasse não configurado".
+  repasseType?: 'percentual' | 'fixo';
+  repasseValue?: number;
 }
 
 export interface UserProfile {
