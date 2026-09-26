@@ -40,6 +40,8 @@ export default function ExamsPanel({ examTypes, setExamTypes, onAddSystemLog, cl
   const [formPreparationInstructions, setFormPreparationInstructions] = useState('');
   const [formAdditionalNotes, setFormAdditionalNotes] = useState('');
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formRepasseType, setFormRepasseType] = useState<'percentual' | 'fixo'>('percentual');
+  const [formRepasseValue, setFormRepasseValue] = useState<number>(100);
 
   const filteredExams = useMemo(() => {
     if (!searchTerm.trim()) return examTypes;
@@ -59,6 +61,8 @@ export default function ExamsPanel({ examTypes, setExamTypes, onAddSystemLog, cl
     setFormPreparationInstructions('');
     setFormAdditionalNotes('');
     setFormIsActive(true);
+    setFormRepasseType('percentual');
+    setFormRepasseValue(100);
     setEditingExam(null);
   }
 
@@ -80,6 +84,8 @@ export default function ExamsPanel({ examTypes, setExamTypes, onAddSystemLog, cl
     setFormPreparationInstructions(exam.preparationInstructions || '');
     setFormAdditionalNotes(exam.additionalNotes || '');
     setFormIsActive(exam.isActive);
+    setFormRepasseType(exam.repasseType || 'percentual');
+    setFormRepasseValue(exam.repasseValue ?? 100);
     setIsFormOpen(true);
   }
 
@@ -114,6 +120,8 @@ export default function ExamsPanel({ examTypes, setExamTypes, onAddSystemLog, cl
         preparationInstructions: formPreparationInstructions || undefined,
         additionalNotes: formAdditionalNotes || undefined,
         isActive: formIsActive,
+        repasseType: formRepasseType,
+        repasseValue: Number(formRepasseValue),
       };
       await fbSaveExamType(clinicId || '', examData);
       setExamTypes(prev => {
@@ -339,6 +347,52 @@ export default function ExamsPanel({ examTypes, setExamTypes, onAddSystemLog, cl
                   rows={2}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-sans"
                 />
+              </div>
+
+              {/* Repasse financeiro — quanto fica pra clínica em cada exame */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 space-y-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 font-sans">Repasse Financeiro</h4>
+                  <p className="text-[10px] text-slate-400 font-sans">
+                    Define quanto fica pra clínica em cada exame feito — usado pra calcular o repasse automaticamente no Financeiro. Deixe 100% se o exame não tiver repasse pra ninguém.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 font-sans block">Tipo de repasse</label>
+                    <select
+                      value={formRepasseType}
+                      onChange={(e) => setFormRepasseType(e.target.value as 'percentual' | 'fixo')}
+                      className="w-full p-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-1 focus:ring-[#1A6FA8] focus:border-[#1A6FA8] focus:outline-hidden font-sans"
+                    >
+                      <option value="percentual">% sobre o exame</option>
+                      <option value="fixo">Valor fixo por exame</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 font-sans block">
+                      {formRepasseType === 'percentual' ? '% que fica pra clínica' : 'R$ que fica pra clínica'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold font-mono">
+                        {formRepasseType === 'percentual' ? '%' : 'R$'}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max={formRepasseType === 'percentual' ? 100 : undefined}
+                        value={formRepasseValue}
+                        onChange={(e) => setFormRepasseValue(Number(e.target.value))}
+                        className="w-full pl-8 pr-3 p-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-[#1A6FA8] focus:border-[#1A6FA8] focus:outline-hidden font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 font-sans bg-white p-2 rounded-lg border border-slate-100">
+                  {formRepasseType === 'percentual'
+                    ? `Ex: exame de R$${formPrice} → clínica fica com R$${(formPrice * formRepasseValue / 100).toFixed(2)}, repasse de R$${(formPrice * (100 - formRepasseValue) / 100).toFixed(2)}.`
+                    : `Ex: exame de R$${formPrice} → clínica fica com R$${formRepasseValue.toFixed(2)}, repasse de R$${Math.max(0, formPrice - formRepasseValue).toFixed(2)}.`}
+                </p>
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer">

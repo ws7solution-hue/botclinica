@@ -227,28 +227,29 @@ export default function FinanceiroPanel({ clinicId, doctors, examTypes = [], app
   const receitasNoPeriodo = allReceitas.filter((e) => inRange(e.date));
   const despesasNoPeriodo = allDespesas.filter((e) => inRange(e.date));
 
-  // Quanto das receitas geradas por consulta na verdade pertence ao médico
-  // (repasse/comissão) — sem descontar isso, o "Lucro Líquido" mostraria o
-  // valor CHEIO da consulta como se fosse tudo da clínica, o que está
-  // errado sempre que o médico é comissionado (padrão comum de mercado).
+  // Quanto das receitas geradas por consulta OU exame na verdade não fica
+  // com a clínica (repasse/comissão) — sem descontar isso, o "Lucro
+  // Líquido" mostraria o valor CHEIO como se fosse tudo da clínica.
   const calcRepasseAosMedicos = (entriesList: any[]) => {
     return entriesList.reduce((sum: number, e: any) => {
-      const doctorName = e.description?.split(' — ')[1];
-      if (!doctorName) return sum;
-      const doctor = doctors.find((d) => d.name === doctorName);
-      if (!doctor || !doctor.repasseType || doctor.repasseValue == null) return sum;
+      const nome = e.description?.split(' — ')[1];
+      if (!nome) return sum;
+      const doctor = doctors.find((d) => d.name === nome);
+      const exam = !doctor ? examTypes.find((ex: any) => ex.name === nome) : null;
+      const source = doctor || exam;
+      if (!source || !source.repasseType || source.repasseValue == null) return sum;
       const amount = Number(e.amount || 0);
-      if (doctor.repasseType === 'percentual') {
-        return sum + amount * (1 - doctor.repasseValue / 100);
+      if (source.repasseType === 'percentual') {
+        return sum + amount * (1 - source.repasseValue / 100);
       }
-      const clinicaFica = Math.min(amount, doctor.repasseValue);
+      const clinicaFica = Math.min(amount, source.repasseValue);
       return sum + (amount - clinicaFica);
     }, 0);
   };
 
   const totalRepasseAosMedicos = useMemo(
     () => calcRepasseAosMedicos(receitasNoPeriodo),
-    [receitasNoPeriodo, doctors]
+    [receitasNoPeriodo, doctors, examTypes]
   );
 
   const totalReceitas = receitasNoPeriodo.reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -327,18 +328,20 @@ export default function FinanceiroPanel({ clinicId, doctors, examTypes = [], app
   // ── Ranking de médicos: receita, nº de consultas, ticket médio, e o
   // repasse (quanto fica pra clínica vs quanto vai pro médico) ────────────
   const rankingMedicos = useMemo(() => {
-    const map: Record<string, { name: string; specialty: string; count: number; total: number; repasseType?: 'percentual' | 'fixo'; repasseValue?: number }> = {};
+    const map: Record<string, { name: string; specialty: string; count: number; total: number; repasseType?: 'percentual' | 'fixo'; repasseValue?: number; isExame?: boolean }> = {};
     receitasNoPeriodo.forEach((e: any) => {
       const name = e.description?.split(' — ')[1] || 'Outros';
       if (!map[name]) {
         const doctor = doctors.find((d) => d.name === name);
+        const exam = !doctor ? examTypes.find((ex: any) => ex.name === name) : null;
         map[name] = {
           name,
-          specialty: (doctor as any)?.specialty || '',
+          specialty: (doctor as any)?.specialty || (exam ? 'Exame' : ''),
           count: 0,
           total: 0,
-          repasseType: (doctor as any)?.repasseType,
-          repasseValue: (doctor as any)?.repasseValue,
+          repasseType: (doctor as any)?.repasseType ?? (exam as any)?.repasseType,
+          repasseValue: (doctor as any)?.repasseValue ?? (exam as any)?.repasseValue,
+          isExame: !!exam,
         };
       }
       map[name].count += 1;
@@ -939,15 +942,15 @@ export default function FinanceiroPanel({ clinicId, doctors, examTypes = [], app
                   {m.clinicaFica != null && m.medicoRecebe != null ? (
                     <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-4 text-[10px] font-sans">
                       <span className="text-slate-500">
-                        Repasse configurado ({m.repasseType === 'percentual' ? `${m.repasseValue}% pra clínica` : `${formatBRL(m.repasseValue || 0)}/consulta pra clínica`}):
+                        Repasse configurado ({m.repasseType === 'percentual' ? `${m.repasseValue}% pra clínica` : `${formatBRL(m.repasseValue || 0)}/${m.isExame ? 'exame' : 'consulta'} pra clínica`}):
                       </span>
                       <span className="font-bold text-[#1A6FA8]">Clínica: {formatBRL(m.clinicaFica)}</span>
-                      <span className="font-bold text-emerald-600">Médico recebe: {formatBRL(m.medicoRecebe)}</span>
+                      <span className="font-bold text-emerald-600">{m.isExame ? 'Repasse' : 'Médico recebe'}: {formatBRL(m.medicoRecebe)}</span>
                     </div>
                   ) : (
                     <div className="mt-2 pt-2 border-t border-slate-100">
                       <span className="text-[10px] text-amber-600 font-sans">
-                        ⚠️ Repasse não configurado pra esse médico — vá em Médicos → Editar pra definir.
+                        ⚠️ Repasse não configurado {m.isExame ? 'pra esse exame — vá em Exames → Editar pra definir' : 'pra esse médico — vá em Médicos → Editar pra definir'}.
                       </span>
                     </div>
                   )}
