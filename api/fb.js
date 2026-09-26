@@ -2242,6 +2242,27 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // NOVO: marca se um lead da piscina tem WhatsApp confirmado ou não —
+    // isso é checado manualmente (abrindo o wa.me e vendo se abre uma
+    // conversa de verdade), não existe forma automática de verificar.
+    // waStatus: "confirmado" | "sem_whatsapp" | "" (não verificado ainda)
+    if (action === "setLeadPoolWaStatus") {
+      const { id, waStatus } = payload;
+      if (!id || !["confirmado", "sem_whatsapp", ""].includes(waStatus)) {
+        return res.status(400).json({ error: "id e waStatus (confirmado/sem_whatsapp/vazio) são obrigatórios" });
+      }
+      const fields = toFsFields({ waStatus });
+      const maskParams = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&');
+      const writeRes = await fetch(`${FS}/leads_pool/${id}?key=${API_KEY}&${maskParams}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const writeD = await writeRes.json();
+      if (writeD.error) return res.status(500).json({ error: writeD.error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "importLeadsPool") {
       const { leads: incoming } = payload;
       if (!Array.isArray(incoming) || incoming.length === 0) {
@@ -2390,6 +2411,7 @@ module.exports = async (req, res) => {
           status: f.status?.stringValue || "disponivel",
           claimedBy: f.claimedBy?.stringValue || "",
           importedAt: f.importedAt?.stringValue || "",
+          waStatus: f.waStatus?.stringValue || "",
         };
       });
       if (onlyAvailable) items = items.filter((l) => l.status === "disponivel");
