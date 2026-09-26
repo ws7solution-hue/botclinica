@@ -833,6 +833,8 @@ module.exports = async (req, res) => {
           breakStart: g("breakStart"), breakEnd: g("breakEnd"),
           preparationInstructions: g("preparationInstructions"),
           additionalNotes: g("additionalNotes"),
+          repasseType: g("repasseType") || undefined,
+          repasseValue: f.repasseValue ? parseFloat(f.repasseValue.doubleValue || f.repasseValue.integerValue || "0") : undefined,
         };
       });
       return res.status(200).json({ examTypes: docs });
