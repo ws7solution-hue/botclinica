@@ -1898,10 +1898,11 @@ function renderParceiros(){
       CSV esperado com colunas: <code>nome,cidade,estado,telefone,endereco,tipo,avaliacao,sinalpotencial</code> (cabeçalho na 1ª linha; só "nome" e "telefone" são obrigatórios — "estado" deve ser a sigla, tipo MG, SP, RJ)<br/>
       ✅ <strong>Pode subir o mesmo arquivo de novo sem medo</strong> — quem já está na piscina (identificado pelo telefone) é pulado automaticamente, nunca duplica.
     </div>
-    <div style="margin-top:14px">
+    <div style="margin-top:14px" id="poolNormalView">
       <input type="text" id="poolSearchInput" placeholder="🔎 Buscar por nome ou telefone..." oninput="renderLeadsPoolList()" style="margin-bottom:10px"/>
       <div id="leadsPoolListContainer"></div>
     </div>
+    <div style="margin-top:14px" id="importStagingContainer"></div>
   </div>
   </div>
 
@@ -2580,13 +2581,84 @@ async function handleImportLeadsFile(evt){
     return;
   }
 
+  // NOVO: em vez de importar direto, para numa lista de conferência —
+  // assim dá pra checar no WhatsApp de cada uma se o número existe de
+  // verdade antes de mandar pro parceiro reivindicar (e remover as que
+  // não tiverem WhatsApp).
+  window.pendingImportLeads = leadsToImport;
+  document.getElementById('poolNormalView').style.display = 'none';
+  renderImportStaging();
+  evt.target.value = '';
+}
+
+function waLinkFromPhone(telefone){
+  let digits = String(telefone || '').replace(/\D/g, '');
+  if(!digits.startsWith('55')) digits = '55' + digits;
+  return `https://wa.me/${digits}`;
+}
+
+function renderImportStaging(){
+  const container = document.getElementById('importStagingContainer');
+  const list = window.pendingImportLeads || [];
+  if(list.length === 0){
+    container.innerHTML = '';
+    document.getElementById('poolNormalView').style.display = '';
+    return;
+  }
+  container.innerHTML = `
+    <div class="card" style="border:2px solid var(--accent, #1A6FA8)">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Conferência antes de importar (${list.length} lead${list.length===1?'':'s'})</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="cancelImportStaging()">Cancelar</button>
+          <button class="btn btn-sm" style="background:var(--green);color:#fff" onclick="confirmImportStaging()">✅ Confirmar importação (${list.length})</button>
+        </div>
+      </div>
+      <div style="padding:4px 4px 10px;font-size:11px;color:var(--muted)">
+        Clique em "WhatsApp" pra abrir a conversa e checar se o número existe de verdade. Se não tiver WhatsApp (ou for número errado), clique em "Remover" — essa clínica não entra na piscina.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Cidade/UF</th><th>Telefone</th><th></th><th></th></tr></thead>
+          <tbody>
+            ${list.map((l, i) => `
+              <tr>
+                <td><strong>${l.nome}</strong></td>
+                <td>${l.cidade || '—'}${l.estado ? '/' + l.estado : ''}</td>
+                <td>${l.telefone}</td>
+                <td><a class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none" href="${waLinkFromPhone(l.telefone)}" target="_blank">💬 WhatsApp</a></td>
+                <td><button class="btn btn-sm" style="color:var(--red)" onclick="removeStagingLead(${i})">🗑️ Remover</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function removeStagingLead(index){
+  window.pendingImportLeads.splice(index, 1);
+  renderImportStaging();
+}
+
+function cancelImportStaging(){
+  window.pendingImportLeads = [];
+  renderImportStaging();
+}
+
+async function confirmImportStaging(){
+  const leadsToImport = window.pendingImportLeads || [];
+  if(leadsToImport.length === 0){ toast('Nada pra importar — todas foram removidas'); cancelImportStaging(); return; }
+
   const r = await api('importLeadsPool', { leads: leadsToImport });
-  if(r.error){ toast('Erro ao importar: ' + r.error); evt.target.value=''; return; }
+  if(r.error){ toast('Erro ao importar: ' + r.error); return; }
 
   toast(`✅ ${r.imported} lead(s) importado(s) — ${r.skipped} já existiam ou foram ignorados`);
+  window.pendingImportLeads = [];
+  renderImportStaging();
   await loadLeadsPool();
   renderParceiros();
-  evt.target.value = '';
 }
 
 async function savePartner(isEdit){
