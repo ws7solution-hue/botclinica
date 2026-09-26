@@ -921,6 +921,12 @@ module.exports = async (req, res) => {
           reminderSent: f.reminderSent?.booleanValue || false,
           reminderStatus: g("reminderStatus") || "none",
           attendanceStatus: g("attendanceStatus") || "pending",
+          // BUGFIX (25/09): faltava devolver esses 2 campos — por isso o
+          // exame nunca aparecia como "Exame: X" no app, mesmo já salvo
+          // certinho no Firestore e mesmo com o front-end já sabendo
+          // exibir. A ação simplesmente nunca repassava esses campos.
+          examTypeId: g("examTypeId"), examTypeName: g("examTypeName"),
+          appointmentType: g("appointmentType") || "consulta",
         };
       });
       return res.status(200).json({ appointments: apts });
