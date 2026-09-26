@@ -2468,6 +2468,41 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, leadId: newLeadId });
     }
 
+    // NOVO: permite ao parceiro marcar um lead da piscina como "sem
+    // WhatsApp" ANTES de reivindicar — sem isso, ele só descobria depois
+    // de gastar uma das 10 reivindicações diárias, e o lead ficava visível
+    // pros outros parceiros até alguém mais reivindicar e marcar. Agora
+    // sai da piscina na hora, pra todo mundo, sem gastar limite de ninguém.
+    if (action === "markPoolLeadNoWhatsapp") {
+      const { leadPoolId, partnerId } = payload;
+      if (!leadPoolId || !partnerId) {
+        return res.status(400).json({ error: "leadPoolId e partnerId são obrigatórios" });
+      }
+
+      const poolRes = await fsReq(`leads_pool/${leadPoolId}`);
+      const poolD = await poolRes.json();
+      if (!poolD.fields) return res.status(404).json({ error: "Lead não encontrado na piscina" });
+      if (poolD.fields.status?.stringValue !== "disponivel") {
+        return res.status(409).json({ error: "Esse lead já não está mais disponível na piscina (alguém já reivindicou ou marcou antes de você)." });
+      }
+
+      const writeRes = await fsReq(`leads_pool/${leadPoolId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          fields: toFsFields({
+            status: "sem_whatsapp",
+            markedBy: partnerId,
+            markedAt: new Date().toISOString(),
+          }),
+        }),
+      });
+      const writeD = await writeRes.json();
+      if (writeD.error) {
+        return res.status(500).json({ error: `Firestore recusou marcar o lead: ${writeD.error.message}` });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Candidatos a parceiro (triagem feita pela Luna, ou cadastro manual) ─
     // Lista os candidatos — os que a Luna qualificou automaticamente E os
     // que o admin cadastrou manualmente (ex: assumiu a conversa antes da
