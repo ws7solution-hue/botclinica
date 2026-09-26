@@ -55,6 +55,15 @@ global.fetch = function patchedFetch(input, opts) {
           const newUrl = `${urlStr}${separator}${maskParams}`;
           return _originalFetch(newUrl, opts);
         }
+        // ENDURECIMENTO (26/09): "fields" vazio ({}) e SEM updateMask faz o
+        // Firestore tratar como "documento novo com zero campos" — ou seja,
+        // apagaria um documento existente por completo. Isso nunca deveria
+        // acontecer de propósito, então bloqueia aqui em vez de arriscar.
+        console.error(`⚠️ [fsReq guard] PATCH bloqueado: "fields" veio vazio sem updateMask, o que apagaria o documento inteiro. URL: ${urlStr}`);
+        return Promise.resolve(new Response(
+          JSON.stringify({ error: { message: 'PATCH bloqueado pelo guard interno: "fields" vazio sem updateMask apagaria o documento.' } }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        ));
       }
     }
   } catch (e) {

@@ -147,23 +147,27 @@ async function createPendingAccount({ email, plano, clinicName, adminName }) {
     }
   }
 
-  const url = `${FS}/acessos_autorizados/${key}?key=${FB_KEY}`;
+  const fieldsToWrite = {
+    email: { stringValue: email },
+    plano: { stringValue: plano || 'starter' },
+    clinicName: { stringValue: clinicName || '' },
+    adminName: { stringValue: adminName || '' },
+    senhaTemp: { stringValue: senhaTemp || '' },
+    firstAccess: { booleanValue: existingD.fields?.firstAccess?.booleanValue ?? true },
+    ativo: { booleanValue: false },
+    statusPagamento: { stringValue: 'aguardando_pagamento' },
+    createdAt: { stringValue: existingD.fields?.createdAt?.stringValue || new Date().toISOString() },
+  };
+  // BUGFIX (26/09): sem updateMask, essa escrita apagava qualquer outro
+  // campo já existente na conta (ex: phoneNumberId de uma conexão via
+  // Embedded Signup, documentsAddonActive, etc.) sempre que alguém fazia
+  // um novo checkout numa conta que já existia.
+  const maskParams = Object.keys(fieldsToWrite).map(f => `updateMask.fieldPaths=${f}`).join('&');
+  const url = `${FS}/acessos_autorizados/${key}?key=${FB_KEY}&${maskParams}`;
   await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fields: {
-        email: { stringValue: email },
-        plano: { stringValue: plano || 'starter' },
-        clinicName: { stringValue: clinicName || '' },
-        adminName: { stringValue: adminName || '' },
-        senhaTemp: { stringValue: senhaTemp || '' },
-        firstAccess: { booleanValue: existingD.fields?.firstAccess?.booleanValue ?? true },
-        ativo: { booleanValue: false },
-        statusPagamento: { stringValue: 'aguardando_pagamento' },
-        createdAt: { stringValue: existingD.fields?.createdAt?.stringValue || new Date().toISOString() },
-      }
-    }),
+    body: JSON.stringify({ fields: fieldsToWrite }),
   });
 }
 

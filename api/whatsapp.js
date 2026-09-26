@@ -166,7 +166,11 @@ async function saveMsg(collection, convId, msg) {
 async function updateConv(collection, convId, data) {
   const fields = {};
   Object.keys(data).forEach(k => { fields[k] = {stringValue: String(data[k])}; });
-  await fetch(`${FS}/${collection}/${convId}?key=${API_KEY_FS}`, {
+  // BUGFIX (26/09): sem updateMask, isso apagava qualquer outro campo já
+  // salvo na conversa (ex: status, patientPhone) sempre que essa função
+  // atualizava só uma parte dos campos.
+  const maskParams = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&');
+  await fetch(`${FS}/${collection}/${convId}?key=${API_KEY_FS}&${maskParams}`, {
     method: "PATCH", headers: {"Content-Type":"application/json"},
     body: JSON.stringify({fields})
   }).catch(()=>{});

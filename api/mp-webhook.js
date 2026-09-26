@@ -52,18 +52,24 @@ async function createFirebaseUser(email, password) {
 
 async function savePlan(email, plano) {
   const key = emailToKey(email);
-  await fsReq(`acessos_autorizados/${key}`, {
+  const fields = {
+    email:       { stringValue: email.toLowerCase() },
+    plano:       { stringValue: plano },
+    senha:       { stringValue: "BotClinica@2026" },
+    firstAccess: { booleanValue: true },
+    createdAt:   { stringValue: new Date().toISOString() },
+    source:      { stringValue: "mercadopago_webhook" },
+  };
+  // BUGFIX (26/09): sem updateMask explícito, esse PATCH substituía o
+  // documento inteiro — se a conta já existisse (ex: já tinha WhatsApp
+  // conectado via Embedded Signup, ou outros campos gravados depois),
+  // tudo isso era apagado, sobrando só esses 6 campos.
+  const maskParams = Object.keys(fields).map(f => `updateMask.fieldPaths=${f}`).join('&');
+  const url = `${FS}/acessos_autorizados/${key}?key=${API_KEY}&${maskParams}`;
+  await fetch(url, {
     method: "PATCH",
-    body: JSON.stringify({
-      fields: {
-        email:       { stringValue: email.toLowerCase() },
-        plano:       { stringValue: plano },
-        senha:       { stringValue: "BotClinica@2026" },
-        firstAccess: { booleanValue: true },
-        createdAt:   { stringValue: new Date().toISOString() },
-        source:      { stringValue: "mercadopago_webhook" },
-      }
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields }),
   });
 }
 
