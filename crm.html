@@ -2120,7 +2120,7 @@ function renderLeadsPoolList(){
               l.waStatus==='sem_whatsapp' ? '<span class="badge" style="background:#FEE2E2;color:#991B1B">📵 Sem WhatsApp</span>' :
               '<span class="badge badge-yellow">⏳ Não verificado</span>'}
             <div style="display:flex;gap:4px;margin-top:4px">
-              <a class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none;padding:2px 6px" href="https://wa.me/55${(l.telefone||'').replace(/\\D/g,'').replace(/^55/,'')}" target="_blank" title="Abrir WhatsApp">💬</a>
+              <a class="btn btn-sm" style="background:#25D366;color:#fff;text-decoration:none;padding:2px 6px" href="${waLinkFromPhone(l.telefone)}" target="_blank" title="Abrir WhatsApp">💬</a>
               <button class="btn btn-sm" style="padding:2px 6px" onclick="markLeadWaStatus('${l.id}','confirmado')" title="Marcar como confirmado">✅</button>
               <button class="btn btn-sm" style="padding:2px 6px" onclick="markLeadWaStatus('${l.id}','sem_whatsapp')" title="Marcar como sem WhatsApp">📵</button>
             </div>
@@ -2669,7 +2669,9 @@ async function handleImportLeadsFile(evt){
 
 function waLinkFromPhone(telefone){
   let digits = String(telefone || '').replace(/\D/g, '');
-  if(!digits.startsWith('55')) digits = '55' + digits;
+  // 10-11 dígitos = DDD + número (sem código do país). Não dá pra usar
+  // startsWith('55'), porque o DDD 55 (RS) também começa com 55.
+  if(digits.length <= 11) digits = '55' + digits;
   return `https://wa.me/${digits}`;
 }
 
