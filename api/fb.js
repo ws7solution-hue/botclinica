@@ -82,6 +82,28 @@ async function fsReq(path, opts = {}, token = null) {
   return fetch(url, { ...opts, headers: { ...hdrs, ...(opts.headers || {}) } });
 }
 
+// Lista TODOS os documentos de uma coleção, seguindo o nextPageToken.
+// A API do Firestore devolve no máximo uma página por chamada; quem lê só a
+// primeira recebe a lista truncada, sem nenhum aviso. Devolve o mesmo formato
+// de uma página ({ documents } ou { error }), então é só trocar a chamada.
+async function fsListAll(collection) {
+  let documents = [];
+  let pageToken = null;
+  do {
+    const url = `${FS}/${collection}?key=${API_KEY}&pageSize=300` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.error) {
+      if (documents.length === 0) return d; // erro na 1ª página: quem chamou já trata d.error
+      console.error(`⚠️ [fsListAll] erro numa página seguinte de "${collection}":`, d.error.message);
+      break;
+    }
+    documents = documents.concat(d.documents || []);
+    pageToken = d.nextPageToken || null;
+  } while (pageToken);
+  return { documents };
+}
+
 function toFsValue(v) {
   if (v === undefined || v === null) return { nullValue: null };
   if (typeof v === "string")  return { stringValue: v };
@@ -129,8 +151,7 @@ function emailToKey(email) {
 // real (comparando com hoje) — reaproveitada tanto pela visão completa do
 // CRM quanto pela visão filtrada de cada parceiro.
 async function fetchAllCommissions() {
-  const r = await fsReq("commissions");
-  const d = await r.json();
+  const d = await fsListAll("commissions");
   if (d.error) return [];
   const now = new Date();
   return (d.documents || []).map((doc) => {
@@ -1878,8 +1899,7 @@ module.exports = async (req, res) => {
 
     // ── Programa de parceiros/indicação ("captadores") ───────────────────
     if (action === "listPartners") {
-      const r = await fsReq("partners");
-      const d = await r.json();
+      const d = await fsListAll("partners");
       if (d.error) return res.status(200).json([]);
       const partners = (d.documents || []).map((doc) => {
         const f = doc.fields || {};
@@ -2163,10 +2183,10 @@ module.exports = async (req, res) => {
       let replacementLead = null;
       if (status === "sem_whatsapp" && previousStatus !== "sem_whatsapp") {
         try {
-          const poolAllRes = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
-          const poolAllD = await poolAllRes.json();
+          const poolAllD = await fsListAll("leads_pool");
           const disponivel = (poolAllD.documents || []).find(
             (doc) => doc.fields?.status?.stringValue === "disponivel"
+              && doc.fields?.waStatus?.stringValue !== "sem_whatsapp"
           );
           if (disponivel) {
             const poolId = disponivel.name.split("/").pop();
@@ -2214,8 +2234,7 @@ module.exports = async (req, res) => {
     if (action === "listPartnerLeads") {
       const { partnerId } = payload;
       if (!partnerId) return res.status(400).json({ error: "partnerId obrigatório" });
-      const r = await fsReq("leads");
-      const d = await r.json();
+      const d = await fsListAll("leads");
       if (d.error) return res.status(200).json([]);
       const leads = (d.documents || [])
         .map((doc) => parseLeadDoc(doc))
@@ -2358,8 +2377,7 @@ module.exports = async (req, res) => {
         "itabira": "MG", "araguari": "MG", "ituiutaba": "MG", "coronel fabriciano": "MG",
         "cel. fabriciano": "MG", "lavras": "MG",
       };
-      const r = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
-      const d = await r.json();
+      const d = await fsListAll("leads_pool");
       let corrigidos = 0;
       for (const doc of d.documents || []) {
         const f = doc.fields || {};
@@ -2414,7 +2432,7 @@ module.exports = async (req, res) => {
           waStatus: f.waStatus?.stringValue || "",
         };
       });
-      if (onlyAvailable) items = items.filter((l) => l.status === "disponivel");
+      if (onlyAvailable) items = items.filter((l) => l.status === "disponivel" && l.waStatus !== "sem_whatsapp");
       items.sort((a, b) => (b.importedAt || "").localeCompare(a.importedAt || ""));
       return res.status(200).json(items);
     }
@@ -2438,6 +2456,9 @@ module.exports = async (req, res) => {
       if (poolD.fields.status?.stringValue !== "disponivel") {
         return res.status(409).json({ error: "Esse lead já foi reivindicado por outro parceiro" });
       }
+      if (poolD.fields.waStatus?.stringValue === "sem_whatsapp") {
+        return res.status(409).json({ error: "Essa clínica foi marcada como sem WhatsApp e não está mais disponível. Atualize a lista e escolha outra." });
+      }
 
       // LIMITE DIÁRIO: no máximo 10 reivindicações por parceiro por dia —
       // evita que um único parceiro (ou um clique automatizado) esvazie a
@@ -2446,8 +2467,7 @@ module.exports = async (req, res) => {
       // reseta à meia-noite UTC.
       const DAILY_CLAIM_LIMIT = 10;
       const todayStr = new Date().toISOString().slice(0, 10);
-      const allPoolRes = await fetch(`${FS}/leads_pool?key=${API_KEY}&pageSize=300`);
-      const allPoolD = await allPoolRes.json();
+      const allPoolD = await fsListAll("leads_pool");
       const claimsToday = (allPoolD.documents || []).filter((doc) => {
         const f = doc.fields || {};
         return f.claimedBy?.stringValue === partnerId && (f.claimedAt?.stringValue || "").slice(0, 10) === todayStr;
@@ -2618,8 +2638,7 @@ module.exports = async (req, res) => {
 
     // Lista TODOS os leads, de todos os parceiros (usado no CRM)
     if (action === "listAllLeads") {
-      const r = await fsReq("leads");
-      const d = await r.json();
+      const d = await fsListAll("leads");
       if (d.error) return res.status(200).json([]);
       const leads = (d.documents || [])
         .map((doc) => parseLeadDoc(doc))
@@ -3065,8 +3084,7 @@ module.exports = async (req, res) => {
       if (recorrentePct <= 0) return res.status(200).json({ error: "Esse funcionário não tem % recorrente configurado" });
 
       // Acha todos os parceiros coordenados por esse funcionário
-      const partnersR = await fetch(`${FS}/partners?key=${API_KEY}&pageSize=300`);
-      const partnersD = await partnersR.json();
+      const partnersD = await fsListAll("partners");
       const partnerIds = (partnersD.documents || [])
         .filter((doc) => doc.fields?.coordenadorId?.stringValue === funcionarioId)
         .map((doc) => doc.name.split("/").pop());
@@ -3080,8 +3098,7 @@ module.exports = async (req, res) => {
       // checa cancelamento aqui (ainda não existe esse campo no lead) —
       // então, por enquanto, todo cliente vendido conta como ativo pra
       // esse cálculo. Revisar quando existir status de cancelamento.
-      const leadsR = await fetch(`${FS}/leads?key=${API_KEY}&pageSize=500`);
-      const leadsD = await leadsR.json();
+      const leadsD = await fsListAll("leads");
       const mesReferencia = new Date().toISOString().slice(0, 7); // "2026-08"
       const PLAN_PRICES_LOCAL = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
       const ADDON_PRICE_LOCAL = 97;
