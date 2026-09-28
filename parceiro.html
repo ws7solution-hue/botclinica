@@ -296,7 +296,10 @@ function switchLeadsTab(tab){
 // já com uma mensagem sugerida preenchida (o vendedor pode editar antes de
 // mandar — o WhatsApp só preenche o campo, não envia sozinho).
 function whatsappLink(phone, message){
-  const digits = (phone || '').replace(/\D/g, '');
+  let digits = (phone || '').replace(/\D/g, '');
+  // Número digitado só com DDD (10-11 dígitos, ex: "(31) 99999-9999"): sem o
+  // código do país o WhatsApp lê o DDD como país e abre o número errado.
+  if(digits.length <= 11) digits = '55' + digits;
   const text = message ? '?text=' + encodeURIComponent(message) : '';
   return `https://wa.me/${digits}${text}`;
 }
