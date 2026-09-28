@@ -2085,16 +2085,17 @@ function renderLeadsPoolList(){
 
   // NOVO: paginação — com a piscina passando de centenas de leads,
   // renderizar tudo de uma vez deixava a tela pesada de rolar.
-  const totalPages = Math.max(1, Math.ceil(filtrados.length / poolPageSize));
+  const mostrarTodos = poolPageSize === 0; // 0 = "Todos"
+  const totalPages = mostrarTodos ? 1 : Math.max(1, Math.ceil(filtrados.length / poolPageSize));
   if(poolCurrentPage > totalPages) poolCurrentPage = totalPages;
   if(poolCurrentPage < 1) poolCurrentPage = 1;
-  const startIdx = (poolCurrentPage - 1) * poolPageSize;
-  const pageItems = filtrados.slice(startIdx, startIdx + poolPageSize);
+  const startIdx = mostrarTodos ? 0 : (poolCurrentPage - 1) * poolPageSize;
+  const pageItems = mostrarTodos ? filtrados : filtrados.slice(startIdx, startIdx + poolPageSize);
 
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div style="font-size:12px;color:var(--muted)">
-        Mostrando ${startIdx + 1}–${Math.min(startIdx + poolPageSize, filtrados.length)} de ${filtrados.length}
+        ${mostrarTodos ? `Mostrando todos os ${filtrados.length}` : `Mostrando ${startIdx + 1}–${startIdx + pageItems.length} de ${filtrados.length}`}
       </div>
       <div style="display:flex;align-items:center;gap:6px;font-size:12px">
         <label for="poolPageSizeSelect">Por página:</label>
@@ -2102,6 +2103,7 @@ function renderLeadsPoolList(){
           <option value="10" ${poolPageSize===10?'selected':''}>10</option>
           <option value="20" ${poolPageSize===20?'selected':''}>20</option>
           <option value="50" ${poolPageSize===50?'selected':''}>50</option>
+          <option value="0" ${poolPageSize===0?'selected':''}>Todos</option>
         </select>
       </div>
     </div>
@@ -2130,11 +2132,11 @@ function renderLeadsPoolList(){
       `).join('')}
     </tbody>
     </table></div>
-    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px">
+    ${mostrarTodos ? '' : `<div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:12px">
       <button class="btn btn-outline btn-sm" onclick="changePoolPage(-1)" ${poolCurrentPage<=1?'disabled':''}>← Anterior</button>
       <span style="font-size:12px;color:var(--muted)">Página ${poolCurrentPage} de ${totalPages}</span>
       <button class="btn btn-outline btn-sm" onclick="changePoolPage(1)" ${poolCurrentPage>=totalPages?'disabled':''}>Próxima →</button>
-    </div>
+    </div>`}
   `;
 }
 
