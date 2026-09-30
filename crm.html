@@ -1896,6 +1896,7 @@ function renderParceiros(){
     </div>
     <div style="display:flex;gap:24px;padding:0 4px 12px;font-size:13px;flex-wrap:wrap;border-top:1px solid #eee;padding-top:12px">
       <div>📵 WhatsApp: <strong style="color:var(--green)">${leadsPool.filter(l=>l.waStatus==='confirmado').length} confirmado</strong> · <strong style="color:var(--red)">${leadsPool.filter(l=>l.waStatus==='sem_whatsapp').length} sem WhatsApp</strong> · <strong style="color:var(--muted)">${leadsPool.filter(l=>!l.waStatus).length} não verificado</strong></div>
+      ${leadsPool.filter(l=>l.waStatus==='sem_whatsapp').length > 0 ? `<button class="btn btn-danger btn-sm" onclick="excluirSemWhatsappEmMassa()">🗑️ Excluir os ${leadsPool.filter(l=>l.waStatus==='sem_whatsapp').length} sem WhatsApp</button>` : ''}
     </div>
     <div style="padding:0 4px 10px 4px">
       <label for="poolWaFilterSelect" style="font-size:12px">Filtrar por WhatsApp:</label>
@@ -2159,6 +2160,24 @@ async function corrigirEstadosVazios(){
   toast(`✅ ${r.corrigidos} lead(s) corrigido(s) com o estado certo.`);
   await loadLeadsPool();
   renderLeadsPoolList();
+}
+
+async function excluirSemWhatsappEmMassa(){
+  const qtd = leadsPool.filter(l => l.waStatus === 'sem_whatsapp').length;
+  if(qtd === 0){ toast('Nenhum lead marcado como sem WhatsApp no momento.'); return; }
+
+  const confirmText = prompt(
+    `Isso vai apagar PERMANENTEMENTE ${qtd} clínica(s) marcada(s) como "sem WhatsApp" da piscina — elas somem também do app dos parceiros. Não é possível desfazer.\n\nPra confirmar, digite EXCLUIR (em maiúsculas) abaixo:`
+  );
+  if(confirmText !== 'EXCLUIR'){ toast('Cancelado — nada foi apagado.'); return; }
+
+  toast('Apagando, aguarde...');
+  const r = await api('bulkDeleteSemWhatsapp', {});
+  if(r.error){ toast('Erro ao apagar: ' + r.error); return; }
+
+  toast(`🗑️ ${r.apagados} de ${r.total} apagado(s) com sucesso.${r.falhas && r.falhas.length ? ` ${r.falhas.length} falharam.` : ''}`);
+  await loadLeadsPool();
+  renderParceiros();
 }
 
 async function markLeadWaStatus(id, waStatus){
