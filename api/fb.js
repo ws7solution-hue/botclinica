@@ -2282,6 +2282,28 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true });
     }
 
+    // NOVO: apaga de vez, da piscina inteira, todo lead marcado como "sem
+    // WhatsApp" — usado depois de uma checagem em lote (via WhatsApp Web),
+    // pra não deixar lixo acumulado na coleção. Isso é diferente de só
+    // filtrar: o documento deixa de existir, então some também do app do
+    // parceiro (que já escondia esses, mas agora nem fica salvo).
+    if (action === "bulkDeleteSemWhatsapp") {
+      const d = await fsListAll("leads_pool");
+      if (d.error) return res.status(500).json({ error: d.error.message });
+      const alvos = (d.documents || []).filter(
+        (doc) => doc.fields?.waStatus?.stringValue === "sem_whatsapp"
+      );
+      let apagados = 0;
+      const falhas = [];
+      for (const doc of alvos) {
+        const id = doc.name.split("/").pop();
+        const delRes = await fetch(`${FS}/leads_pool/${id}?key=${API_KEY}`, { method: "DELETE" });
+        if (delRes.ok) apagados++;
+        else falhas.push(id);
+      }
+      return res.status(200).json({ ok: true, apagados, total: alvos.length, falhas });
+    }
+
     if (action === "importLeadsPool") {
       const { leads: incoming } = payload;
       if (!Array.isArray(incoming) || incoming.length === 0) {
