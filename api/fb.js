@@ -1914,6 +1914,63 @@ module.exports = async (req, res) => {
       return res.status(200).json(partners);
     }
 
+    // NOVO: visão de atividade dos parceiros pro CRM — responde "quem tá
+    // realmente usando o app e pegando lead, e quem sumiu". Junta o
+    // lastLoginAt (gravado no partnerLogin) com a atividade de reivindicar
+    // leads da piscina (campo claimedAt em leads_pool), sem precisar de
+    // contador separado — menos chance de ficar dessincronizado.
+    if (action === "listPartnersActivity") {
+      const [partnersD, poolD] = await Promise.all([
+        fsListAll("partners"),
+        fsListAll("leads_pool"),
+      ]);
+      if (partnersD.error) return res.status(200).json([]);
+
+      // Agrega por parceiro: quantos leads reivindicou no total e qual foi
+      // a reivindicação mais recente dele.
+      const claimsByPartner = {};
+      for (const doc of (poolD.documents || [])) {
+        const f = doc.fields || {};
+        const pid = f.claimedBy?.stringValue;
+        if (!pid) continue;
+        const claimedAt = f.claimedAt?.stringValue || "";
+        if (!claimsByPartner[pid]) claimsByPartner[pid] = { total: 0, lastClaimAt: "" };
+        claimsByPartner[pid].total += 1;
+        if (claimedAt > claimsByPartner[pid].lastClaimAt) claimsByPartner[pid].lastClaimAt = claimedAt;
+      }
+
+      const now = Date.now();
+      const result = (partnersD.documents || []).map((doc) => {
+        const f = doc.fields || {};
+        const id = doc.name.split("/").pop();
+        const lastLoginAt = f.lastLoginAt?.stringValue || "";
+        const claims = claimsByPartner[id] || { total: 0, lastClaimAt: "" };
+
+        // "Última atividade" = o mais recente entre login e reivindicação de lead.
+        const lastActivityAt = [lastLoginAt, claims.lastClaimAt].sort().pop() || "";
+        const hoursSince = lastActivityAt ? (now - new Date(lastActivityAt).getTime()) / 3600000 : Infinity;
+
+        let statusLabel = "🔴 Inativo";
+        if (hoursSince <= 48) statusLabel = "🟢 Ativo";
+        else if (hoursSince <= 24 * 7) statusLabel = "🟡 Fraco";
+
+        return {
+          id,
+          name: f.name?.stringValue || "",
+          phone: f.phone?.stringValue || "",
+          lastLoginAt,
+          lastClaimAt: claims.lastClaimAt,
+          leadsReivindicados: claims.total,
+          lastActivityAt,
+          statusLabel,
+        };
+      });
+
+      // Mais ativos primeiro, nunca-logaram por último.
+      result.sort((a, b) => (b.lastActivityAt || "").localeCompare(a.lastActivityAt || ""));
+      return res.status(200).json(result);
+    }
+
     if (action === "savePartner") {
       const { id, name, phone, commissionRate, password, coordenadorId } = payload;
       if (!id || !name) return res.status(400).json({ error: "id (código do link) e name são obrigatórios" });
@@ -2063,6 +2120,17 @@ module.exports = async (req, res) => {
       if (!storedPassword || storedPassword !== password) {
         return res.status(200).json({ error: "Senha incorreta" });
       }
+
+      // NOVO: registra quando o parceiro entrou no próprio app — é a base
+      // pra você ver no CRM quem tá ativo de verdade e quem sumiu. Não
+      // bloqueia o login se isso falhar por algum motivo.
+      try {
+        await fsReq(`partners/${cleanId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ fields: toFsFields({ lastLoginAt: new Date().toISOString() }) }),
+        });
+      } catch (e) { /* login segue normal mesmo se isso falhar */ }
+
       return res.status(200).json({
         ok: true,
         partner: {
