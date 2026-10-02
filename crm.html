@@ -416,6 +416,7 @@ const PROXY = "/api/fb";
 let clientes = [];
 let tickets = [];
 let partners = [];
+let partnersActivity = [];
 let commissions = [];
 let leads = [];
 let leadsPool = [];
@@ -497,7 +498,7 @@ async function api(action, payload){
 
 // LOAD
 async function loadAll(){
-  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadCommissions(), loadLeads(), loadLeadsPool(), loadCandidatosParceiro(), loadFuncionarios(), loadPagamentosFuncionario(), loadDespesas()]);
+  await Promise.all([loadClientes(), loadConfig(), loadTickets(), loadWaSuporteConversas(), loadWaVendasConversas(), loadPartners(), loadPartnersActivity(), loadCommissions(), loadLeads(), loadLeadsPool(), loadCandidatosParceiro(), loadFuncionarios(), loadPagamentosFuncionario(), loadDespesas()]);
   goTo(currentPage);
   // Poll tickets a cada 10s
   if(supportInterval) clearInterval(supportInterval);
@@ -551,6 +552,11 @@ async function loadAll(){
 async function loadPartners(){
   const d = await api('listPartners', {});
   partners = Array.isArray(d) ? d : [];
+}
+
+async function loadPartnersActivity(){
+  const d = await api('listPartnersActivity', {});
+  partnersActivity = Array.isArray(d) ? d : [];
 }
 
 async function loadCommissions(){
@@ -1785,6 +1791,18 @@ const COMMISSION_STATUS_BADGE = {
 
 let currentParceirosTab = 'overview';
 
+function tempoAtras(iso){
+  if(!iso) return '<span style="color:var(--muted)">nunca</span>';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const horas = diffMs / 3600000;
+  if(horas < 1) return 'há poucos minutos';
+  if(horas < 24) return `há ${Math.floor(horas)}h`;
+  const dias = Math.floor(horas / 24);
+  if(dias === 1) return 'há 1 dia';
+  if(dias < 30) return `há ${dias} dias`;
+  return new Date(iso).toLocaleDateString('pt-BR');
+}
+
 function switchParceirosTab(tab){
   currentParceirosTab = tab;
   document.querySelectorAll('[data-ptab]').forEach(el=>{
@@ -1811,6 +1829,7 @@ function renderParceiros(){
     <button class="ptab-btn" id="ptabbtn-candidatos" onclick="switchParceirosTab('candidatos')">🎯 Candidatos</button>
     <button class="ptab-btn" id="ptabbtn-pool" onclick="switchParceirosTab('pool')">🏊 Piscina de Leads</button>
     <button class="ptab-btn" id="ptabbtn-partners" onclick="switchParceirosTab('partners')">🤝 Parceiros</button>
+    <button class="ptab-btn" id="ptabbtn-activity" onclick="switchParceirosTab('activity')">📈 Atividade</button>
     <button class="ptab-btn" id="ptabbtn-leads" onclick="switchParceirosTab('leads')">📋 Leads em Andamento</button>
     <button class="ptab-btn" id="ptabbtn-equipe" onclick="switchParceirosTab('equipe')">👔 Equipe</button>
   </div>
@@ -1941,6 +1960,35 @@ function renderParceiros(){
             </td>
           </tr>`;
         }).join('')}
+      </tbody>
+    </table>
+    </div>`}
+  </div>
+  </div>
+
+  <div data-ptab="activity" style="display:none">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📈 Atividade dos Parceiros</span>
+      <button class="btn btn-outline btn-sm" onclick="loadPartnersActivity().then(()=>goTo('parceiros'))">🔄 Atualizar</button>
+    </div>
+    <div style="display:flex;gap:24px;padding:4px 4px 14px;font-size:13px;flex-wrap:wrap;color:var(--muted)">
+      <div>🟢 Ativo: logou ou pegou lead nas últimas 48h</div>
+      <div>🟡 Fraco: só na última semana</div>
+      <div>🔴 Inativo: mais de 7 dias (ou nunca logou)</div>
+    </div>
+    ${partnersActivity.length===0?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum parceiro cadastrado ainda.</div>':`
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Status</th><th>Nome</th><th>Último login</th><th>Último lead reivindicado</th><th>Total reivindicados</th></tr></thead>
+      <tbody>
+        ${partnersActivity.map(p=>`<tr>
+            <td>${p.statusLabel}</td>
+            <td><strong>${p.name}</strong><br><span style="font-size:11px;color:var(--muted)">${p.phone||''}</span></td>
+            <td>${tempoAtras(p.lastLoginAt)}</td>
+            <td>${tempoAtras(p.lastClaimAt)}</td>
+            <td>${p.leadsReivindicados}</td>
+          </tr>`).join('')}
       </tbody>
     </table>
     </div>`}
