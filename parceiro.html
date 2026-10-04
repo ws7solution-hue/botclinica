@@ -725,9 +725,12 @@ function openTrialModal(leadId){
           </div>
         </div>
         <div style="font-size:12px;color:var(--muted);margin:10px 0 12px;line-height:1.5">
-          Ao liberar, criamos o acesso da clínica ao sistema. Nossa equipe de suporte entra em contato com a clínica
-          para combinar o <strong>número de WhatsApp de teste</strong> (um número separado do dia a dia dela) e fazer a conexão.
-          Você não precisa cuidar dessa parte.
+          Ao liberar, criamos o acesso da clínica ao sistema.<br><br>
+          <strong>Importante:</strong> para o assistente responder no WhatsApp durante o teste, a clínica precisa ter um
+          <strong>chip ou número próprio só para o teste</strong>, providenciado por ela mesma (nós não fornecemos).
+          Ela <strong>não deve usar o número oficial</strong>: o teste é uma conexão com a Meta e o número conectado deixa de
+          funcionar no WhatsApp comum do celular. Com o número em mãos, a clínica chama o nosso suporte e a equipe conecta.
+          Você não precisa cuidar da conexão.
         </div>
         <div class="modal-actions">
           <button class="btn-outline" onclick="closeTrialModal()">Cancelar</button>
@@ -768,7 +771,8 @@ function trialWelcomeMessage(r, l){
   const fim = new Date(r.trialEndsAt).toLocaleDateString('pt-BR');
   return `Olá! Seu teste grátis de ${r.days} dias do BotClínica (plano ${PLAN_LABEL[r.plano]||r.plano}) está liberado 🎉\n\n` +
     `Acesse: ${r.loginUrl}\nLogin: ${r.email}\nSenha temporária: ${r.senha}\n\n` +
-    `O teste vai até ${fim}. Nossa equipe de suporte vai entrar em contato para combinar o número de WhatsApp de teste da clínica (um número separado do dia a dia) e conectar o assistente. Qualquer dúvida, é só chamar!`;
+    `O teste vai até ${fim}.\n\n` +
+    `Para o assistente responder no WhatsApp durante o teste, vocês precisam de um chip ou número próprio só para o teste, providenciado pela clínica (pode ser um chip pré-pago novo). Não use o número oficial da clínica: o teste é uma conexão com a Meta e o número conectado deixa de funcionar no WhatsApp comum do celular. Com o número em mãos, chame o nosso suporte, (31) 99103-0288, que a equipe conecta e ativa o teste. Qualquer dúvida, é só chamar!`;
 }
 
 function showTrialResult(r, l){
@@ -782,7 +786,7 @@ function showTrialResult(r, l){
         </div>
         <textarea id="tr-msg" rows="9" readonly style="font-size:12px">${lastTrialResult.msg.replace(/\\n/g,'\n')}</textarea>
         <div style="font-size:12px;color:var(--muted);margin:8px 0 12px">
-          Avisamos a equipe BotClínica, que vai falar com a clínica para combinar o número de teste e conectar o assistente.
+          Lembre a clínica: o número de teste é <strong>por conta dela</strong> (chip novo ou número reserva, nunca o número oficial) e, com ele em mãos, ela chama o suporte para ativarmos.
         </div>
         <div class="modal-actions">
           <button class="btn-outline" onclick="copyTrialMessage()">📋 Copiar</button>
