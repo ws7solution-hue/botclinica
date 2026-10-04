@@ -194,6 +194,10 @@ function parseLeadDoc(doc) {
     reuniaoHora: f.reuniaoHora?.stringValue || "",
     notas: f.notas?.stringValue || "",
     vendaConfirmada: f.vendaConfirmada?.booleanValue || false,
+    trialEndsAt: f.trialEndsAt?.stringValue || "",
+    trialDays: parseInt(f.trialDays?.integerValue || "0"),
+    trialPlano: f.trialPlano?.stringValue || "",
+    trialClinicKey: f.trialClinicKey?.stringValue || "",
     createdAt: f.createdAt?.stringValue || "",
     updatedAt: f.updatedAt?.stringValue || "",
   };
@@ -634,12 +638,12 @@ module.exports = async (req, res) => {
         });
       }
 
-      // NOVO: teste grátis vencido (e que não virou assinatura paga) também
-      // bloqueia o login. Quem já pagou (statusPagamento em_dia, setado
-      // pelo webhook do Stripe) nunca é barrado por essa regra.
+      // NOVO: teste grátis vencido (conta ainda marcada como "trial") bloqueia
+      // o login. Quem assinou vira "em_dia" pelo webhook do Stripe e sai
+      // dessa regra sozinho — e depois, se atrasar, vale a tolerância normal.
       const trialEndsAt = planD.fields?.trialEndsAt?.stringValue;
-      const pagoEmDia = planD.fields?.statusPagamento?.stringValue === "em_dia";
-      if (trialEndsAt && !pagoEmDia && new Date(trialEndsAt).getTime() < Date.now()) {
+      const emTeste = planD.fields?.statusPagamento?.stringValue === "trial";
+      if (emTeste && trialEndsAt && new Date(trialEndsAt).getTime() < Date.now()) {
         return res.status(200).json({
           error: "Seu período de teste grátis terminou. Entre em contato com o suporte ou assine um plano para continuar usando o BotClínica.",
         });
@@ -1925,6 +1929,253 @@ module.exports = async (req, res) => {
       return res.status(200).json(partners);
     }
 
+    // ── TESTE GRÁTIS liberado pelo parceiro, a partir de um lead ─────────
+    // Cria o acesso da clínica (login + senha temporária) já marcado como
+    // "trial", com data final. NÃO pede telefone ao parceiro: o número de
+    // teste é da clínica e a conexão com a WABA é feita pelo suporte depois
+    // do contato (CRM → Parceiros → Testes → "Definir número"). Enquanto não
+    // houver número, a conta funciona no app mas o bot não liga.
+    if (action === "startLeadTrial") {
+      const MAX_ACTIVE_TRIALS_PER_PARTNER = 3;
+      const PLANOS_VALIDOS = ["starter", "profissional", "clinica", "premium"];
+      const { partnerId, leadId, days, plano } = payload;
+      if (!partnerId || !leadId) return res.status(400).json({ error: "partnerId e leadId são obrigatórios" });
+      const nDays = Number(days);
+      if (![7, 14].includes(nDays)) return res.status(200).json({ error: "Escolha 7 ou 14 dias." });
+      if (!PLANOS_VALIDOS.includes(plano)) return res.status(200).json({ error: "Escolha um plano válido." });
+
+      const leadRes = await fetch(`${FS}/leads/${leadId}?key=${API_KEY}`);
+      const leadDoc = await leadRes.json();
+      if (!leadDoc.fields) return res.status(200).json({ error: "Lead não encontrado." });
+      const lead = parseLeadDoc(leadDoc);
+      if (lead.partnerId !== partnerId) return res.status(200).json({ error: "Esse lead não é seu." });
+      if (lead.trialClinicKey) return res.status(200).json({ error: "Esse lead já recebeu um teste grátis." });
+      const email = (lead.email || "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(200).json({ error: "O lead precisa ter um e-mail válido (é o login da clínica). Edite o lead e preencha." });
+      }
+      const key = emailToKey(email);
+
+      const accessList = await fsListAll("acessos_autorizados");
+      if (accessList.error) return res.status(200).json({ error: "Não consegui verificar as contas agora. Tente de novo em instantes." });
+      const now = Date.now();
+      let activeByPartner = 0;
+      for (const doc of (accessList.documents || [])) {
+        const f = doc.fields || {};
+        if (doc.name.split("/").pop() === key) {
+          return res.status(200).json({ error: "Esse e-mail já tem conta no BotClínica — não dá para liberar teste por cima." });
+        }
+        if (f.trialPartnerId?.stringValue === partnerId && f.statusPagamento?.stringValue === "trial"
+            && new Date(f.trialEndsAt?.stringValue || 0).getTime() > now) activeByPartner++;
+      }
+      if (activeByPartner >= MAX_ACTIVE_TRIALS_PER_PARTNER) {
+        return res.status(200).json({ error: `Você já tem ${MAX_ACTIVE_TRIALS_PER_PARTNER} testes ativos. Espere algum terminar ou converter para liberar outro.` });
+      }
+
+      const senhaTemp = require("crypto").randomBytes(5).toString("hex") + "Aa!";
+      const signUpR = await fetch(ENDPOINTS.signUp, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: false }),
+      });
+      const signUpD = await signUpR.json();
+      if (signUpD.error) {
+        const msg = signUpD.error.message || "";
+        return res.status(200).json({
+          error: msg.includes("EMAIL_EXISTS")
+            ? "Esse e-mail já existe no login do sistema. Fale com o suporte para liberar o teste."
+            : `Não foi possível criar o login (${msg}).`,
+        });
+      }
+
+      const trialEndsAt = new Date(now + nDays * 86400000).toISOString();
+      const accessFields = {
+        email: { stringValue: email },
+        plano: { stringValue: plano },
+        clinicName: { stringValue: lead.nome },
+        adminName: { stringValue: "" },
+        senhaTemp: { stringValue: senhaTemp },
+        firstAccess: { booleanValue: true },
+        ativo: { booleanValue: true },
+        statusPagamento: { stringValue: "trial" },
+        trialEndsAt: { stringValue: trialEndsAt },
+        trialDays: { integerValue: String(nDays) },
+        trialPartnerId: { stringValue: partnerId },
+        trialLeadId: { stringValue: leadId },
+        createdAt: { stringValue: new Date(now).toISOString() },
+      };
+      const accRes = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: accessFields }),
+      });
+      const accData = await accRes.json();
+      if (accData.error) return res.status(200).json({ error: accData.error.message });
+
+      // Marca o lead como "em teste" (só estes campos, sem apagar o resto).
+      const leadMask = ["status", "trialEndsAt", "trialDays", "trialPlano", "trialClinicKey", "updatedAt"]
+        .map((k) => `updateMask.fieldPaths=${k}`).join("&");
+      await fetch(`${FS}/leads/${leadId}?key=${API_KEY}&${leadMask}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: {
+          status: { stringValue: "teste" },
+          trialEndsAt: { stringValue: trialEndsAt },
+          trialDays: { integerValue: String(nDays) },
+          trialPlano: { stringValue: plano },
+          trialClinicKey: { stringValue: key },
+          updatedAt: { stringValue: new Date(now).toISOString() },
+        } }),
+      });
+
+      let partnerName = partnerId;
+      try {
+        const pr = await (await fetch(`${FS}/partners/${partnerId}?key=${API_KEY}`)).json();
+        partnerName = pr.fields?.name?.stringValue || partnerId;
+      } catch (e) { /* usa o id */ }
+      try {
+        await fetch("https://whatsapp.botclinica.com.br/notify-owner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "🎁 Novo teste grátis — entrar em contato com a clínica",
+            body: `${partnerName} abriu ${nDays} dias de teste (${plano}) para "${lead.nome}" (${email}${lead.telefone ? `, tel. ${lead.telefone}` : ""}). Fale com a clínica para combinar o número de WhatsApp de teste dela; depois registre em CRM → Parceiros → Testes → "Definir número".`,
+            url: "https://botclinica.com.br/crm",
+          }),
+        });
+      } catch (e) { /* não bloqueia a liberação */ }
+
+      return res.status(200).json({
+        ok: true, email, senha: senhaTemp, plano, days: nDays, trialEndsAt,
+        loginUrl: "https://botclinica.com.br",
+      });
+    }
+
+    // ── CRM: lista de testes (com status do WhatsApp e do pagamento) ──────
+    if (action === "listTrials") {
+      const [accessList, partnersList] = await Promise.all([fsListAll("acessos_autorizados"), fsListAll("partners")]);
+      if (accessList.error) return res.status(200).json([]);
+      const partnerNames = {};
+      for (const d of (partnersList.documents || [])) partnerNames[d.name.split("/").pop()] = d.fields?.name?.stringValue || "";
+      const now = Date.now();
+      const trials = (accessList.documents || [])
+        .filter((d) => d.fields?.trialPartnerId?.stringValue)
+        .map((d) => {
+          const f = d.fields;
+          const endsAt = f.trialEndsAt?.stringValue || "";
+          const pagamento = f.statusPagamento?.stringValue || "";
+          const msLeft = endsAt ? new Date(endsAt).getTime() - now : 0;
+          let estado = "ativo";
+          if (pagamento === "em_dia" || pagamento === "atrasado") estado = "assinou";
+          else if (pagamento === "cancelado") estado = "cancelado";
+          else if (msLeft <= 0) estado = "vencido";
+          return {
+            key: d.name.split("/").pop(),
+            email: f.email?.stringValue || "",
+            clinicName: f.clinicName?.stringValue || "",
+            plano: f.plano?.stringValue || "",
+            phone: f.phone?.stringValue || "",
+            partnerId: f.trialPartnerId.stringValue,
+            partnerName: partnerNames[f.trialPartnerId.stringValue] || f.trialPartnerId.stringValue,
+            leadId: f.trialLeadId?.stringValue || "",
+            trialEndsAt: endsAt,
+            daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)),
+            estado,
+            whatsappConnected: null,
+          };
+        })
+        .sort((a, b) => b.trialEndsAt.localeCompare(a.trialEndsAt));
+
+      // Pergunta pra VPS se o número já casou com a WABA (só dos testes ativos).
+      await Promise.all(trials.filter((t) => t.estado === "ativo").map(async (t) => {
+        try {
+          const r = await fetch(`https://whatsapp.botclinica.com.br/clinic-status?clinicId=${encodeURIComponent(t.key)}`, { signal: AbortSignal.timeout(4000) });
+          const j = await r.json();
+          t.whatsappConnected = !!j.connected;
+        } catch (e) { t.whatsappConnected = null; }
+      }));
+      return res.status(200).json(trials);
+    }
+
+    // ── CRM: o suporte registra o número de WhatsApp de teste da clínica ───
+    // Depois disso, quando o número estiver na WABA "Bot Clinica", a VPS casa
+    // sozinha (a cada 2 min) pelo campo "phone" e o bot começa a responder.
+    if (action === "adminSetTrialPhone") {
+      const { key, phone } = payload;
+      if (!key) return res.status(400).json({ error: "key obrigatório" });
+      let digits = String(phone || "").replace(/\D/g, "");
+      if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
+      if (!/^55\d{10,11}$/.test(digits)) {
+        return res.status(200).json({ error: "Informe o WhatsApp com DDD (ex: 31 99999-9999)." });
+      }
+      const cur = await (await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`)).json();
+      if (!cur.fields?.trialPartnerId) return res.status(200).json({ error: "Essa conta não é um teste." });
+      const all = await fsListAll("acessos_autorizados");
+      if (all.error) return res.status(200).json({ error: "Não consegui verificar as contas agora. Tente de novo." });
+      for (const doc of (all.documents || [])) {
+        if (doc.name.split("/").pop() === key) continue;
+        const other = (doc.fields?.phone?.stringValue || "").replace(/\D/g, "");
+        if (other && other.slice(-8) === digits.slice(-8)) {
+          return res.status(200).json({ error: "Esse número já está em uso por outra clínica." });
+        }
+      }
+      const r = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}&updateMask.fieldPaths=phone`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { phone: { stringValue: digits } } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+      // O fluxo do bot (N8N) lê o telefone daqui também — grava só esse campo.
+      await fetch(`${FS}/clinic_settings_${key}/whatsapp?key=${API_KEY}&updateMask.fieldPaths=phone`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { phone: { stringValue: digits } } }),
+      }).catch(() => {});
+      return res.status(200).json({ ok: true, phone: digits });
+    }
+
+    // ── CRM: prorrogar ou encerrar um teste na mão ───────────────────────
+    if (action === "adminTrialAction") {
+      const { key, op, days } = payload;
+      if (!key || !["extend", "end"].includes(op)) return res.status(400).json({ error: "key e op (extend|end) são obrigatórios" });
+      const cur = await (await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`)).json();
+      if (!cur.fields?.trialPartnerId) return res.status(200).json({ error: "Essa conta não é um teste." });
+      if (cur.fields.statusPagamento?.stringValue === "em_dia") return res.status(200).json({ error: "Essa clínica já assinou — não é mais um teste." });
+
+      let newEnds;
+      if (op === "extend") {
+        const add = Math.max(1, Math.min(30, Number(days) || 7));
+        const base = Math.max(Date.now(), new Date(cur.fields.trialEndsAt?.stringValue || 0).getTime());
+        newEnds = new Date(base + add * 86400000).toISOString();
+      } else {
+        newEnds = new Date().toISOString();
+      }
+      const mask = ["trialEndsAt", "statusPagamento", "ativo", "trialExpiredNotified"].map((k) => `updateMask.fieldPaths=${k}`).join("&");
+      const r = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}&${mask}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: {
+          trialEndsAt: { stringValue: newEnds },
+          statusPagamento: { stringValue: "trial" },
+          ativo: { booleanValue: true },
+          trialExpiredNotified: { booleanValue: false },
+        } }),
+      });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ error: d.error.message });
+
+      const leadId = cur.fields.trialLeadId?.stringValue;
+      if (leadId) {
+        await fetch(`${FS}/leads/${leadId}?key=${API_KEY}&updateMask.fieldPaths=trialEndsAt`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { trialEndsAt: { stringValue: newEnds } } }),
+        }).catch(() => {});
+      }
+      return res.status(200).json({ ok: true, trialEndsAt: newEnds });
+    }
+
     // NOVO: visão de atividade dos parceiros pro CRM — responde "quem tá
     // realmente usando o app e pegando lead, e quem sumiu". Junta o
     // lastLoginAt (gravado no partnerLogin) com a atividade de reivindicar
@@ -2136,9 +2387,12 @@ module.exports = async (req, res) => {
       // pra você ver no CRM quem tá ativo de verdade e quem sumiu. Não
       // bloqueia o login se isso falhar por algum motivo.
       try {
-        await fsReq(`partners/${cleanId}`, {
+        // IMPORTANTE: updateMask grava SÓ esse campo. Sem ele, o Firestore
+        // substitui o documento inteiro (apagaria nome, senha, comissão...).
+        await fetch(`${FS}/partners/${cleanId}?key=${API_KEY}&updateMask.fieldPaths=lastLoginAt`, {
           method: "PATCH",
-          body: JSON.stringify({ fields: toFsFields({ lastLoginAt: new Date().toISOString() }) }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { lastLoginAt: { stringValue: new Date().toISOString() } } }),
         });
       } catch (e) { /* login segue normal mesmo se isso falhar */ }
 
@@ -2204,6 +2458,14 @@ module.exports = async (req, res) => {
         createdAt: { stringValue: existing.fields?.createdAt?.stringValue || new Date().toISOString() },
         updatedAt: { stringValue: new Date().toISOString() },
       };
+      // Este save regrava o documento inteiro, então os campos do teste
+      // grátis precisam ser carregados junto — senão sumiriam a cada edição.
+      for (const k of ["trialEndsAt", "trialDays", "trialPlano", "trialClinicKey"]) {
+        if (existing.fields?.[k]) fields[k] = existing.fields[k];
+      }
+      if (existing.fields?.status?.stringValue === "teste" && !status) {
+        fields.status = { stringValue: "teste" };
+      }
       const r = await fetch(`${FS}/leads/${id}?key=${API_KEY}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

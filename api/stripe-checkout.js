@@ -123,6 +123,26 @@ async function createPendingAccount({ email, plano, clinicName, adminName }) {
     return;
   }
 
+  // NOVO: clínica em TESTE GRÁTIS que clica em "Assinar" não pode perder o
+  // acesso enquanto o pagamento não sai (o fluxo abaixo marcaria a conta
+  // como "ativo: false / aguardando_pagamento"). Mantém o teste como está e
+  // atualiza só os dados da assinatura; quem liga o acesso pago de verdade
+  // continua sendo o webhook, quando o Stripe confirmar o pagamento.
+  if (existingD.fields?.statusPagamento?.stringValue === 'trial') {
+    const keep = {
+      plano: { stringValue: plano || existingD.fields?.plano?.stringValue || 'starter' },
+    };
+    if (clinicName) keep.clinicName = { stringValue: clinicName };
+    if (adminName) keep.adminName = { stringValue: adminName };
+    const keepMask = Object.keys(keep).map(f => `updateMask.fieldPaths=${f}`).join('&');
+    await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}&${keepMask}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: keep }),
+    });
+    return;
+  }
+
   // BUGFIX (05/08 — 2ª rodada): a versão anterior desse código, quando a
   // conta já existia por QUALQUER motivo (teste antigo, tentativa anterior,
   // etc), simplesmente não fazia nada — deixando o "ativo" antigo intacto,
