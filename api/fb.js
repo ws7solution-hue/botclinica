@@ -1937,6 +1937,7 @@ module.exports = async (req, res) => {
     // houver número, a conta funciona no app mas o bot não liga.
     if (action === "startLeadTrial") {
       const MAX_ACTIVE_TRIALS_PER_PARTNER = 3;
+      const TRIAL_DEFAULT_PASSWORD = "BotClinica2026";
       const PLANOS_VALIDOS = ["starter", "profissional", "clinica", "premium"];
       const { partnerId, leadId, days, plano } = payload;
       if (!partnerId || !leadId) return res.status(400).json({ error: "partnerId e leadId são obrigatórios" });
@@ -1972,7 +1973,9 @@ module.exports = async (req, res) => {
         return res.status(200).json({ error: `Você já tem ${MAX_ACTIVE_TRIALS_PER_PARTNER} testes ativos. Espere algum terminar ou converter para liberar outro.` });
       }
 
-      const senhaTemp = require("crypto").randomBytes(5).toString("hex") + "Aa!";
+      // Senha padrão dos testes grátis (decisão do Willian). A clínica é
+      // obrigada a trocar no primeiro acesso (firstAccess = true).
+      const senhaTemp = TRIAL_DEFAULT_PASSWORD;
       const signUpR = await fetch(ENDPOINTS.signUp, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
