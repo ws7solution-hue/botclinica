@@ -286,6 +286,37 @@ fbq('track', 'PageView');
 src="https://www.facebook.com/tr?id=28881713088095858&ev=PageView&noscript=1"
 /></noscript>
 <!-- End Meta Pixel Code -->
+<style id="addon-card-css">
+/* Cartão do add-on "Documentos por IA" */
+.addon-card{max-width:1180px;margin:56px auto 0;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) 340px;
+  border:1px solid rgba(255,255,255,.10);border-radius:22px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(21,38,63,.82),rgba(11,22,38,.88));
+  box-shadow:0 34px 80px -46px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05);
+  font-family:'Inter',sans-serif}
+.addon-main{padding:36px 34px 34px 36px}
+.addon-head{display:flex;align-items:flex-start;gap:22px}
+.addon-ico{flex:0 0 auto;width:30px;height:38px;margin-top:8px;filter:drop-shadow(0 0 10px rgba(77,168,255,.25))}
+.addon-eyebrow{display:block;font-size:12.5px;font-weight:700;letter-spacing:.075em;text-transform:uppercase;color:#3B8CFF;line-height:1.3}
+.addon-title{font-family:'Inter',sans-serif;font-size:clamp(32px,4.2vw,48px);font-weight:800;letter-spacing:-.03em;line-height:1.04;color:#fff;margin:6px 0 0;text-align:left}
+.addon-desc{margin:16px 0 24px;max-width:650px;font-size:clamp(16px,1.6vw,19.5px);line-height:1.55;color:#93A6C2;text-align:left}
+.addon-checks{list-style:none;display:flex;flex-wrap:wrap;gap:14px 22px;padding:0;margin:0}
+.addon-checks li{display:flex;align-items:center;gap:10px;font-size:15px;line-height:1.3;color:#DCE6F5}
+.addon-check{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:#2F7DF6;display:inline-flex;align-items:center;justify-content:center}
+.addon-price{margin:30px 0;padding:8px 40px 0;border-left:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;gap:16px}
+.addon-avail{font-size:16px;color:#A9B9D2}
+.addon-amount{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.addon-amount strong{font-size:clamp(48px,5vw,60px);font-weight:800;letter-spacing:-.04em;line-height:1;color:#fff}
+.addon-amount span{font-size:22px;color:#93A6C2}
+.addon-br{display:none}
+@media(min-width:1240px){.addon-br{display:inline}}
+@media(max-width:900px){
+  .addon-card{grid-template-columns:1fr;margin-top:44px}
+  .addon-main{padding:30px 24px 26px}
+  .addon-head{gap:16px}
+  .addon-price{margin:0 24px;padding:22px 0 28px;border-left:0;border-top:1px solid rgba(255,255,255,.10);gap:10px}
+  .addon-checks{flex-direction:column;gap:13px}
+}
+</style>
 </head>
 <body>
 
@@ -568,16 +599,30 @@ src="https://www.facebook.com/tr?id=28881713088095858&ev=PageView&noscript=1"
     </div>
     <p style="color:var(--muted);font-size:13px;margin-top:32px">✓ Cancele quando quiser &nbsp;·&nbsp; ✓ Sem taxa de instalação &nbsp;·&nbsp; ✓ Configuração feita por nós</p>
 
-    <div style="max-width:720px;margin:56px auto 0;background:linear-gradient(135deg,#0F1B2C,#132840);border:1px solid rgba(77,168,255,.25);border-radius:20px;padding:32px 36px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
-      <div style="font-size:40px;flex-shrink:0">📄🤖</div>
-      <div style="flex:1;min-width:240px">
-        <span style="font-size:11px;font-weight:800;color:#4DA8FF;text-transform:uppercase;letter-spacing:.5px">Add-on opcional · disponível em qualquer plano</span>
-        <h3 style="font-size:19px;font-weight:800;color:#fff;margin:6px 0 8px;font-family:'Space Grotesk',sans-serif">Documentos por IA — R$97/mês</h3>
-        <p style="font-size:13px;color:#8FA0B5;line-height:1.6;margin:0">Sua clínica sobe exames, atestados, contas e contratos de convênio — a IA lê, organiza e resume tudo sozinha, separado por categoria e por paciente. Sem mais tempo perdido arquivando papel.</p>
+    <!-- ADD-ON: Documentos por IA -->
+    <div class="addon-card">
+      <div class="addon-main">
+        <div class="addon-head">
+          <svg class="addon-ico" viewBox="0 0 32 40" fill="none" stroke="#86B3FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 3H8a4 4 0 0 0-4 4v26a4 4 0 0 0 4 4h16a4 4 0 0 0 4-4V13L18 3z"/>
+            <path d="M18 3v7a3 3 0 0 0 3 3h7"/>
+            <path d="M10 22h12M10 28h12"/>
+          </svg>
+          <div>
+            <span class="addon-eyebrow">Adicional opcional</span>
+            <h3 class="addon-title">Documentos por IA</h3>
+          </div>
+        </div>
+        <p class="addon-desc">Envie exames, atestados, contas e contratos de convênio. A IA lê,<br class="addon-br"> resume e organiza tudo por categoria e por paciente.</p>
+        <ul class="addon-checks">
+          <li><span class="addon-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Leitura e resumo automático</li>
+          <li><span class="addon-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Organização por paciente</li>
+          <li><span class="addon-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Documentos em um só lugar</li>
+        </ul>
       </div>
-      <div style="flex-shrink:0;text-align:center">
-        <div style="font-size:24px;font-weight:900;color:#4DA8FF">+R$97</div>
-        <div style="font-size:11px;color:#8FA0B5">por mês</div>
+      <div class="addon-price">
+        <span class="addon-avail">Disponível em qualquer plano</span>
+        <div class="addon-amount"><strong>R$ 97</strong><span>/mês</span></div>
       </div>
     </div>
   </div>
@@ -878,7 +923,7 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
   if (heroH1) setTimeout(function(){ scrambleText(heroH1); }, 300);
 
   function reveal(){
-    document.querySelectorAll('.section-label,.section-title,.section-sub,.feature-item,.np-card,.step-card,.faq-item,.mockup-text,.test-card').forEach(function(el,i){
+    document.querySelectorAll('.section-label,.section-title,.section-sub,.feature-item,.np-card,.step-card,.faq-item,.mockup-text,.test-card,.addon-card').forEach(function(el,i){
       el.classList.add('reveal');
       el.style.transitionDelay=(Math.floor(i%3)*0.1)+'s';
     });
