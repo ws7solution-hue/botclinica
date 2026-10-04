@@ -634,6 +634,17 @@ module.exports = async (req, res) => {
         });
       }
 
+      // NOVO: teste grátis vencido (e que não virou assinatura paga) também
+      // bloqueia o login. Quem já pagou (statusPagamento em_dia, setado
+      // pelo webhook do Stripe) nunca é barrado por essa regra.
+      const trialEndsAt = planD.fields?.trialEndsAt?.stringValue;
+      const pagoEmDia = planD.fields?.statusPagamento?.stringValue === "em_dia";
+      if (trialEndsAt && !pagoEmDia && new Date(trialEndsAt).getTime() < Date.now()) {
+        return res.status(200).json({
+          error: "Seu período de teste grátis terminou. Entre em contato com o suporte ou assine um plano para continuar usando o BotClínica.",
+        });
+      }
+
       const plano = planD.fields?.plano?.stringValue || "starter";
       const firstAccess = planD.fields?.firstAccess?.booleanValue !== false; // true se campo não existe ou for true
       return res.status(200).json({ ok: true, email, plano, idToken: d.idToken, firstAccess });
