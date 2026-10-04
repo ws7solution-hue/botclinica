@@ -417,6 +417,9 @@ let clientes = [];
 let tickets = [];
 let partners = [];
 let partnersActivity = [];
+let trials = [];
+let trialsLoaded = false;
+let trialsLoading = false;
 let commissions = [];
 let leads = [];
 let leadsPool = [];
@@ -552,6 +555,37 @@ async function loadAll(){
 async function loadPartners(){
   const d = await api('listPartners', {});
   partners = Array.isArray(d) ? d : [];
+}
+
+async function loadTrials(){
+  const d = await api('listTrials', {});
+  trials = Array.isArray(d) ? d : [];
+}
+
+async function reloadTrialsAndRender(){
+  await loadTrials();
+  trialsLoaded = true;
+  goTo('parceiros');
+}
+
+async function trialAction(key, op, days){
+  if(op==='end' && !confirm('Encerrar este teste agora? O login e o bot dessa clínica serão desligados.')) return;
+  const r = await api('adminTrialAction', {key, op, days});
+  if(r && r.error){ alert('Erro: '+r.error); return; }
+  await reloadTrialsAndRender();
+}
+
+async function setTrialPhone(key, atual){
+  const v = prompt('WhatsApp de teste da clínica (com DDD):', atual ? atual.replace(/^55/,'') : '');
+  if(v===null) return;
+  const r = await api('adminSetTrialPhone', {key, phone: v});
+  if(r && r.error){ alert('Erro: '+r.error); return; }
+  alert('Número registrado. Agora adicione +'+r.phone+' na WABA Bot Clinica (WhatsApp Manager). O bot liga em até 2 minutos depois.');
+  await reloadTrialsAndRender();
+}
+
+function copyText(txt){
+  navigator.clipboard.writeText(txt).then(()=>{}, ()=>{});
 }
 
 async function loadPartnersActivity(){
@@ -1805,6 +1839,11 @@ function tempoAtras(iso){
 
 function switchParceirosTab(tab){
   currentParceirosTab = tab;
+  if(tab==='testes' && !trialsLoaded && !trialsLoading){
+    trialsLoading = true;
+    loadTrials().then(()=>{ trialsLoaded = true; trialsLoading = false; goTo('parceiros'); })
+                .catch(()=>{ trialsLoading = false; trialsLoaded = true; goTo('parceiros'); });
+  }
   document.querySelectorAll('[data-ptab]').forEach(el=>{
     el.style.display = (el.getAttribute('data-ptab')===tab) ? '' : 'none';
   });
@@ -1830,6 +1869,7 @@ function renderParceiros(){
     <button class="ptab-btn" id="ptabbtn-pool" onclick="switchParceirosTab('pool')">🏊 Piscina de Leads</button>
     <button class="ptab-btn" id="ptabbtn-partners" onclick="switchParceirosTab('partners')">🤝 Parceiros</button>
     <button class="ptab-btn" id="ptabbtn-activity" onclick="switchParceirosTab('activity')">📈 Atividade</button>
+    <button class="ptab-btn" id="ptabbtn-testes" onclick="switchParceirosTab('testes')">🎁 Testes</button>
     <button class="ptab-btn" id="ptabbtn-leads" onclick="switchParceirosTab('leads')">📋 Leads em Andamento</button>
     <button class="ptab-btn" id="ptabbtn-equipe" onclick="switchParceirosTab('equipe')">👔 Equipe</button>
   </div>
@@ -1963,6 +2003,51 @@ function renderParceiros(){
       </tbody>
     </table>
     </div>`}
+  </div>
+  </div>
+
+  <div data-ptab="testes" style="display:none">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>🎁 Testes grátis liberados pelos parceiros</span>
+      <button class="btn btn-outline btn-sm" onclick="trialsLoaded=false;switchParceirosTab('testes')">🔄 Atualizar</button>
+    </div>
+    ${!trialsLoaded?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando testes e conferindo o WhatsApp de cada um...</div>':(()=>{
+      const ativos = trials.filter(t=>t.estado==='ativo').length;
+      const vencidos = trials.filter(t=>t.estado==='vencido').length;
+      const assinou = trials.filter(t=>t.estado==='assinou').length;
+      const encerrados = assinou + vencidos + trials.filter(t=>t.estado==='cancelado').length;
+      const conv = encerrados>0 ? Math.round(assinou/encerrados*100) : 0;
+      const estadoLabel = {ativo:'🟢 Em teste', vencido:'🔴 Vencido', assinou:'💳 Assinou', cancelado:'🚫 Cancelado'};
+      const wa = t => {
+        if(t.estado!=='ativo') return '—';
+        if(!t.phone) return '📞 Falta falar com a clínica e definir o número';
+        if(t.whatsappConnected===true) return '✅ Conectado';
+        if(t.whatsappConnected===false) return '⏳ Aguardando o número entrar na WABA';
+        return '❔ Não consegui checar';
+      };
+      if(trials.length===0) return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum teste liberado ainda.</div>';
+      return `
+      <div style="display:flex;gap:24px;padding:4px 4px 14px;font-size:13px;flex-wrap:wrap">
+        <div>🟢 Em teste: <strong>${ativos}</strong></div>
+        <div>🔴 Vencidos sem assinar: <strong>${vencidos}</strong></div>
+        <div>💳 Assinaram: <strong>${assinou}</strong></div>
+        <div>Conversão (dos encerrados): <strong>${conv}%</strong></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Estado</th><th>Clínica</th><th>Parceiro</th><th>Plano</th><th>Fim do teste</th><th>WhatsApp</th><th>Ações</th></tr></thead>
+        <tbody>
+        ${trials.map(t=>`<tr>
+          <td>${estadoLabel[t.estado]||t.estado}</td>
+          <td><strong>${t.clinicName||t.email}</strong><br><span style="font-size:11px;color:var(--muted)">${t.email}</span></td>
+          <td>${t.partnerName}</td>
+          <td>${t.plano}</td>
+          <td>${t.trialEndsAt?new Date(t.trialEndsAt).toLocaleDateString('pt-BR'):''}${t.estado==='ativo'?`<br><span style="font-size:11px;color:var(--muted)">${t.daysLeft} dia(s)</span>`:''}</td>
+          <td>${wa(t)}${t.estado==='ativo'&&t.phone&&t.whatsappConnected===false?`<br><span style="font-size:11px">+${t.phone} <a href="#" onclick="copyText('${t.phone}');return false">copiar</a></span>`:''}${t.estado==='ativo'?`<br><a href="#" style="font-size:11px" onclick="setTrialPhone('${t.key}','${t.phone||''}');return false">${t.phone?'Trocar número':'Definir número'}</a>`:''}${t.estado==='vencido'&&t.phone?`<br><span style="font-size:11px;color:var(--muted)">remover +${t.phone} da WABA</span>`:''}</td>
+          <td>${t.estado==='assinou'?'':`<button class="btn btn-outline btn-sm" onclick="trialAction('${t.key}','extend',7)">+7 dias</button> ${t.estado==='ativo'?`<button class="btn btn-outline btn-sm" style="color:var(--red)" onclick="trialAction('${t.key}','end')">Encerrar</button>`:''}`}</td>
+        </tr>`).join('')}
+        </tbody></table></div>`;
+    })()}
   </div>
   </div>
 

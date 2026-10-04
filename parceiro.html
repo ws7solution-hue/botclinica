@@ -523,12 +523,12 @@ async function markPoolLeadNoWhatsapp(id, nome){
 const STATUS_LABEL = {
   novo: '🆕 Novo', reuniao_marcada: '📅 Reunião marcada', negociando: '💬 Negociando',
   vendido: '💰 Vendido', perdido: '❌ Perdido', cancelado: '🚫 Cancelado pela clínica',
-  sem_whatsapp: '📵 Não tem WhatsApp', nao_responde: '🔇 Não responde',
+  sem_whatsapp: '📵 Não tem WhatsApp', nao_responde: '🔇 Não responde', teste: '🎁 Em teste grátis',
 };
 const STATUS_BADGE = {
   novo: 'badge-blue', reuniao_marcada: 'badge-yellow', negociando: 'badge-yellow',
   vendido: 'badge-green', perdido: 'badge-red', cancelado: 'badge-red',
-  sem_whatsapp: 'badge-red', nao_responde: 'badge-yellow',
+  sem_whatsapp: 'badge-red', nao_responde: 'badge-yellow', teste: 'badge-yellow',
 };
 const PLAN_LABEL = { starter:'Starter', profissional:'Profissional', clinica:'Clínica', premium:'Premium' };
 
@@ -568,8 +568,9 @@ function renderLeads(){
       </div>
       ${l.plano?`<div style="font-size:12px;color:var(--muted);margin-top:8px">Plano: ${PLAN_LABEL[l.plano]||l.plano}${l.addon?' + Add-on Documentos':''}</div>`:''}
       ${l.reuniaoData?`<div style="font-size:12px;color:var(--muted)">Reunião: ${new Date(l.reuniaoData+'T12:00:00').toLocaleDateString('pt-BR')}${l.reuniaoHora?' às '+l.reuniaoHora:''}</div>`:''}
+      ${trialInfoLine(l)}
       ${l.notas?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${l.notas}</div>`:''}
-      ${!l.vendaConfirmada?`<div class="lead-actions"><button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button>${l.telefone?`<button class="btn-sm" style="background:#25D366;color:#fff" onclick="openWhatsAppForLead('${l.id}')">💬 WhatsApp</button>`:''}<button class="btn-sm" style="color:var(--red)" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️ Excluir</button></div>`:''}
+      ${!l.vendaConfirmada?`<div class="lead-actions">${trialButton(l)}<button class="btn-sm" onclick='openLeadModal(${JSON.stringify(l).replace(/'/g,"&apos;")})'>✏️ Editar</button>${l.telefone?`<button class="btn-sm" style="background:#25D366;color:#fff" onclick="openWhatsAppForLead('${l.id}')">💬 WhatsApp</button>`:''}<button class="btn-sm" style="color:var(--red)" onclick="deleteLead('${l.id}','${l.nome.replace(/'/g,"\\'")}')">🗑️ Excluir</button></div>`:''}
     </div>
   `;
 
@@ -596,7 +597,7 @@ function renderLeads(){
   // NOVO — botões de filtro por status (mesmo padrão já usado em Central
   // de Atendimento: clica, mostra só aquele status, clica em "Todos" pra
   // voltar a ver tudo junto).
-  const STATUS_ORDEM = ['reuniao_marcada', 'negociando', 'novo', 'vendido', 'sem_whatsapp', 'nao_responde', 'perdido', 'cancelado'];
+  const STATUS_ORDEM = ['reuniao_marcada', 'negociando', 'teste', 'novo', 'vendido', 'sem_whatsapp', 'nao_responde', 'perdido', 'cancelado'];
   const filtrosHtml = `
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
       <button
@@ -677,6 +678,136 @@ function renderCommissions(){
   `).join('');
 }
 
+// ── Teste grátis ────────────────────────────────────────────────────────
+let trialLeadId = null;
+let lastTrialResult = null;
+
+function trialInfoLine(l){
+  if(!l.trialEndsAt) return '';
+  const diasRest = Math.ceil((new Date(l.trialEndsAt) - Date.now()) / 86400000);
+  const fim = new Date(l.trialEndsAt).toLocaleDateString('pt-BR');
+  const txt = diasRest > 0
+    ? `🎁 Teste até ${fim} — ${diasRest} dia${diasRest>1?'s':''} restante${diasRest>1?'s':''}`
+    : `🎁 Teste venceu em ${fim} — hora de ligar e fechar!`;
+  return `<div style="font-size:12px;color:${diasRest>0?'var(--muted)':'var(--red)'};margin-top:4px">${txt}</div>`;
+}
+
+function trialButton(l){
+  if(l.trialClinicKey || l.vendaConfirmada) return '';
+  if(['vendido','perdido','cancelado','sem_whatsapp'].includes(l.status)) return '';
+  if(!l.email) return '<span style="font-size:11px;color:var(--muted);align-self:center">Preencha o e-mail para liberar teste</span>';
+  return `<button class="btn-sm" style="background:#7c3aed;color:#fff" onclick="openTrialModal('${l.id}')">🎁 Liberar teste grátis</button>`;
+}
+
+function openTrialModal(leadId){
+  const l = myLeads.find(x => x.id === leadId);
+  if(!l) return;
+  trialLeadId = leadId;
+  const planoPadrao = l.plano || 'profissional';
+  const opt = (v, label) => `<option value="${v}" ${planoPadrao===v?'selected':''}>${label}</option>`;
+  const html = `
+    <div class="modal-overlay open" id="modal-trial">
+      <div class="modal">
+        <h2>🎁 Liberar teste grátis</h2>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          <strong>${l.nome}</strong><br>Login da clínica: ${l.email}
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Duração</label>
+            <select id="tf-dias"><option value="7">7 dias</option><option value="14">14 dias</option></select>
+          </div>
+          <div>
+            <label>Plano a testar</label>
+            <select id="tf-plano">
+              ${opt('starter','Starter')}${opt('profissional','Profissional')}${opt('clinica','Clínica')}${opt('premium','Premium')}
+            </select>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:10px 0 12px;line-height:1.5">
+          Ao liberar, criamos o acesso da clínica ao sistema. Nossa equipe de suporte entra em contato com a clínica
+          para combinar o <strong>número de WhatsApp de teste</strong> (um número separado do dia a dia dela) e fazer a conexão.
+          Você não precisa cuidar dessa parte.
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" onclick="closeTrialModal()">Cancelar</button>
+          <button class="btn-save" id="tf-go" onclick="startTrial()">Liberar teste</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeTrialModal(){
+  const m = document.getElementById('modal-trial');
+  if(m) m.remove();
+}
+
+async function startTrial(){
+  const l = myLeads.find(x => x.id === trialLeadId);
+  if(!l) return;
+  const btn = document.getElementById('tf-go');
+  btn.disabled = true; btn.textContent = 'Liberando...';
+  const r = await api('startLeadTrial', {
+    partnerId: currentPartner.id,
+    leadId: trialLeadId,
+    days: Number(document.getElementById('tf-dias').value),
+    plano: document.getElementById('tf-plano').value,
+  });
+  if(r.error){
+    toast('Erro: ' + r.error);
+    btn.disabled = false; btn.textContent = 'Liberar teste';
+    return;
+  }
+  closeTrialModal();
+  await loadMyLeads();
+  showTrialResult(r, l);
+}
+
+function trialWelcomeMessage(r, l){
+  const fim = new Date(r.trialEndsAt).toLocaleDateString('pt-BR');
+  return `Olá! Seu teste grátis de ${r.days} dias do BotClínica (plano ${PLAN_LABEL[r.plano]||r.plano}) está liberado 🎉\n\n` +
+    `Acesse: ${r.loginUrl}\nLogin: ${r.email}\nSenha temporária: ${r.senha}\n\n` +
+    `O teste vai até ${fim}. Nossa equipe de suporte vai entrar em contato para combinar o número de WhatsApp de teste da clínica (um número separado do dia a dia) e conectar o assistente. Qualquer dúvida, é só chamar!`;
+}
+
+function showTrialResult(r, l){
+  lastTrialResult = { r, l, msg: trialWelcomeMessage(r, l) };
+  const html = `
+    <div class="modal-overlay open" id="modal-trial-result">
+      <div class="modal">
+        <h2>✅ Teste liberado!</h2>
+        <div style="font-size:13px;margin-bottom:10px">
+          Mande esta mensagem para a clínica (já está pronta):
+        </div>
+        <textarea id="tr-msg" rows="9" readonly style="font-size:12px">${lastTrialResult.msg.replace(/\\n/g,'\n')}</textarea>
+        <div style="font-size:12px;color:var(--muted);margin:8px 0 12px">
+          Avisamos a equipe BotClínica, que vai falar com a clínica para combinar o número de teste e conectar o assistente.
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" onclick="copyTrialMessage()">📋 Copiar</button>
+          ${l.telefone?`<button class="btn-save" style="background:#25D366" onclick="sendTrialWhatsApp()">💬 Enviar no WhatsApp</button>`:''}
+          <button class="btn-outline" onclick="document.getElementById('modal-trial-result').remove()">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function trialMsgText(){ return lastTrialResult.msg.replace(/\\n/g, '\n'); }
+
+async function copyTrialMessage(){
+  const txt = trialMsgText();
+  try { await navigator.clipboard.writeText(txt); toast('Mensagem copiada!'); }
+  catch(e){
+    const ta = document.getElementById('tr-msg'); ta.select(); document.execCommand('copy'); toast('Mensagem copiada!');
+  }
+}
+
+function sendTrialWhatsApp(){
+  window.open(whatsappLink(lastTrialResult.l.telefone, trialMsgText()), '_blank');
+}
+
 function openLeadModal(lead){
   editingLeadId = lead ? lead.id : null;
   const l = lead || {nome:'',email:'',telefone:'',plano:'',addon:false,status:'novo',reuniaoData:'',notas:''};
@@ -707,6 +838,7 @@ function openLeadModal(lead){
               <option value="novo" ${l.status==='novo'?'selected':''}>🆕 Novo</option>
               <option value="reuniao_marcada" ${l.status==='reuniao_marcada'?'selected':''}>📅 Reunião marcada</option>
               <option value="negociando" ${l.status==='negociando'?'selected':''}>💬 Negociando</option>
+              ${l.status==='teste'?'<option value="teste" selected>🎁 Em teste grátis</option>':''}
               <option value="vendido" ${l.status==='vendido'?'selected':''}>💰 Vendido</option>
               <option value="perdido" ${l.status==='perdido'?'selected':''}>❌ Perdido</option>
               <option value="sem_whatsapp" ${l.status==='sem_whatsapp'?'selected':''}>📵 Não tem WhatsApp</option>
