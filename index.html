@@ -31,10 +31,10 @@ h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif}
   animation:meshDrift 26s ease-in-out infinite alternate;filter:blur(50px)}
 @keyframes meshDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-2%,2%) scale(1.06)}}
 
-/* ── spotlight que segue o cursor (só na hero) ── */
-.cursor-spotlight{position:absolute;inset:0;z-index:1;pointer-events:none;
-  background: radial-gradient(600px circle at var(--mx,50%) var(--my,30%), rgba(77,168,255,0.10), transparent 70%);
-  transition: background .1s ease-out}
+/* ── luz que segue o cursor em TODO o site (camada fixa, atrás do conteúdo) ── */
+.cursor-glow{position:absolute;top:0;left:0;width:1200px;height:1200px;pointer-events:none;
+  background: radial-gradient(circle closest-side, rgba(77,168,255,0.10), transparent 70%);
+  will-change:transform;transition:opacity .4s ease}
 
 /* ── grade técnica sutil (referência a circuito/blueprint) ── */
 .grid-overlay{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.35;
@@ -289,7 +289,7 @@ src="https://www.facebook.com/tr?id=28881713088095858&ev=PageView&noscript=1"
 </head>
 <body>
 
-<div class="bg-fixed"><div class="bg-mesh"></div></div>
+<div class="bg-fixed"><div class="bg-mesh"></div><div class="cursor-glow" id="cursor-glow"></div></div>
 
 <!-- NAV -->
 <nav>
@@ -323,7 +323,6 @@ src="https://www.facebook.com/tr?id=28881713088095858&ev=PageView&noscript=1"
 <!-- HERO -->
 <section class="hero" id="hero-stage">
   <div class="grid-overlay"></div>
-  <div class="cursor-spotlight" id="cursor-spotlight"></div>
   <div class="hero-inner">
     <div>
       <div class="eyebrow"><span class="eyebrow-dot"></span> Mais de 200 atendimentos automatizados por clínica/mês</div>
@@ -814,16 +813,29 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
 </style>
 <script id="anim-js">
 (function(){
-  // ── Spotlight que segue o cursor na hero ──
-  var heroStage = document.getElementById('hero-stage');
-  if (heroStage) {
-    heroStage.addEventListener('mousemove', function(e){
-      var r = heroStage.getBoundingClientRect();
-      var x = ((e.clientX - r.left) / r.width) * 100;
-      var y = ((e.clientY - r.top) / r.height) * 100;
-      heroStage.style.setProperty('--mx', x + '%');
-      heroStage.style.setProperty('--my', y + '%');
-    });
+  // ── Luz que segue o cursor em TODO o site (não só na hero) ──
+  var glow = document.getElementById('cursor-glow');
+  if (glow) {
+    if (window.matchMedia('(hover: none)').matches) {
+      glow.style.display = 'none';            // celular/tablet: não há cursor
+    } else {
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var tx = window.innerWidth * 0.5, ty = window.innerHeight * 0.3;   // posição inicial
+      var cx = tx, cy = ty, raf = null;
+      var draw = function(){
+        var k = reduce ? 1 : 0.18;            // suavização do movimento
+        cx += (tx - cx) * k; cy += (ty - cy) * k;
+        glow.style.transform = 'translate3d(' + (cx - 600) + 'px,' + (cy - 600) + 'px,0)';
+        raf = (Math.abs(tx - cx) > 0.5 || Math.abs(ty - cy) > 0.5) ? requestAnimationFrame(draw) : null;
+      };
+      window.addEventListener('mousemove', function(e){
+        tx = e.clientX; ty = e.clientY; glow.style.opacity = '1';
+        if (!raf) raf = requestAnimationFrame(draw);
+      }, { passive: true });
+      document.documentElement.addEventListener('mouseleave', function(){ glow.style.opacity = '0'; });
+      document.documentElement.addEventListener('mouseenter', function(){ glow.style.opacity = '1'; });
+      draw();
+    }
   }
 
   // ── Botões magnéticos: brilho segue o cursor dentro do botão ──
