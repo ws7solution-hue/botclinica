@@ -9,6 +9,22 @@ const PRICE_IDS = {
 };
 const ADDON_DOCUMENTOS_PRICE_ID = 'price_1UAQ0DD2SvjWdknTCuIN9qBA';
 
+// ── PIX (pagamento único, adiantado) ───────────────────────────────────────
+// Contas do Stripe no Brasil só aceitam Pix em pagamento ÚNICO (o Pix
+// Automático/recorrente não existe aqui), então o Pix funciona como "pago
+// por período": a clínica paga 1, 3 ou 12 meses de uma vez e renova quando
+// vencer. Valores em REAIS por mês (iguais aos preços de assinatura do Stripe).
+const PIX_PRECOS_MENSAIS = { starter: 397, profissional: 597, clinica: 997, premium: 1497 };
+const PIX_ADDON_MENSAL = 97;
+const PIX_MESES_VALIDOS = [1, 3, 12];
+// Desconto (%) por período adiantado. Zero = preço cheio. Ex.: { 1: 0, 3: 5, 12: 10 }
+const PIX_DESCONTO_PERCENT = { 1: 0, 3: 0, 12: 0 };
+// O Stripe limita cada Pix a ~US$ 3.000. Usamos um teto conservador em reais
+// (câmbio muda), então combinações muito grandes (ex.: Premium por 12 meses)
+// são recusadas com uma mensagem clara em vez de falhar na tela do Stripe.
+const PIX_LIMITE_REAIS = 15000;
+const PIX_NOME_PLANO = { starter: 'Starter', profissional: 'Profissional', clinica: 'Clínica', premium: 'Premium' };
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -19,7 +35,7 @@ module.exports = async (req, res) => {
 
   // ── Buscar dados da sessão para login automático ─────────────────────────
   if (req.method === 'POST' && !req.headers['stripe-signature']) {
-    const { action, sessionId, plano, email, clinicName, adminName, incluirAddon } = req.body;
+    const { action, sessionId, plano, email, clinicName, adminName, incluirAddon, metodo, meses } = req.body;
 
     if (action === 'getSession' && sessionId) {
       try {
@@ -48,6 +64,70 @@ module.exports = async (req, res) => {
     if (!plano || !email) return res.status(400).json({ error: 'Plano e email são obrigatórios' });
     const priceId = PRICE_IDS[plano.toLowerCase()];
     if (!priceId) return res.status(400).json({ error: 'Plano inválido' });
+
+    // ── Pagamento por Pix (único, adiantado) ──────────────────────────────
+    if (metodo === 'pix') {
+      try {
+        const chave = plano.toLowerCase();
+        const nMeses = PIX_MESES_VALIDOS.includes(Number(meses)) ? Number(meses) : 1;
+        const desconto = PIX_DESCONTO_PERCENT[nMeses] || 0;
+        const textoPeriodo = nMeses === 1 ? '1 mês' : `${nMeses} meses`;
+        // centavos = reais × meses × (100 − desconto%)
+        const centavosPlano = Math.round(PIX_PRECOS_MENSAIS[chave] * nMeses * (100 - desconto));
+        const centavosAddon = Math.round(PIX_ADDON_MENSAL * nMeses * (100 - desconto));
+
+        const totalCentavos = centavosPlano + (incluirAddon ? centavosAddon : 0);
+        if (totalCentavos > PIX_LIMITE_REAIS * 100) {
+          return res.status(400).json({ error: 'Esse valor passa do limite de um único Pix. Escolha um período menor (ex.: 3 meses) ou pague no cartão.' });
+        }
+
+        await createPendingAccount({ email, plano, clinicName, adminName });
+
+        const itens = [{
+          price_data: {
+            currency: 'brl',
+            unit_amount: centavosPlano,
+            product_data: { name: `BotClínica — Plano ${PIX_NOME_PLANO[chave]} (${textoPeriodo})` },
+          },
+          quantity: 1,
+        }];
+        if (incluirAddon) {
+          itens.push({
+            price_data: {
+              currency: 'brl',
+              unit_amount: centavosAddon,
+              product_data: { name: `Add-on Documentos por IA (${textoPeriodo})` },
+            },
+            quantity: 1,
+          });
+        }
+        const meta = {
+          plano,
+          email,
+          clinicName: clinicName || '',
+          adminName: adminName || '',
+          addon: incluirAddon ? 'true' : 'false',
+          metodo: 'pix',
+          meses: String(nMeses),
+        };
+        const sessionPix = await stripe.checkout.sessions.create({
+          mode: 'payment',
+          payment_method_types: ['pix'],
+          line_items: itens,
+          customer_email: email,
+          metadata: meta,
+          payment_intent_data: { metadata: meta },
+          payment_method_options: { pix: { expires_after_seconds: 86400 } },
+          success_url: `https://botclinica.com.br/app?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `https://botclinica.com.br/checkout?status=cancelled`,
+          locale: 'pt-BR',
+        });
+        return res.status(200).json({ ok: true, url: sessionPix.url });
+      } catch (e) {
+        console.error('Stripe error (Pix):', e.message);
+        return res.status(500).json({ error: e.message });
+      }
+    }
 
     try {
       // Prepara as credenciais de login (SEM ativar ainda — só o webhook

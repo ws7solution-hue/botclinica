@@ -649,6 +649,17 @@ module.exports = async (req, res) => {
         });
       }
 
+      // NOVO: quem paga por Pix paga adiantado (1, 3 ou 12 meses) e renova quando
+      // vencer. Passou do vencimento + 3 dias de tolerância, o login é bloqueado
+      // até a renovação. (Quem paga no cartão não tem pixPagoAte, então não entra aqui.)
+      const pagaPorPix = planD.fields?.pagamentoMetodo?.stringValue === "pix";
+      const pixPagoAte = planD.fields?.pixPagoAte?.stringValue;
+      if (pagaPorPix && pixPagoAte && new Date(pixPagoAte).getTime() + 3 * 86400000 < Date.now()) {
+        return res.status(200).json({
+          error: "Seu acesso venceu. Renove o seu plano em botclinica.com.br/checkout para continuar usando o BotClínica.",
+        });
+      }
+
       const plano = planD.fields?.plano?.stringValue || "starter";
       const firstAccess = planD.fields?.firstAccess?.booleanValue !== false; // true se campo não existe ou for true
       return res.status(200).json({ ok: true, email, plano, idToken: d.idToken, firstAccess });

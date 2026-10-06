@@ -13,6 +13,11 @@
 //   - invoice.payment_succeeded      → volta pra "em dia", atualiza a data
 //     da próxima cobrança de verdade (vinda do Stripe, não mais digitada)
 //   - customer.subscription.updated  → também sincroniza status/data agora
+//
+// PIX (pagamento único, adiantado):
+//   - checkout.session.completed / async_payment_succeeded (mode=payment,
+//     metadata.metodo=pix) → só libera se payment_status = 'paid'; grava
+//     pixPagoAte (soma os meses ao vencimento atual) e evita somar 2x.
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -50,9 +55,34 @@ module.exports = async (req, res) => {
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed': {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object;
-        const { email, plano, clinicName, adminName, addon } = session.metadata || {};
+        const { email, plano, clinicName, adminName, addon, metodo, meses } = session.metadata || {};
+
+        // ── PIX (pagamento único, adiantado) ──────────────────────────────
+        // Só libera o acesso quando o Stripe confirma que o dinheiro entrou
+        // (payment_status = 'paid'). O Pix pode terminar o checkout antes de
+        // pagar, e nesse caso o evento 'async_payment_succeeded' chega depois.
+        if (session.mode === 'payment' && metodo === 'pix') {
+          if (session.payment_status !== 'paid') {
+            console.log(`⏳ Pix aguardando confirmação: ${email} (sessão ${session.id})`);
+            break;
+          }
+          if (email) {
+            const r = await activatePixPayment({
+              email, plano, clinicName, adminName,
+              addon: addon === 'true',
+              meses: Number(meses) || 1,
+              sessionId: session.id,
+              amountTotal: session.amount_total,
+            });
+            if (r && r.duplicado) console.log(`ℹ️ Pix já processado (sessão ${session.id}) — ignorado`);
+          }
+          break;
+        }
+        // Qualquer outro evento "async" que não seja de Pix não faz nada aqui.
+        if (event.type === 'checkout.session.async_payment_succeeded') break;
 
         if (email) {
           await activateAccount({ email, plano, clinicName, adminName, addon: addon === 'true' });
@@ -69,6 +99,13 @@ module.exports = async (req, res) => {
             'https://botclinica.com.br/crm'
           ).catch(() => {});
         }
+        break;
+      }
+
+      case 'checkout.session.async_payment_failed': {
+        const session = event.data.object;
+        const { email, metodo } = session.metadata || {};
+        console.log(`❌ Pagamento assíncrono falhou (${metodo || 'sem método'}): ${email || session.id}`);
         break;
       }
 
@@ -177,11 +214,13 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
   if (existingD.fields?.senhaTemp) {
     // Conta já existe com senha já criada — só liga o "ativo", sem tocar
     // em mais nada (preserva a senha real do Firebase Auth).
-    const maskFields = ['ativo', 'statusPagamento', 'plano'];
+    const maskFields = ['ativo', 'statusPagamento', 'plano', 'pagamentoMetodo'];
     const fields = {
       ativo: { booleanValue: true },
       statusPagamento: { stringValue: 'em_dia' },
       plano: { stringValue: plano || existingD.fields?.plano?.stringValue || 'starter' },
+      // Assinatura no cartão: o vencimento vem do Stripe, não de uma data de Pix.
+      pagamentoMetodo: { stringValue: 'cartao' },
     };
     // NOVO: se o checkout incluiu o add-on de Documentos, já liga ele
     // também — sem isso, quem pagou pelo add-on no ato da assinatura
@@ -243,6 +282,63 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
       body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken }),
     });
   }
+}
+
+// ── PIX: libera ou RENOVA o acesso por N meses ──────────────────────────────
+// O Pix não renova sozinho, então gravamos até quando a clínica pagou
+// (pixPagoAte). Se ela renova antes de vencer, os meses novos são SOMADOS ao
+// vencimento atual (ninguém perde dias). A sessão do Stripe fica gravada para
+// o mesmo pagamento não ser somado duas vezes (o Stripe pode mandar o aviso
+// de "concluído" e o de "pagamento confirmado" para a mesma compra).
+const PIX_TOLERANCIA_DIAS = 3; // (o corte de acesso acontece no login e na VPS)
+
+function somarMeses(dataBase, meses) {
+  const d = new Date(dataBase);
+  const diaOriginal = d.getDate();
+  d.setMonth(d.getMonth() + meses);
+  // 31/01 + 1 mês cairia em 03/03; volta para o último dia do mês certo
+  if (d.getDate() !== diaOriginal) d.setDate(0);
+  return d;
+}
+
+async function activatePixPayment({ email, plano, clinicName, adminName, addon, meses, sessionId, amountTotal }) {
+  const key = emailToKey(email);
+  const r = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
+  const atual = await r.json();
+  const f = atual.fields || {};
+
+  if (sessionId && f.pixUltimaSessao?.stringValue === sessionId) return { duplicado: true };
+
+  const eraPixAtivo = !!f.pixPagoAte?.stringValue;
+  await activateAccount({ email, plano, clinicName, adminName, addon });
+
+  const base = Math.max(Date.now(), new Date(f.pixPagoAte?.stringValue || 0).getTime());
+  const novoVencimento = somarMeses(base, meses).toISOString();
+
+  const campos = {
+    pagamentoMetodo: { stringValue: 'pix' },
+    pixPagoAte: { stringValue: novoVencimento },
+    proximaCobranca: { stringValue: novoVencimento },
+    pixUltimaSessao: { stringValue: sessionId || '' },
+    ativo: { booleanValue: true },
+    statusPagamento: { stringValue: 'em_dia' },
+  };
+  const mask = Object.keys(campos).map(c => `updateMask.fieldPaths=${c}`).join('&');
+  await fetch(`${FS}/acessos_autorizados/${key}?${mask}&key=${FB_KEY}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: campos }),
+  });
+
+  const valor = amountTotal ? (amountTotal / 100).toFixed(2) : '?';
+  const ate = new Date(novoVencimento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  console.log(`✅ Pix confirmado: ${email} — ${meses} mês(es), acesso até ${ate}`);
+  notifyOwner(
+    eraPixAtivo ? '🔁 Pix renovado' : '🎉 Nova venda confirmada (Pix)!',
+    `${clinicName || f.clinicName?.stringValue || email} pagou R$ ${valor} por Pix (${meses} mês(es), plano ${plano || f.plano?.stringValue || '?'}). Acesso até ${ate}. ${email}`,
+    'https://botclinica.com.br/crm'
+  ).catch(() => {});
+  return { ok: true, vencimento: novoVencimento };
 }
 
 // ── Atualiza só o campo "plano" de uma conta já existente ────────────────────
