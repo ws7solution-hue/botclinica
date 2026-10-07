@@ -112,7 +112,10 @@ module.exports = async (req, res) => {
         };
         const sessionPix = await stripe.checkout.sessions.create({
           mode: 'payment',
-          payment_method_types: ['pix'],
+          // O Stripe não aceita mais "payment_method_types" (erro 400). O
+          // substituto é "allowed_payment_method_types": esta sessão só pode
+          // mostrar o Pix (o Painel continua mandando no resto).
+          allowed_payment_method_types: ['pix'],
           line_items: itens,
           customer_email: email,
           metadata: meta,
@@ -139,7 +142,9 @@ module.exports = async (req, res) => {
 
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        payment_method_types: ['card'],
+        // Sem "payment_method_types" (não é mais aceito pelo Stripe). Assinatura
+        // mensal é só no cartão: o Pix (pagamento único) fica de fora desta sessão.
+        allowed_payment_method_types: ['card'],
         line_items: lineItems,
         customer_email: email,
         metadata: {
