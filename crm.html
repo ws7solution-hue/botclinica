@@ -3479,7 +3479,11 @@ async function saveCliente(){
 async function deleteCliente(id,nome){
   if(!confirm(`Remover "${nome}" do CRM? Isso também bloqueia o acesso dele ao app.`)) return;
   const c = clientes.find(x=>x.id===id);
-  await api('crmDeleteCliente',{id, email:c?.email});
+  const delR = await api('crmDeleteCliente',{id, email:c?.email});
+  if(delR && delR.ok && !delR.loginRemovido && delR.motivoLogin && delR.motivoLogin !== 'sem_registro'){
+    const porque = { senha_trocada:'a clínica já criou a própria senha, então eu não consigo apagar o login sozinho', sem_senha:'não havia senha temporária guardada', falha_ao_remover:'o Firebase recusou apagar o login', erro:'houve um erro ao tentar apagar o login' }[delR.motivoLogin] || 'não foi possível apagar o login';
+    alert('Cliente excluído do CRM. Mas o LOGIN no Firebase continua existindo ('+porque+').\n\nSe for reutilizar o e-mail '+(delR.email||'')+', apague-o em Firebase → Authentication → Users.');
+  }
   clientes=clientes.filter(c=>c.id!==id);
   toast('🗑️ Cliente removido e acesso bloqueado');
   goTo(currentPage);
