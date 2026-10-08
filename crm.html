@@ -453,20 +453,41 @@ let chartInstances = {};
 let currentPage = 'dashboard';
 
 // AUTH
-function doLogin(){
+async function doLogin(){
   const pwd = document.getElementById('pwd').value;
-  if(pwd === CRM_PWD){
-    localStorage.setItem('crm_session', JSON.stringify({ loggedIn: true, timestamp: Date.now() }));
-    document.getElementById('login').style.display='none';
-    document.getElementById('app').style.display='block';
-    loadAll();
-  } else {
-    document.getElementById('login-err').textContent='Senha incorreta.';
-    document.getElementById('pwd').value='';
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  let r = null;
+  try{
+    r = await (await fetch(PROXY, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'crmLogin', payload:{password: pwd}})})).json();
+  }catch(e){ err.textContent = 'Erro de conexão. Tente de novo.'; return; }
+  if(r && r.ok && r.token){                       // senha conferida pelo servidor
+    localStorage.setItem('crm_token', r.token);
+    startCrmSession(false);
+    return;
   }
+  if(r && r.error === 'nao_configurado'){         // servidor ainda sem CRM_PASSWORD / CRM_TOKEN_SECRET
+    if(pwd === CRM_PWD){ localStorage.removeItem('crm_token'); startCrmSession(true); return; }
+    err.textContent = 'Senha incorreta.'; document.getElementById('pwd').value=''; return;
+  }
+  err.textContent = (r && r.error) || 'Senha incorreta.';
+  document.getElementById('pwd').value='';
+}
+function showLegacyBanner(){
+  if(document.getElementById('crm-legacy-banner')) return;
+  const app = document.getElementById('app'); if(!app) return;
+  app.insertAdjacentHTML('afterbegin','<div id="crm-legacy-banner" style="background:#7f1d1d;color:#fff;padding:9px 14px;font-size:13px;text-align:center;position:sticky;top:0;z-index:9999">⚠️ A proteção do servidor está DESLIGADA: qualquer pessoa com o endereço da API consegue chamar as ações do CRM. Crie CRM_PASSWORD e CRM_TOKEN_SECRET na Vercel e faça um Redeploy.</div>');
+}
+function startCrmSession(legacy){
+  localStorage.setItem('crm_session', JSON.stringify({ loggedIn: true, timestamp: Date.now(), legacy: !!legacy }));
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  if(legacy) showLegacyBanner();
+  loadAll();
 }
 function doLogout(){
   localStorage.removeItem('crm_session');
+  localStorage.removeItem('crm_token');
   document.getElementById('login').style.display='flex';
   document.getElementById('app').style.display='none';
   document.getElementById('pwd').value='';
@@ -487,6 +508,7 @@ document.getElementById('pwd').addEventListener('keydown', e=>{ if(e.key==='Ente
     }
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='block';
+    if(session.legacy) showLegacyBanner();
     const savedPage = localStorage.getItem('crm_currentPage');
     if(savedPage) currentPage = savedPage;
     loadAll();
@@ -495,8 +517,20 @@ document.getElementById('pwd').addEventListener('keydown', e=>{ if(e.key==='Ente
 
 // API
 async function api(action, payload){
-  const r = await fetch(PROXY, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload})});
+  const tk = localStorage.getItem('crm_token') || '';
+  const headers = {'Content-Type':'application/json'};
+  if(tk) headers['x-crm-token'] = tk;
+  const r = await fetch(PROXY, {method:'POST', headers, body: JSON.stringify({action, payload})});
+  if(r.status === 401){ crmSessionExpired(); return {error:'Não autorizado'}; }
   return r.json();
+}
+// Servidor recusou o token (expirou, ou a senha do CRM foi trocada): volta ao login.
+function crmSessionExpired(){
+  localStorage.removeItem('crm_session'); localStorage.removeItem('crm_token');
+  const l = document.getElementById('login'), a = document.getElementById('app');
+  if(l) l.style.display='flex'; if(a) a.style.display='none';
+  const e = document.getElementById('login-err'); if(e) e.textContent = 'Sessão expirada. Entre novamente.';
+  if(typeof supportInterval !== 'undefined' && supportInterval) clearInterval(supportInterval);
 }
 
 // LOAD
