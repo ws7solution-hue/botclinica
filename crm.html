@@ -575,6 +575,106 @@ async function trialAction(key, op, days){
   await reloadTrialsAndRender();
 }
 
+// ── Criar teste DIRETO (pedido da landing, da Luna ou indicação) ──────────
+const TRIAL_PLAN_LABEL = {starter:'Starter', profissional:'Profissional', clinica:'Clínica', premium:'Premium'};
+function escHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function trialWelcomeText(info){
+  const fim = info.trialEndsAt ? new Date(info.trialEndsAt).toLocaleDateString('pt-BR') : '';
+  return 'Olá! Seu teste grátis de ' + info.days + ' dias do BotClínica (plano ' + (TRIAL_PLAN_LABEL[info.plano]||info.plano) + ') está liberado 🎉\n\n' +
+    'Acesse: ' + (info.loginUrl || 'https://botclinica.com.br') + '\n' +
+    'Login: ' + info.email + '\n' +
+    'Senha: ' + info.senha + '\n' +
+    '(no primeiro acesso o sistema pede para você criar a sua própria senha)\n\n' +
+    'O teste vai até ' + fim + '.\n\n' +
+    'Para o assistente responder no WhatsApp durante o teste, você precisa de um chip ou número próprio só para o teste, providenciado pela clínica. ' +
+    'Não use o número oficial da clínica: o teste é uma conexão com a Meta e o número conectado deixa de funcionar no WhatsApp comum do celular. ' +
+    'Quando tiver o número, é só me chamar por aqui com ele que eu conecto e ativo o teste.';
+}
+
+function openNewTrialModal(){
+  closeNewTrialModal();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="modal-newtrial">
+      <div class="modal">
+        <h2>➕ Criar teste grátis</h2>
+        <div class="form-group"><label>Nome da clínica</label><input class="form-input" id="nt-name" placeholder="Ex: Clínica Sol"/></div>
+        <div class="form-row">
+          <div class="form-group"><label>Responsável</label><input class="form-input" id="nt-admin" placeholder="Ex: Dra. Ana"/></div>
+          <div class="form-group"><label>WhatsApp/telefone de contato</label><input class="form-input" id="nt-phone" placeholder="(31) 99999-9999"/></div>
+        </div>
+        <div class="form-group"><label>E-mail (vira o login da clínica)</label><input class="form-input" id="nt-email" type="email" placeholder="clinica@email.com"/></div>
+        <div class="form-row">
+          <div class="form-group"><label>Plano a testar</label>
+            <select class="form-input" id="nt-plano"><option value="starter">Starter</option><option value="profissional" selected>Profissional</option><option value="clinica">Clínica</option><option value="premium">Premium</option></select></div>
+          <div class="form-group"><label>Duração</label>
+            <select class="form-input" id="nt-days"><option value="7" selected>7 dias</option><option value="14">14 dias</option></select></div>
+          <div class="form-group"><label>Origem</label>
+            <select class="form-input" id="nt-origem"><option value="luna">Luna (WhatsApp)</option><option value="landing">Landing page</option><option value="indicacao">Indicação</option><option value="outro">Outro</option></select></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:2px 0 0;line-height:1.5">A senha inicial é <strong>BotClinica2026</strong> (a clínica cria a própria no primeiro acesso). O número de WhatsApp de teste é definido depois, na lista, em "Definir número".</p>
+        <p id="nt-error" style="color:var(--red);font-size:12px;margin:8px 0 0;display:none"></p>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeNewTrialModal()">Cancelar</button>
+          <button class="btn btn-primary" id="nt-submit" onclick="submitNewTrial()">Criar teste</button>
+        </div>
+      </div>
+    </div>`);
+  const first = document.getElementById('nt-name'); if(first) first.focus();
+}
+function closeNewTrialModal(){ const m = document.getElementById('modal-newtrial'); if(m) m.remove(); }
+
+async function submitNewTrial(){
+  const val = id => document.getElementById(id).value.trim();
+  const err = document.getElementById('nt-error'), btn = document.getElementById('nt-submit');
+  err.style.display = 'none';
+  const payload = { clinicName: val('nt-name'), adminName: val('nt-admin'), contactPhone: val('nt-phone'), email: val('nt-email'),
+                    plano: val('nt-plano'), days: Number(val('nt-days')), origem: val('nt-origem') };
+  if(!payload.clinicName){ err.textContent = 'Informe o nome da clínica.'; err.style.display = 'block'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)){ err.textContent = 'Informe um e-mail válido.'; err.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Criando...';
+  try{
+    const r = await api('adminCreateTrial', payload);
+    if(!r || !r.ok){ err.textContent = (r && r.error) || 'Não foi possível criar o teste.'; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Criar teste'; return; }
+    closeNewTrialModal();
+    showNewTrialResult(r);
+    await reloadTrialsAndRender();
+  }catch(e){
+    err.textContent = 'Erro de conexão. Tente de novo.'; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Criar teste';
+  }
+}
+
+function showNewTrialResult(info){
+  const old = document.getElementById('modal-newtrial-result'); if(old) old.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="modal-newtrial-result">
+      <div class="modal">
+        <h2>✅ Teste criado!</h2>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Envie esta mensagem para a clínica:</p>
+        <textarea class="form-input" id="nt-msg" rows="15" style="width:100%;font-size:13px;line-height:1.5" readonly></textarea>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="document.getElementById('modal-newtrial-result').remove()">Fechar</button>
+          <button class="btn btn-outline" onclick="copyTrialMsg(this)">📋 Copiar</button>
+          ${info.contactPhone?`<button class="btn btn-primary" onclick="openTrialWhats('${escHtml(info.contactPhone)}')">💬 Enviar no WhatsApp</button>`:''}
+        </div>
+      </div>
+    </div>`);
+  document.getElementById('nt-msg').value = trialWelcomeText(info);
+}
+function copyTrialMsg(btn){
+  const t = document.getElementById('nt-msg').value;
+  copyText(t); btn.textContent = '✅ Copiado'; setTimeout(()=>{ btn.textContent = '📋 Copiar'; }, 1800);
+}
+function openTrialWhats(phone){
+  let d = String(phone).replace(/\D/g,''); if(d.length<=11) d = '55'+d;
+  window.open('https://wa.me/'+d+'?text='+encodeURIComponent(document.getElementById('nt-msg').value), '_blank');
+}
+function openTrialMessage(key){
+  const t = trials.find(x=>x.key===key); if(!t) return;
+  const dias = Math.max(1, Math.round((new Date(t.trialEndsAt).getTime() - Date.now())/86400000));
+  showNewTrialResult({ email:t.email, senha:'BotClinica2026', plano:t.plano, days:dias, trialEndsAt:t.trialEndsAt, contactPhone:t.contactPhone, loginUrl:'https://botclinica.com.br' });
+}
+
 async function setTrialPhone(key, atual){
   const v = prompt('WhatsApp de teste da clínica (com DDD):', atual ? atual.replace(/^55/,'') : '');
   if(v===null) return;
@@ -2009,8 +2109,11 @@ function renderParceiros(){
   <div data-ptab="testes" style="display:none">
   <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-      <span>🎁 Testes grátis liberados pelos parceiros</span>
-      <button class="btn btn-outline btn-sm" onclick="trialsLoaded=false;switchParceirosTab('testes')">🔄 Atualizar</button>
+      <span>🎁 Testes grátis (parceiros e diretos)</span>
+      <span style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="openNewTrialModal()">➕ Criar teste</button>
+        <button class="btn btn-outline btn-sm" onclick="trialsLoaded=false;switchParceirosTab('testes')">🔄 Atualizar</button>
+      </span>
     </div>
     ${!trialsLoaded?'<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando testes e conferindo o WhatsApp de cada um...</div>':(()=>{
       const ativos = trials.filter(t=>t.estado==='ativo').length;
@@ -2039,7 +2142,7 @@ function renderParceiros(){
         <tbody>
         ${trials.map(t=>`<tr>
           <td>${estadoLabel[t.estado]||t.estado}</td>
-          <td><strong>${t.clinicName||t.email}</strong><br><span style="font-size:11px;color:var(--muted)">${t.email}</span></td>
+          <td><strong>${t.clinicName||t.email}</strong><br><span style="font-size:11px;color:var(--muted)">${t.email}</span>${t.partnerId==='direto'?`<br><span style="font-size:11px;color:var(--muted)">${t.adminName?escHtml(t.adminName)+' · ':''}${t.contactPhone?'📞 '+escHtml(t.contactPhone)+' · ':''}origem: ${escHtml(({luna:'Luna',landing:'Landing',indicacao:'Indicação',outro:'Outro'})[t.origem]||'—')}</span>${t.estado==='ativo'?` <a href="#" style="font-size:11px" onclick="openTrialMessage('${t.key}');return false">ver mensagem</a>`:''}`:''}</td>
           <td>${t.partnerName}</td>
           <td>${t.plano}</td>
           <td>${t.trialEndsAt?new Date(t.trialEndsAt).toLocaleDateString('pt-BR'):''}${t.estado==='ativo'?`<br><span style="font-size:11px;color:var(--muted)">${t.daysLeft} dia(s)</span>`:''}</td>
