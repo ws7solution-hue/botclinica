@@ -203,16 +203,139 @@ function parseLeadDoc(doc) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PROTEÇÃO DAS AÇÕES DO CRM (só o CRM usa estas ações)
+// Antes, a senha do CRM era conferida só no navegador e qualquer pessoa que
+// conhecesse o endereço da API podia chamar estas ações (criar acesso grátis,
+// apagar clientes, ler leads...). Agora o servidor exige um token assinado.
+//
+// Para LIGAR a proteção, crie na Vercel (Settings → Environment Variables):
+//   CRM_PASSWORD      → a senha nova do CRM (forte, só você sabe)
+//   CRM_TOKEN_SECRET  → um texto aleatório longo (40+ caracteres)
+// e faça um Redeploy. Enquanto as duas não existirem, nada muda (modo antigo).
+// ═══════════════════════════════════════════════════════════════════════════
+const ADMIN_ACTIONS = new Set([
+  "adminCreateTrial",
+  "adminSetDocumentsAddon",
+  "adminSetTrialPhone",
+  "adminTrialAction",
+  "backfillLeadsPoolEstado",
+  "bulkDeleteSemWhatsapp",
+  "cancelLeadSale",
+  "confirmLeadSale",
+  "confirmarPagamentoFuncionario",
+  "crmDeleteCliente",
+  "crmGetConfig",
+  "crmListClientes",
+  "crmSaveCliente",
+  "crmSaveConfig",
+  "crmSetAtivo",
+  "deleteCandidatoParceiro",
+  "deleteCommission",
+  "deleteDespesa",
+  "deleteFuncionario",
+  "deleteLeadFromPool",
+  "deletePartner",
+  "deleteWaConversation",
+  "gerarRecorrenciaFuncionario",
+  "getWhatsAppBusinessProfile",
+  "importLeadsPool",
+  "listCandidatosParceiro",
+  "listClients",
+  "listDespesas",
+  "listFuncionarios",
+  "listPartnersActivity",
+  "listSupportTickets",
+  "listTrials",
+  "listWaSuporteConversations",
+  "listWaVendasConversations",
+  "markCommissionPaid",
+  "removeAccess",
+  "saveDespesa",
+  "saveFuncionario",
+  "savePartner",
+  "saveWhatsAppBusinessProfile",
+  "setAccess",
+  "setLeadPoolWaStatus",
+  "updateCandidatoStatus",
+  "updateSupportTicket",
+  "uploadWhatsAppProfilePhoto"
+]);
+function crmAuthConfigured() { return !!(process.env.CRM_PASSWORD && process.env.CRM_TOKEN_SECRET); }
+function crmSign(exp) {
+  return exp + "." + crypto.createHmac("sha256", process.env.CRM_TOKEN_SECRET).update(String(exp)).digest("hex");
+}
+function crmTokenValid(token) {
+  try {
+    if (!crmAuthConfigured() || !token) return false;
+    const [exp, sig] = String(token).split(".");
+    if (!exp || !sig || !(Number(exp) > Date.now())) return false;
+    const expected = crmSign(exp).split(".")[1];
+    const a = Buffer.from(sig), b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+function sameSecret(a, b) {
+  const ha = crypto.createHash("sha256").update(String(a)).digest();
+  const hb = crypto.createHash("sha256").update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-crm-token");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST")   return res.status(405).json({ error: "Method not allowed" });
 
   const { action, payload } = req.body || {};
 
   try {
+    // ── CRM: login com a senha guardada NO SERVIDOR ───────────────────────
+    if (action === "crmLogin") {
+      if (!crmAuthConfigured()) return res.status(200).json({ ok: false, configured: false, error: "nao_configurado" });
+      const GUARD = `${FS}/crm_config/login_guard?key=${API_KEY}`;
+      const now = Date.now();
+      let guard = {};
+      try { guard = (await (await fetch(GUARD)).json()).fields || {}; } catch (e) { /* sem trava, segue */ }
+      const bloqueadoAte = Number(guard.blockedUntil?.stringValue || 0);
+      if (bloqueadoAte > now) {
+        const min = Math.ceil((bloqueadoAte - now) / 60000);
+        return res.status(429).json({ ok: false, error: `Muitas tentativas erradas. Tente de novo em ${min} minuto(s).` });
+      }
+      const senha = String((payload || {}).password || "");
+      if (senha && sameSecret(senha, process.env.CRM_PASSWORD)) {
+        if (Number(guard.failCount?.integerValue || 0) > 0) {
+          fetch(GUARD + "&updateMask.fieldPaths=failCount&updateMask.fieldPaths=blockedUntil", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fields: { failCount: { integerValue: "0" }, blockedUntil: { stringValue: "0" } } }),
+          }).catch(() => {});
+        }
+        const exp = now + 24 * 3600 * 1000;
+        return res.status(200).json({ ok: true, configured: true, token: crmSign(exp), expiresAt: exp });
+      }
+      // errou: pequena espera + contador (8 erros em 15 min bloqueiam por 15 min)
+      await new Promise((r) => setTimeout(r, 700));
+      const janela = Number(guard.windowStart?.stringValue || 0);
+      const dentro = janela && now - janela < 15 * 60000;
+      const fails = (dentro ? Number(guard.failCount?.integerValue || 0) : 0) + 1;
+      const bloquear = fails >= 8;
+      fetch(GUARD + "&updateMask.fieldPaths=failCount&updateMask.fieldPaths=windowStart&updateMask.fieldPaths=blockedUntil", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: {
+          failCount: { integerValue: String(bloquear ? 0 : fails) },
+          windowStart: { stringValue: String(dentro ? janela : now) },
+          blockedUntil: { stringValue: String(bloquear ? now + 15 * 60000 : 0) },
+        } }),
+      }).catch(() => {});
+      return res.status(200).json({ ok: false, configured: true, error: "Senha incorreta." });
+    }
+
+    // ── CRM: todas as ações só-do-CRM exigem o token assinado ─────────────
+    if (ADMIN_ACTIONS.has(action) && crmAuthConfigured() && !crmTokenValid(req.headers["x-crm-token"])) {
+      return res.status(401).json({ error: "Não autorizado. Entre no CRM novamente.", needsLogin: true });
+    }
+
     // ── AUTH ──────────────────────────────────────────────
     if (["signIn","signUp","lookup","reset"].includes(action)) {
       const r = await fetch(ENDPOINTS[action], {
@@ -701,6 +824,15 @@ module.exports = async (req, res) => {
 
       const plano = planD.fields?.plano?.stringValue || "starter";
       const firstAccess = planD.fields?.firstAccess?.booleanValue !== false; // true se campo não existe ou for true
+      // Só quem acabou de entrar COM A SENHA pode, nos próximos 30 min, recuperar o
+      // idToken pelo "checkFirstAccess" (ex.: recarregou a página antes de trocar a
+      // senha). Sem esse login, ninguém consegue o idToken só sabendo o e-mail.
+      if (firstAccess && planD.fields) {
+        await fetch(`${FS}/acessos_autorizados/${emailToKey(email)}?key=${API_KEY}&updateMask.fieldPaths=firstAccessJanelaAte`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { firstAccessJanelaAte: { stringValue: String(Date.now() + 30 * 60000) } } }),
+        }).catch(() => {});
+      }
       return res.status(200).json({ ok: true, email, plano, idToken: d.idToken, firstAccess });
     }
 
@@ -713,6 +845,13 @@ module.exports = async (req, res) => {
       const d = await r.json();
       const firstAccess = d.fields?.firstAccess?.booleanValue !== false;
       if (!firstAccess) return res.status(200).json({ firstAccess: false });
+
+      // CORREÇÃO DE SEGURANÇA: antes, qualquer pessoa que soubesse o e-mail de uma
+      // conta no primeiro acesso recebia o idToken dela (e podia trocar a senha =
+      // tomar a conta). Agora só entrega se a própria clínica fez login com a
+      // senha nos últimos 30 minutos (ver ação "login").
+      const janelaAte = Number(d.fields?.firstAccessJanelaAte?.stringValue || 0);
+      if (!(janelaAte > Date.now())) return res.status(200).json({ firstAccess: true, idToken: '' });
 
       // Busca senha temporária para fazer login e obter idToken real
       const senhaTemp = d.fields?.senhaTemp?.stringValue || d.fields?.senha?.stringValue || '';
