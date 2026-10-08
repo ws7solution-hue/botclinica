@@ -2065,6 +2065,93 @@ module.exports = async (req, res) => {
       });
     }
 
+    // ── CRM: o suporte cria um teste DIRETO (pedido da landing, da Luna, etc.) ─
+    // Mesmo tipo de conta do teste liberado por parceiro (login + senha padrão,
+    // status "trial", data final, firstAccess), só que SEM parceiro: usamos
+    // trialPartnerId = "direto" para a conta aparecer em CRM → Testes e valer
+    // para prorrogar, encerrar, definir número, bloqueio e avisos de vencimento.
+    // IMPORTANTE: o telefone de contato da pessoa vai em "contactPhone". O campo
+    // "phone" é o WhatsApp de teste que a VPS casa com a WABA — nunca misturar.
+    if (action === "adminCreateTrial") {
+      const TRIAL_DEFAULT_PASSWORD = "BotClinica2026";
+      const PLANOS_VALIDOS = ["starter", "profissional", "clinica", "premium"];
+      const ORIGENS = ["luna", "landing", "indicacao", "outro"];
+      const MAX_DIRECT_TRIALS_PER_DAY = 15; // trava de segurança contra abuso
+      const { clinicName, adminName, contactPhone, days, plano, origem } = payload;
+      const email = String(payload.email || "").trim().toLowerCase();
+      const nome = String(clinicName || "").trim().slice(0, 100);
+      const responsavel = String(adminName || "").trim().slice(0, 100);
+      const nDays = Number(days);
+      if (!nome) return res.status(200).json({ error: "Informe o nome da clínica." });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(200).json({ error: "Informe um e-mail válido (é o login da clínica)." });
+      if (![7, 14].includes(nDays)) return res.status(200).json({ error: "Escolha 7 ou 14 dias." });
+      if (!PLANOS_VALIDOS.includes(plano)) return res.status(200).json({ error: "Escolha um plano válido." });
+      const origemOk = ORIGENS.includes(origem) ? origem : "outro";
+      const contato = String(contactPhone || "").replace(/\D/g, "").slice(0, 15);
+      const key = emailToKey(email);
+
+      const accessList = await fsListAll("acessos_autorizados");
+      if (accessList.error) return res.status(200).json({ error: "Não consegui verificar as contas agora. Tente de novo em instantes." });
+      const now = Date.now();
+      let criadosHoje = 0;
+      for (const doc of (accessList.documents || [])) {
+        const f = doc.fields || {};
+        if (doc.name.split("/").pop() === key) {
+          return res.status(200).json({ error: "Esse e-mail já tem conta no BotClínica — não dá para criar teste por cima." });
+        }
+        if (f.trialPartnerId?.stringValue === "direto"
+            && now - new Date(f.createdAt?.stringValue || 0).getTime() < 86400000) criadosHoje++;
+      }
+      if (criadosHoje >= MAX_DIRECT_TRIALS_PER_DAY) {
+        return res.status(200).json({ error: `Limite de ${MAX_DIRECT_TRIALS_PER_DAY} testes diretos por dia atingido. Tente amanhã.` });
+      }
+
+      const signUpR = await fetch(ENDPOINTS.signUp, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: TRIAL_DEFAULT_PASSWORD, returnSecureToken: false }),
+      });
+      const signUpD = await signUpR.json();
+      if (signUpD.error) {
+        const msg = signUpD.error.message || "";
+        return res.status(200).json({
+          error: msg.includes("EMAIL_EXISTS")
+            ? "Esse e-mail já existe no login do sistema. Use outro e-mail ou apague o login antigo no Firebase."
+            : `Não foi possível criar o login (${msg}).`,
+        });
+      }
+
+      const trialEndsAt = new Date(now + nDays * 86400000).toISOString();
+      const accessFields = {
+        email: { stringValue: email },
+        plano: { stringValue: plano },
+        clinicName: { stringValue: nome },
+        adminName: { stringValue: responsavel },
+        senhaTemp: { stringValue: TRIAL_DEFAULT_PASSWORD },
+        firstAccess: { booleanValue: true },
+        ativo: { booleanValue: true },
+        statusPagamento: { stringValue: "trial" },
+        trialEndsAt: { stringValue: trialEndsAt },
+        trialDays: { integerValue: String(nDays) },
+        trialPartnerId: { stringValue: "direto" },
+        trialOrigem: { stringValue: origemOk },
+        createdAt: { stringValue: new Date(now).toISOString() },
+      };
+      if (contato) accessFields.contactPhone = { stringValue: contato };
+      const accRes = await fetch(`${FS}/acessos_autorizados/${key}?key=${API_KEY}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: accessFields }),
+      });
+      const accData = await accRes.json();
+      if (accData.error) return res.status(200).json({ error: accData.error.message });
+
+      return res.status(200).json({
+        ok: true, key, email, senha: TRIAL_DEFAULT_PASSWORD, plano, days: nDays, trialEndsAt,
+        clinicName: nome, contactPhone: contato, loginUrl: "https://botclinica.com.br",
+      });
+    }
+
     // ── CRM: lista de testes (com status do WhatsApp e do pagamento) ──────
     if (action === "listTrials") {
       const [accessList, partnersList] = await Promise.all([fsListAll("acessos_autorizados"), fsListAll("partners")]);
@@ -2090,7 +2177,12 @@ module.exports = async (req, res) => {
             plano: f.plano?.stringValue || "",
             phone: f.phone?.stringValue || "",
             partnerId: f.trialPartnerId.stringValue,
-            partnerName: partnerNames[f.trialPartnerId.stringValue] || f.trialPartnerId.stringValue,
+            partnerName: f.trialPartnerId.stringValue === "direto"
+              ? "Direto (sem parceiro)"
+              : (partnerNames[f.trialPartnerId.stringValue] || f.trialPartnerId.stringValue),
+            origem: f.trialOrigem?.stringValue || "",
+            contactPhone: f.contactPhone?.stringValue || "",
+            adminName: f.adminName?.stringValue || "",
             leadId: f.trialLeadId?.stringValue || "",
             trialEndsAt: endsAt,
             daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)),
