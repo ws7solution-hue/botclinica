@@ -57,48 +57,16 @@ module.exports = async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
-        const session = event.data.object;
-        const { email, plano, clinicName, adminName, addon, metodo, meses } = session.metadata || {};
-
-        // ── PIX (pagamento único, adiantado) ──────────────────────────────
-        // Só libera o acesso quando o Stripe confirma que o dinheiro entrou
-        // (payment_status = 'paid'). O Pix pode terminar o checkout antes de
-        // pagar, e nesse caso o evento 'async_payment_succeeded' chega depois.
-        if (session.mode === 'payment' && metodo === 'pix') {
-          if (session.payment_status !== 'paid') {
-            console.log(`⏳ Pix aguardando confirmação: ${email} (sessão ${session.id})`);
-            break;
-          }
-          if (email) {
-            const r = await activatePixPayment({
-              email, plano, clinicName, adminName,
-              addon: addon === 'true',
-              meses: Number(meses) || 1,
-              sessionId: session.id,
-              amountTotal: session.amount_total,
-            });
-            if (r && r.duplicado) console.log(`ℹ️ Pix já processado (sessão ${session.id}) — ignorado`);
-          }
-          break;
-        }
-        // Qualquer outro evento "async" que não seja de Pix não faz nada aqui.
-        if (event.type === 'checkout.session.async_payment_succeeded') break;
-
-        if (email) {
-          await activateAccount({ email, plano, clinicName, adminName, addon: addon === 'true' });
-          console.log(`✅ Conta ativada: ${email} — Plano: ${plano}${addon === 'true' ? ' + Add-on Documentos' : ''}`);
-
-          // NOVO: avisa o dono na hora que uma venda nova acontece, pra
-          // ele conseguir marcar uma reunião de boas-vindas ou ligar pra
-          // clínica assim que ela compra — sem isso, ele só ficava sabendo
-          // se entrasse no painel/Stripe manualmente de vez em quando.
-          const valorPago = session.amount_total ? (session.amount_total / 100).toFixed(2) : '?';
-          notifyOwner(
-            '🎉 Nova venda confirmada!',
-            `${clinicName || email} acabou de assinar o plano ${plano || 'desconhecido'} (R$ ${valorPago}). Contato: ${adminName || ''} — ${email}. Já pode marcar uma reunião de boas-vindas ou ligar pra ela.`,
-            'https://botclinica.com.br/crm'
-          ).catch(() => {});
-        }
+        // Toda a lógica fica em confirmCheckoutSession, que também é usada
+        // pelo retorno do pagamento (getSession) — assim o acesso é liberado
+        // mesmo se este webhook demorar ou falhar, sem duplicar nada.
+        // O aviso "pagamento assíncrono confirmado" só existe para o Pix; para
+        // qualquer outra forma de pagamento ele é ignorado (como sempre foi).
+        if (event.type === 'checkout.session.async_payment_succeeded'
+            && !(event.data.object.mode === 'payment' && event.data.object.metadata?.metodo === 'pix')) break;
+        const r = await confirmCheckoutSession(event.data.object);
+        if (r && r.aguardando) console.log(`⏳ Pagamento ainda não confirmado (sessão ${event.data.object.id})`);
+        if (r && r.duplicado) console.log(`ℹ️ Pagamento já processado (sessão ${event.data.object.id}) — ignorado`);
         break;
       }
 
@@ -200,6 +168,9 @@ module.exports.config = {
   },
 };
 
+// Exportados para o stripe-checkout.js liberar o acesso no retorno do pagamento.
+module.exports.confirmCheckoutSession = (...args) => confirmCheckoutSession(...args);
+
 // ── Ativa conta no Firebase (a conta já foi PREPARADA — sem estar ativa —
 // no momento em que a pessoa criou a sessão de checkout. Aqui só ligamos
 // o "ativo" de vez, sem mexer na senha já gerada, senão quebraríamos o
@@ -282,6 +253,57 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
       body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken }),
     });
   }
+}
+
+// ── Confirma um checkout PAGO e libera o acesso ─────────────────────────────
+// Usada em DOIS lugares: pelo webhook do Stripe e pelo retorno do pagamento
+// (getSession em stripe-checkout.js). Quem chegar primeiro libera; o outro
+// reconhece que a mesma sessão já foi processada e não repete (nem soma
+// meses de Pix duas vezes, nem avisa o dono duas vezes).
+async function confirmCheckoutSession(session) {
+  const { email, plano, clinicName, adminName, addon, metodo, meses } = session.metadata || {};
+  if (!email) return { ignorado: true };
+
+  // PIX (pagamento único, adiantado): só libera com o dinheiro confirmado.
+  if (session.mode === 'payment' && metodo === 'pix') {
+    if (session.payment_status !== 'paid') return { aguardando: true };
+    return activatePixPayment({
+      email, plano, clinicName, adminName,
+      addon: addon === 'true',
+      meses: Number(meses) || 1,
+      sessionId: session.id,
+      amountTotal: session.amount_total,
+    });
+  }
+
+  // CARTÃO (assinatura mensal)
+  if (session.mode === 'subscription') {
+    if (!['paid', 'no_payment_required'].includes(session.payment_status)) return { aguardando: true };
+    const key = emailToKey(email);
+    const atual = await (await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`)).json();
+    if (session.id && atual.fields?.cartaoUltimaSessao?.stringValue === session.id) return { duplicado: true };
+
+    await activateAccount({ email, plano, clinicName, adminName, addon: addon === 'true' });
+    if (session.id) {
+      await fetch(`${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=cartaoUltimaSessao&key=${FB_KEY}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: { cartaoUltimaSessao: { stringValue: session.id } } }),
+      });
+    }
+    console.log(`✅ Conta ativada: ${email} — Plano: ${plano}${addon === 'true' ? ' + Add-on Documentos' : ''}`);
+
+    // Avisa o dono na hora que uma venda nova acontece, pra ele conseguir
+    // marcar uma reunião de boas-vindas ou ligar pra clínica.
+    const valorPago = session.amount_total ? (session.amount_total / 100).toFixed(2) : '?';
+    notifyOwner(
+      '🎉 Nova venda confirmada!',
+      `${clinicName || email} acabou de assinar o plano ${plano || 'desconhecido'} (R$ ${valorPago}). Contato: ${adminName || ''} — ${email}. Já pode marcar uma reunião de boas-vindas ou ligar pra ela.`,
+      'https://botclinica.com.br/crm'
+    ).catch(() => {});
+    return { ok: true };
+  }
+  return { ignorado: true };
 }
 
 // ── PIX: libera ou RENOVA o acesso por N meses ──────────────────────────────

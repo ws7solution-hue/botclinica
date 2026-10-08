@@ -44,6 +44,20 @@ module.exports = async (req, res) => {
         
         if (!email) return res.status(200).json({ error: 'Sessão inválida' });
 
+        // NOVO: confirma o pagamento direto no Stripe (a sessão veio do próprio
+        // Stripe, não do navegador) e libera o acesso AGORA — sem esperar o
+        // webhook, que pode atrasar ou falhar. Se o webhook chegar depois, ele
+        // reconhece que a sessão já foi processada e não repete nada.
+        let pagamentoConfirmado = false;
+        if (['paid', 'no_payment_required'].includes(session.payment_status)) {
+          try {
+            const r = await require('./stripe-webhook.js').confirmCheckoutSession(session);
+            pagamentoConfirmado = !(r && (r.aguardando || r.ignorado));
+          } catch (e) {
+            console.error('Falha ao liberar o acesso no retorno do pagamento:', e.message);
+          }
+        }
+
         // Busca senha temporária do Firestore
         const FB_KEY = 'AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew';
         const FB_PROJECT = 'botclinica-60b6f';
@@ -53,7 +67,7 @@ module.exports = async (req, res) => {
         const d = await r.json();
         const senhaTemp = d.fields?.senhaTemp?.stringValue || '';
 
-        return res.status(200).json({ email, clinicName, senhaTemp, plano: d.fields?.plano?.stringValue || 'starter' });
+        return res.status(200).json({ email, clinicName, senhaTemp, plano: d.fields?.plano?.stringValue || 'starter', pagamentoConfirmado });
       } catch (e) {
         return res.status(500).json({ error: e.message });
       }
