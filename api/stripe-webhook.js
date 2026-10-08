@@ -20,7 +20,9 @@
 //     pixPagoAte (soma os meses ao vencimento atual) e evita somar 2x.
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// .trim() e sem aspas: um espaço ou quebra de linha colados junto com a chave na
+// Vercel são a causa mais comum de "No signatures found matching...".
+const STRIPE_WEBHOOK_SECRET = (process.env.STRIPE_WEBHOOK_SECRET || '').trim().replace(/^["']|["']$/g, '');
 
 const FB_PROJECT = 'botclinica-60b6f';
 const FB_KEY = 'AIzaSyAwYQq-ddQT8fBFytQYF5bgY5geL3SM2Ew';
@@ -41,16 +43,26 @@ module.exports = async (req, res) => {
   const stripe = require('stripe')(STRIPE_SECRET);
 
   let event;
+  let rawBody = '';
   try {
-    const rawBody = await getRawBody(req);
+    rawBody = await getRawBody(req);
     event = stripe.webhooks.constructEvent(
       rawBody,
       req.headers['stripe-signature'],
       STRIPE_WEBHOOK_SECRET
     );
   } catch (e) {
-    console.error('Webhook signature error:', e.message);
-    return res.status(400).json({ error: `Webhook error: ${e.message}` });
+    // "diag" ajuda a achar a causa olhando só a resposta no painel do Stripe.
+    // Não revela a chave: só diz se existe, se tem o formato certo e se o
+    // corpo chegou. (Pode ser removido depois que o webhook estiver estável.)
+    const diag = {
+      secretDefinido: !!STRIPE_WEBHOOK_SECRET,
+      secretComecaComWhsec: STRIPE_WEBHOOK_SECRET.startsWith('whsec_'),
+      temAssinaturaNoPedido: !!req.headers['stripe-signature'],
+      tamanhoDoCorpo: typeof rawBody === 'string' ? rawBody.length : 0,
+    };
+    console.error('Webhook signature error:', e.message, JSON.stringify(diag));
+    return res.status(400).json({ error: `Webhook error: ${e.message}`, diag });
   }
 
   try {
