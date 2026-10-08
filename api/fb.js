@@ -472,9 +472,48 @@ module.exports = async (req, res) => {
       // completo (o login já bloqueia sozinho quando o registro não existe).
       const emailFinal = email || id.replace(/_/g, ".");
       const accKey = emailToKey(emailFinal);
+
+      // NOVO: lê a senha temporária ANTES de apagar o registro. Excluir o cliente
+      // não apagava o LOGIN do Firebase Authentication; esse login "órfão" fazia
+      // quem voltasse a assinar com o mesmo e-mail cair na tela de login (a senha
+      // nova não batia com a antiga). Se a clínica ainda não trocou a senha,
+      // conseguimos entrar com ela e apagar o login de verdade.
+      let senhaGuardada = "", emailLogin = emailFinal, existiaRegistro = false;
+      try {
+        const accDoc = await (await fetch(`${FS}/acessos_autorizados/${accKey}?key=${API_KEY}`)).json();
+        if (accDoc.fields) {
+          existiaRegistro = true;
+          senhaGuardada = accDoc.fields.senhaTemp?.stringValue || accDoc.fields.senha?.stringValue || "";
+          emailLogin = (accDoc.fields.email?.stringValue || emailFinal).trim();
+        }
+      } catch (e) { /* segue sem apagar o login */ }
+
       await fetch(`${FS}/acessos_autorizados/${accKey}?key=${API_KEY}`, { method: "DELETE" }).catch(() => {});
 
-      return res.status(200).json({ ok: true });
+      let loginRemovido = false;
+      let motivoLogin = "";
+      if (!existiaRegistro) motivoLogin = "sem_registro";
+      else if (!senhaGuardada) motivoLogin = "sem_senha";
+      else {
+        try {
+          const lr = await fetch(ENDPOINTS.signIn, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: emailLogin, password: senhaGuardada, returnSecureToken: true }),
+          });
+          const ld = await lr.json();
+          if (!ld.idToken) motivoLogin = "senha_trocada"; // a clínica já criou a própria senha
+          else {
+            const dr = await fetch(`${AUTH_URL}:delete?key=${API_KEY}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken: ld.idToken }),
+            });
+            const dd = await dr.json();
+            if (dd.error) motivoLogin = "falha_ao_remover"; else loginRemovido = true;
+          }
+        } catch (e) { motivoLogin = "erro"; }
+      }
+
+      return res.status(200).json({ ok: true, loginRemovido, motivoLogin, email: emailLogin });
     }
 
     // ── CRM: get config ──────────────────────────────────────

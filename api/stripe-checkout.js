@@ -66,8 +66,12 @@ module.exports = async (req, res) => {
         const r = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
         const d = await r.json();
         const senhaTemp = d.fields?.senhaTemp?.stringValue || '';
+        const loginExistente = d.fields?.loginOrfao?.booleanValue === true;
 
-        return res.status(200).json({ email, clinicName, senhaTemp, plano: d.fields?.plano?.stringValue || 'starter', pagamentoConfirmado });
+        return res.status(200).json({ email, clinicName, senhaTemp, plano: d.fields?.plano?.stringValue || 'starter', pagamentoConfirmado,
+          // Login que já existia: não há senha temporária; um e-mail de redefinição foi enviado.
+          loginExistente,
+          mensagem: loginExistente ? 'Pagamento confirmado! Esse e-mail já tinha um login, então enviamos um link para você criar a senha. Confira a caixa de entrada (e o spam).' : undefined });
       } catch (e) {
         return res.status(500).json({ error: e.message });
       }
@@ -253,16 +257,32 @@ async function createPendingAccount({ email, plano, clinicName, adminName }) {
   // webhook (pagamento confirmado de verdade) liga o acesso de novo.
   let senhaTemp = existingD.fields?.senhaTemp?.stringValue;
 
-  if (!jaTemSenha) {
+  // Contas criadas à mão pelo CRM guardam a senha em "senha" (não em "senhaTemp"):
+  // é uma senha CONHECIDA, então o login automático depois do pagamento funciona.
+  const senhaLegada = existingD.fields?.senha?.stringValue || '';
+  let loginOrfao = false;
+
+  if (!jaTemSenha && senhaLegada) {
+    senhaTemp = senhaLegada;
+  } else if (!jaTemSenha) {
     senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
     try {
-      await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
+      const sr = await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: senhaTemp, returnSecureToken: true }),
       });
+      const sd = await sr.json();
+      // Já existe um LOGIN com esse e-mail (ex.: cliente apagado do CRM, mas o login
+      // ficou). Não sabemos a senha dele, então NÃO guardamos uma senha inventada
+      // (ela nunca bateria): marcamos o login como "órfão" e, depois do pagamento
+      // confirmado, mandamos um e-mail para a pessoa criar a senha.
+      if (sd.error && /EMAIL_EXISTS/.test(sd.error.message || '')) {
+        loginOrfao = true;
+        senhaTemp = '';
+      }
     } catch (e) {
-      console.log('Usuário já existe no Auth, continuando...');
+      console.log('Falha ao criar o login no Auth, continuando...');
     }
   }
 
@@ -272,7 +292,8 @@ async function createPendingAccount({ email, plano, clinicName, adminName }) {
     clinicName: { stringValue: clinicName || '' },
     adminName: { stringValue: adminName || '' },
     senhaTemp: { stringValue: senhaTemp || '' },
-    firstAccess: { booleanValue: existingD.fields?.firstAccess?.booleanValue ?? true },
+    firstAccess: { booleanValue: loginOrfao ? false : (existingD.fields?.firstAccess?.booleanValue ?? true) },
+    loginOrfao: { booleanValue: loginOrfao },
     ativo: { booleanValue: false },
     statusPagamento: { stringValue: 'aguardando_pagamento' },
     createdAt: { stringValue: existingD.fields?.createdAt?.stringValue || new Date().toISOString() },

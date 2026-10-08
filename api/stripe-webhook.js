@@ -194,7 +194,10 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
   const existingR = await fetch(`${FS}/acessos_autorizados/${key}?key=${FB_KEY}`);
   const existingD = await existingR.json();
 
-  if (existingD.fields?.senhaTemp) {
+  // Conta preparada = tem senha temporária (valor não vazio) OU foi marcada como
+  // "login órfão" (o login já existia no Firebase e não sabemos a senha dele).
+  const loginOrfaoPendente = existingD.fields?.loginOrfao?.booleanValue === true;
+  if (existingD.fields?.senhaTemp?.stringValue || loginOrfaoPendente) {
     // Conta já existe com senha já criada — só liga o "ativo", sem tocar
     // em mais nada (preserva a senha real do Firebase Auth).
     const maskFields = ['ativo', 'statusPagamento', 'plano', 'pagamentoMetodo'];
@@ -218,6 +221,7 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields }),
     });
+    if (loginOrfaoPendente) await enviarRedefinicaoDeSenha(email, key, existingD.fields?.resetEnviadoEm?.stringValue);
     return;
   }
 
@@ -226,6 +230,7 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
   const senhaTemp = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '!';
 
   let idToken = '';
+  let loginOrfaoNovo = false;
   try {
     const r = await fetch(`${AUTH_URL}:signUp?key=${FB_KEY}`, {
       method: 'POST',
@@ -234,6 +239,8 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
     });
     const d = await r.json();
     idToken = d.idToken || '';
+    // O login já existia (conta apagada no CRM, login ficou): não sabemos a senha.
+    if (d.error && /EMAIL_EXISTS/.test(d.error.message || '')) loginOrfaoNovo = true;
   } catch (e) {
     console.log('Usuário já existe, continuando...');
   }
@@ -248,8 +255,9 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
         plano: { stringValue: plano || 'starter' },
         clinicName: { stringValue: clinicName || '' },
         adminName: { stringValue: adminName || '' },
-        senhaTemp: { stringValue: senhaTemp },
-        firstAccess: { booleanValue: true },
+        senhaTemp: { stringValue: loginOrfaoNovo ? '' : senhaTemp },
+        firstAccess: { booleanValue: !loginOrfaoNovo },
+        loginOrfao: { booleanValue: loginOrfaoNovo },
         ativo: { booleanValue: true },
         statusPagamento: { stringValue: 'em_dia' },
         createdAt: { stringValue: new Date().toISOString() },
@@ -258,12 +266,40 @@ async function activateAccount({ email, plano, clinicName, adminName, addon }) {
     }),
   });
 
+  if (loginOrfaoNovo) await enviarRedefinicaoDeSenha(email, key, '');
+
   if (idToken) {
     await fetch(`${AUTH_URL}:sendOobCode?key=${FB_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken }),
     });
+  }
+}
+
+// ── Manda o e-mail "criar nova senha" para quem pagou e já tinha um login ──
+// Só roda DEPOIS do pagamento confirmado (nunca no clique em "Assinar", para
+// ninguém usar o checkout como disparador de e-mails para terceiros). Não repete
+// se já foi enviado há menos de 30 minutos (webhook e retorno do pagamento
+// podem chegar quase juntos).
+async function enviarRedefinicaoDeSenha(email, key, enviadoEm) {
+  try {
+    if (enviadoEm && Date.now() - new Date(enviadoEm).getTime() < 30 * 60 * 1000) return;
+    const r = await fetch(`${AUTH_URL}:sendOobCode?key=${FB_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestType: 'PASSWORD_RESET', email }),
+    });
+    const d = await r.json();
+    if (d.error) { console.error('❌ Não consegui enviar o e-mail de redefinição:', d.error.message); return; }
+    await fetch(`${FS}/acessos_autorizados/${key}?updateMask.fieldPaths=resetEnviadoEm&key=${FB_KEY}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { resetEnviadoEm: { stringValue: new Date().toISOString() } } }),
+    });
+    console.log(`📧 E-mail de redefinição de senha enviado para ${email} (login já existia).`);
+  } catch (e) {
+    console.error('❌ Falha ao enviar o e-mail de redefinição:', e.message);
   }
 }
 
